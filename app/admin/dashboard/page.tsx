@@ -1,6 +1,18 @@
+import type { CSSProperties } from "react";
 import { redirect } from "next/navigation";
-import { adminLogout } from "@/app/actions/adminAuth";
+import { AppSidebar } from "@/components/app-sidebar";
+import { ChartAreaInteractive } from "@/components/chart-area-interactive";
+import { DataTable } from "@/components/data-table";
+import { SectionCards } from "@/components/section-cards";
+import { SiteHeader } from "@/components/site-header";
+import {
+  SidebarInset,
+  SidebarProvider,
+} from "@/components/ui/sidebar";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { getSession } from "@/lib/session";
+
+import data from "./data.json";
 
 export default async function AdminDashboardPage() {
   const session = await getSession();
@@ -9,26 +21,38 @@ export default async function AdminDashboardPage() {
   }
 
   return (
-    <div className="flex min-h-full flex-1 flex-col">
-      <header className="flex w-full items-center justify-between border-b border-black/10 px-6 py-4 dark:border-white/10">
-        <p className="text-sm font-medium text-foreground">Admin dashboard</p>
-        <form action={adminLogout}>
-          <button
-            type="submit"
-            className="rounded-full border border-black/10 px-4 py-2 text-sm font-medium transition-colors hover:bg-black/[.04] dark:border-white/15 dark:hover:bg-white/[.06]"
-          >
-            Sign out
-          </button>
-        </form>
-      </header>
-      <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-          Welcome, {session.username}
-        </h1>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-          You are signed in as an administrator.
-        </p>
-      </main>
-    </div>
+    <TooltipProvider>
+      <SidebarProvider
+        style={
+          {
+            "--sidebar-width": "calc(var(--spacing) * 72)",
+            "--header-height": "calc(var(--spacing) * 12)",
+          } as CSSProperties
+        }
+      >
+        <AppSidebar
+          variant="inset"
+          user={{
+            name: session.username,
+            email: "admin",
+            avatar: "",
+          }}
+        />
+        <SidebarInset>
+          <SiteHeader />
+          <div className="flex flex-1 flex-col">
+            <div className="@container/main flex flex-1 flex-col gap-2">
+              <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+                <SectionCards />
+                <div className="px-4 lg:px-6">
+                  <ChartAreaInteractive />
+                </div>
+                <DataTable data={data} />
+              </div>
+            </div>
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
+    </TooltipProvider>
   );
 }
