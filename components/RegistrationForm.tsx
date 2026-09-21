@@ -1,5 +1,6 @@
 "use client";
 
+import { upload } from "@vercel/blob/client";
 import { FormEvent, useState } from "react";
 import {
   registrationFormSchema,
@@ -16,6 +17,8 @@ type DocumentRow = {
   type: RegistrationForm["documents"][number]["type"];
   file_name: string;
   file_url: string;
+  uploading?: boolean;
+  uploadError?: string;
 };
 
 const EDUCATION_LEVELS = [
@@ -136,6 +139,66 @@ export function RegistrationForm({
     null
   );
 
+  async function handleDocumentUpload(index: number, file: File | undefined) {
+    if (!file) return;
+
+    setDocuments((prev) =>
+      prev.map((d, i) =>
+        i === index
+          ? {
+              ...d,
+              uploading: true,
+              uploadError: undefined,
+              file_name: file.name,
+              file_url: "",
+            }
+          : d
+      )
+    );
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[`documents.${index}.file_url`];
+      delete next[`documents.${index}.file_name`];
+      return next;
+    });
+
+    try {
+      const blob = await upload(`registrations/${file.name}`, file, {
+        access: "private",
+        handleUploadUrl: "/api/blob/upload",
+      });
+
+      setDocuments((prev) =>
+        prev.map((d, i) =>
+          i === index
+            ? {
+                ...d,
+                uploading: false,
+                uploadError: undefined,
+                file_name: file.name,
+                file_url: blob.url,
+              }
+            : d
+        )
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Upload failed. Try again.";
+      setDocuments((prev) =>
+        prev.map((d, i) =>
+          i === index
+            ? {
+                ...d,
+                uploading: false,
+                uploadError: message,
+                file_url: "",
+              }
+            : d
+        )
+      );
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -183,6 +246,11 @@ export function RegistrationForm({
       setErrors(next);
       setSubmitted(false);
       setRegistrationNumber(null);
+      return;
+    }
+
+    if (documents.some((d) => d.uploading)) {
+      setErrors({ form: "Please wait for document uploads to finish." });
       return;
     }
 
@@ -592,11 +660,11 @@ export function RegistrationForm({
 
       <Section
         title="Documents"
-        description="Provide links to project documents. File upload can be wired later."
+        description="Upload project documents (PDF, Office, images, video, or zip — up to 100 MB each)."
       >
         <div className="flex flex-col gap-3">
           {documents.map((doc, index) => (
-            <div key={index} className="grid gap-3 sm:grid-cols-3">
+            <div key={index} className="grid gap-3 sm:grid-cols-[1fr_2fr_auto]">
               <select
                 aria-label={`Document ${index + 1} type`}
                 value={doc.type}
@@ -621,67 +689,56 @@ export function RegistrationForm({
                   </option>
                 ))}
               </select>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <input
-                  type="text"
-                  aria-label={`Document ${index + 1} file name`}
-                  placeholder="File name"
-                  value={doc.file_name}
+                  type="file"
+                  aria-label={`Document ${index + 1} file`}
+                  accept=".pdf,.doc,.docx,.ppt,.pptx,.zip,image/*,video/mp4,video/webm,video/quicktime"
+                  disabled={doc.uploading || loading}
                   onChange={(e) => {
-                    const value = e.target.value;
-                    setDocuments((prev) =>
-                      prev.map((d, i) =>
-                        i === index ? { ...d, file_name: value } : d
-                      )
-                    );
+                    const file = e.target.files?.[0];
+                    void handleDocumentUpload(index, file);
+                    e.target.value = "";
                   }}
-                  className={inputClassName}
+                  className="block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border file:border-black/10 file:bg-transparent file:px-3 file:py-2 file:text-sm file:font-medium file:text-foreground dark:text-zinc-400 dark:file:border-white/15"
                 />
+                {doc.uploading ? (
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                    Uploading…
+                  </p>
+                ) : null}
+                {doc.file_url && !doc.uploading ? (
+                  <p className="truncate text-sm text-zinc-600 dark:text-zinc-400">
+                    Uploaded: {doc.file_name}
+                  </p>
+                ) : null}
                 <FieldError
-                  message={errors[`documents.${index}.file_name`]}
+                  message={
+                    doc.uploadError ||
+                    errors[`documents.${index}.file_name`] ||
+                    errors[`documents.${index}.file_url`]
+                  }
                 />
               </div>
-              <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:gap-3">
-                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                  <input
-                    type="url"
-                    aria-label={`Document ${index + 1} file URL`}
-                    placeholder="https://..."
-                    value={doc.file_url}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setDocuments((prev) =>
-                        prev.map((d, i) =>
-                          i === index ? { ...d, file_url: value } : d
-                        )
-                      );
-                    }}
-                    className={inputClassName}
-                  />
-                  <FieldError
-                    message={errors[`documents.${index}.file_url`]}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setDocuments((prev) =>
-                      prev.length === 1
-                        ? [
-                            {
-                              type: "PROJECT_REPORT",
-                              file_name: "",
-                              file_url: "",
-                            },
-                          ]
-                        : prev.filter((_, i) => i !== index)
-                    )
-                  }
-                  className="h-11 shrink-0 text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-400"
-                >
-                  Remove
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setDocuments((prev) =>
+                    prev.length === 1
+                      ? [
+                          {
+                            type: "PROJECT_REPORT",
+                            file_name: "",
+                            file_url: "",
+                          },
+                        ]
+                      : prev.filter((_, i) => i !== index)
+                  )
+                }
+                className="h-11 shrink-0 text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-400"
+              >
+                Remove
+              </button>
             </div>
           ))}
           <button
@@ -719,10 +776,19 @@ export function RegistrationForm({
 
       <button
         type="submit"
-        disabled={loading || !competitionId || categories.length === 0}
+        disabled={
+          loading ||
+          documents.some((d) => d.uploading) ||
+          !competitionId ||
+          categories.length === 0
+        }
         className="h-11 rounded-full bg-foreground text-sm font-medium text-background transition-colors hover:bg-[#383838] disabled:opacity-60 dark:hover:bg-[#ccc]"
       >
-        {loading ? "Submitting…" : "Submit registration"}
+        {loading
+          ? "Submitting…"
+          : documents.some((d) => d.uploading)
+            ? "Uploading documents…"
+            : "Submit registration"}
       </button>
     </form>
   );

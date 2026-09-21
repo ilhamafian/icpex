@@ -46,7 +46,7 @@ export default async function RegisterPage() {
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">
             Submit your participant, project, team, supervisor, and document
-            details. No account or password is required — this form creates a
+            uploads. No account or password is required — this form creates a
             competition registration only.
           </p>
           {competitionName ? (
