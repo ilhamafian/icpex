@@ -1,3 +1,5 @@
+import "server-only";
+
 import { WithId } from "mongodb";
 
 import type { Category } from "@/schemas/categorySchema";

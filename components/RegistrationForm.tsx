@@ -94,17 +94,15 @@ function Field({
 }
 
 type RegistrationFormProps = {
-  competitions: Option[];
+  /** Active published competition — only one is open at a time. */
+  competitionId: string;
   categories: Option[];
 };
 
 export function RegistrationForm({
-  competitions,
-  categories,
+  competitionId,
+  categories = [],
 }: RegistrationFormProps) {
-  const [competitionId, setCompetitionId] = useState(
-    competitions[0]?.id ?? ""
-  );
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
 
   const [participantName, setParticipantName] = useState("");
@@ -134,8 +132,11 @@ export function RegistrationForm({
   const [errors, setErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [registrationNumber, setRegistrationNumber] = useState<string | null>(
+    null
+  );
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const payload: RegistrationForm = {
@@ -181,75 +182,79 @@ export function RegistrationForm({
       }
       setErrors(next);
       setSubmitted(false);
+      setRegistrationNumber(null);
       return;
     }
 
     setErrors({});
     setLoading(true);
-    // Registration API not wired yet — payload validated against registrationFormSchema.
-    setLoading(false);
-    setSubmitted(true);
+    setSubmitted(false);
+    setRegistrationNumber(null);
+
+    try {
+      const response = await fetch("/api/registrations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsed.data),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setErrors({
+          form:
+            typeof data.error === "string"
+              ? data.error
+              : "Could not submit registration. Please check your details and try again.",
+        });
+        return;
+      }
+
+      setRegistrationNumber(
+        data.registration?.registration_number ?? null
+      );
+      setSubmitted(true);
+    } catch {
+      setErrors({
+        form: "Network error. Please try again.",
+      });
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-8" noValidate>
       <Section
-        title="Competition"
-        description="Choose the competition and category you are entering."
+        title="Category"
+        description="Choose the category you are entering."
       >
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            id="competition_id"
-            label="Competition"
-            error={errors.competition_id}
-          >
-            <select
-              id="competition_id"
-              name="competition_id"
-              value={competitionId}
-              onChange={(e) => setCompetitionId(e.target.value)}
-              className={inputClassName}
-              aria-invalid={Boolean(errors.competition_id)}
-              disabled={competitions.length === 0}
-            >
-              {competitions.length === 0 ? (
-                <option value="">No open competitions</option>
-              ) : (
-                competitions.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))
-              )}
-            </select>
-          </Field>
-
-          <Field
+        <input type="hidden" name="competition_id" value={competitionId} />
+        <Field
+          id="category_id"
+          label="Category"
+          error={errors.category_id}
+        >
+          <select
             id="category_id"
-            label="Category"
-            error={errors.category_id}
+            name="category_id"
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
+            className={inputClassName}
+            aria-invalid={Boolean(errors.category_id)}
+            disabled={categories.length === 0}
           >
-            <select
-              id="category_id"
-              name="category_id"
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className={inputClassName}
-              aria-invalid={Boolean(errors.category_id)}
-              disabled={categories.length === 0}
-            >
-              {categories.length === 0 ? (
-                <option value="">No categories available</option>
-              ) : (
-                categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))
-              )}
-            </select>
-          </Field>
-        </div>
+            {categories.length === 0 ? (
+              <option value="">No categories available</option>
+            ) : (
+              categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))
+            )}
+          </select>
+        </Field>
+        <FieldError message={errors.competition_id} />
       </Section>
 
       <Section
@@ -698,13 +703,23 @@ export function RegistrationForm({
 
       {submitted ? (
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Registration details look valid. API submission is not wired yet.
+          Registration submitted
+          {registrationNumber ? (
+            <>
+              {" "}
+              — your registration number is{" "}
+              <span className="font-medium text-foreground">
+                {registrationNumber}
+              </span>
+            </>
+          ) : null}
+          . Keep it for your records.
         </p>
       ) : null}
 
       <button
         type="submit"
-        disabled={loading || competitions.length === 0 || categories.length === 0}
+        disabled={loading || !competitionId || categories.length === 0}
         className="h-11 rounded-full bg-foreground text-sm font-medium text-background transition-colors hover:bg-[#383838] disabled:opacity-60 dark:hover:bg-[#ccc]"
       >
         {loading ? "Submitting…" : "Submit registration"}

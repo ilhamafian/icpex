@@ -11,23 +11,23 @@ async function loadOptions() {
       new CategoryModel().getCategories(),
     ]);
 
+    const competition = competitions?.[0];
+
     return {
-      competitions: (competitions ?? []).map((c) => ({
-        id: toIdString(c._id),
-        name: c.name,
-      })),
+      competitionId: competition ? toIdString(competition._id) : "",
+      competitionName: competition?.name ?? "",
       categories: (categories ?? []).map((c) => ({
         id: toIdString(c._id),
         name: c.name,
       })),
     };
   } catch {
-    return { competitions: [], categories: [] };
+    return { competitionId: "", competitionName: "", categories: [] };
   }
 }
 
 export default async function RegisterPage() {
-  const { competitions, categories } = await loadOptions();
+  const { competitionId, competitionName, categories } = await loadOptions();
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
@@ -49,11 +49,23 @@ export default async function RegisterPage() {
             details. No account or password is required — this form creates a
             competition registration only.
           </p>
+          {competitionName ? (
+            <p className="mt-3 text-sm font-medium text-foreground">
+              {competitionName}
+            </p>
+          ) : null}
         </div>
-        <RegistrationForm
-          competitions={competitions}
-          categories={categories}
-        />
+        {competitionId ? (
+          <RegistrationForm
+            competitionId={competitionId}
+            categories={categories}
+          />
+        ) : (
+          <p className="rounded-lg border border-black/10 px-4 py-6 text-sm text-zinc-600 dark:border-white/10 dark:text-zinc-400">
+            Registration is closed — there is no published competition right
+            now. Please check back later.
+          </p>
+        )}
       </main>
     </div>
   );
