@@ -1,12 +1,8 @@
 import { z } from "zod";
 import { objectIdSchema } from "./objectId";
+import { userRoleSchema } from "./userRole";
 
-export const userRoleSchema = z.enum([
-  "ADMIN",
-  "SECRETARY",
-  "THESIS_JUDGE",
-  "EBOOK_JUDGE",
-]);
+export { userRoleSchema, type UserRole } from "./userRole";
 
 export const userStatusSchema = z.enum(["INVITED", "ACTIVE", "DISABLED"]);
 
@@ -45,7 +41,6 @@ export const publicUserSchema = userSchema.omit({
 });
 
 export type User = z.infer<typeof userSchema>;
-export type UserRole = z.infer<typeof userRoleSchema>;
 export type UserStatus = z.infer<typeof userStatusSchema>;
 export type InviteUser = z.infer<typeof inviteUserSchema>;
 export type AcceptInvite = z.infer<typeof acceptInviteSchema>;

@@ -1,11 +1,16 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 
+import {
+  userRoleSchema,
+  type UserRole,
+} from "@/schemas/userRole";
+
 export const SESSION_COOKIE = "icpex_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
 export type SessionPayload = {
-  role: "admin";
+  role: UserRole;
   username: string;
   exp: number;
 };
@@ -31,14 +36,15 @@ function decodePayload(encoded: string): SessionPayload | null {
   try {
     const json = Buffer.from(encoded, "base64url").toString("utf8");
     const parsed = JSON.parse(json) as SessionPayload;
+    const role = userRoleSchema.safeParse(parsed?.role);
     if (
-      parsed?.role !== "admin" ||
+      !role.success ||
       typeof parsed.username !== "string" ||
       typeof parsed.exp !== "number"
     ) {
       return null;
     }
-    return parsed;
+    return { ...parsed, role: role.data };
   } catch {
     return null;
   }
@@ -78,10 +84,13 @@ export function unsealSession(token: string | undefined): SessionPayload | null 
   return payload;
 }
 
-export async function createAdminSession(username: string): Promise<void> {
+export async function createSession(
+  username: string,
+  role: UserRole
+): Promise<void> {
   const expiresAt = Date.now() + SESSION_TTL_SECONDS * 1000;
   const token = sealSession({
-    role: "admin",
+    role,
     username,
     exp: expiresAt,
   });
@@ -94,6 +103,11 @@ export async function createAdminSession(username: string): Promise<void> {
     path: "/",
     maxAge: SESSION_TTL_SECONDS,
   });
+}
+
+/** @deprecated Prefer createSession(username, role) */
+export async function createAdminSession(username: string): Promise<void> {
+  await createSession(username, "ADMIN");
 }
 
 export async function getSession(): Promise<SessionPayload | null> {

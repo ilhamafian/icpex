@@ -16,7 +16,7 @@ export default async function AdminShellLayout({
   children: ReactNode;
 }) {
   const session = await getSession();
-  if (!session || session.role !== "admin") {
+  if (!session) {
     redirect("/admin/login");
   }
 

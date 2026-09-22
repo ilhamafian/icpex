@@ -1,16 +1,20 @@
 "use server";
 
 import { redirect } from "next/navigation";
+
 import { adminLoginSchema } from "@/schemas/auth";
+import { verifyPassword } from "@/lib/password";
 import {
-  createAdminSession,
+  createSession,
   deleteSession,
   verifyEnvAdminCredentials,
 } from "@/lib/session";
+import { UserModel } from "@/models/User";
 
 export type AdminLoginState = {
   error?: string;
   fieldErrors?: {
+    role?: string[];
     username?: string[];
     password?: string[];
   };
@@ -21,6 +25,7 @@ export async function adminLogin(
   formData: FormData
 ): Promise<AdminLoginState> {
   const validated = adminLoginSchema.safeParse({
+    role: formData.get("role"),
     username: formData.get("username"),
     password: formData.get("password"),
   });
@@ -31,13 +36,29 @@ export async function adminLogin(
     };
   }
 
-  const { username, password } = validated.data;
+  const { role, username, password } = validated.data;
 
-  if (!verifyEnvAdminCredentials(username, password)) {
-    return { error: "Invalid username or password." };
+  if (role === "ADMIN" && verifyEnvAdminCredentials(username, password)) {
+    await createSession(username, "ADMIN");
+    redirect("/admin/dashboard");
   }
 
-  await createAdminSession(username);
+  const user = await new UserModel().findByEmail(username.toLowerCase());
+  if (
+    !user ||
+    user.status !== "ACTIVE" ||
+    !user.password_hash ||
+    !user.roles.includes(role)
+  ) {
+    return { error: "Invalid credentials or role." };
+  }
+
+  const passwordOk = await verifyPassword(password, user.password_hash);
+  if (!passwordOk) {
+    return { error: "Invalid credentials or role." };
+  }
+
+  await createSession(user.email, role);
   redirect("/admin/dashboard");
 }
 

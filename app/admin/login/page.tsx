@@ -5,14 +5,14 @@ import { getSession } from "@/lib/session";
 
 export default async function AdminLoginPage() {
   const session = await getSession();
-  if (session?.role === "admin") {
+  if (session) {
     redirect("/admin/dashboard");
   }
 
   return (
     <AuthFormLayout
-      title="Admin sign in"
-      subtitle="Sign in with your assigned administrator credentials. Admins are not self-registered."
+      title="Sign in"
+      subtitle="Sign in with your role and credentials. Invited users use the email from their invitation."
       footer="Internal access only"
     >
       <AdminLoginForm />

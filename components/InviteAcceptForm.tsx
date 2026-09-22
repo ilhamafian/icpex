@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { UserRole } from "@/schemas/userSchema";
+import type { UserRole } from "@/schemas/userRole";
 
 const ROLE_LABELS: Record<UserRole, string> = {
   ADMIN: "Administrator",
@@ -32,7 +32,6 @@ export function InviteAcceptForm({
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [done, setDone] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -71,24 +70,12 @@ export function InviteAcceptForm({
         return;
       }
 
-      setDone(true);
-      router.refresh();
+      router.push("/admin/login");
     } catch {
       setError("Could not activate your account.");
     } finally {
       setPending(false);
     }
-  }
-
-  if (done) {
-    return (
-      <div className="flex flex-col gap-3">
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Your email is verified and your password is set. You can close this
-          page.
-        </p>
-      </div>
-    );
   }
 
   const roleLabel = roles.map((r) => ROLE_LABELS[r] ?? r).join(", ");
