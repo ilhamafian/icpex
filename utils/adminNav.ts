@@ -1,10 +1,14 @@
 import {
   IconDashboard,
   IconListDetails,
+  IconUsers,
   type Icon,
 } from "@tabler/icons-react";
 
-export type AdminSection = "dashboard" | "competitions-categories";
+export type AdminSection =
+  | "dashboard"
+  | "competitions-categories"
+  | "users";
 
 export type AdminNavItem = {
   title: string;
@@ -27,16 +31,26 @@ export const adminNavMain: AdminNavItem[] = [
     icon: IconListDetails,
     section: "competitions-categories",
   },
+  {
+    title: "Users",
+    url: "/admin/users",
+    icon: IconUsers,
+    section: "users",
+  },
 ];
 
 const titleBySection: Record<AdminSection, string> = {
   dashboard: "Dashboard",
   "competitions-categories": "Competitions & Categories",
+  users: "Users",
 };
 
 export function getAdminSection(pathname: string): AdminSection {
   if (pathname.startsWith("/admin/competitions-categories")) {
     return "competitions-categories";
+  }
+  if (pathname.startsWith("/admin/users")) {
+    return "users";
   }
   return "dashboard";
 }
