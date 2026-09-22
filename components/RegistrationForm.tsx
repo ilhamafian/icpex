@@ -2,6 +2,7 @@
 
 import { upload } from "@vercel/blob/client";
 import { FormEvent, useState } from "react";
+import { z } from "zod";
 import {
   registrationFormSchema,
   type RegistrationForm,
@@ -12,6 +13,8 @@ type Option = { id: string; name: string };
 type FieldErrors = Record<string, string>;
 
 type Person = { name: string; email: string };
+
+type FormStep = "details" | "payment";
 
 type DocumentRow = {
   type: RegistrationForm["documents"][number]["type"];
@@ -38,6 +41,14 @@ const DOCUMENT_TYPES = [
   "PROJECT_PHOTO",
   "PROJECT_OTHER",
 ] as const;
+
+/** Manual bank transfer — placeholder details for participants. */
+const REGISTRATION_FEE = 150;
+const PAYMENT_BANK = {
+  bankName: "Maybank",
+  accountName: "ICPEX Competition Secretariat",
+  accountNumber: "512345678901",
+} as const;
 
 const inputClassName =
   "h-11 w-full rounded-lg border border-black/10 bg-transparent px-3 text-sm outline-none transition-colors focus:border-foreground dark:border-white/15";
@@ -132,12 +143,75 @@ export function RegistrationForm({
     { type: "PROJECT_REPORT", file_name: "", file_url: "" },
   ]);
 
+  const [step, setStep] = useState<FormStep>("details");
+  const [receiptUrl, setReceiptUrl] = useState("");
+  const [receiptFileName, setReceiptFileName] = useState("");
+  const [receiptUploading, setReceiptUploading] = useState(false);
+  const [receiptUploadError, setReceiptUploadError] = useState<string>();
+
   const [errors, setErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [registrationNumber, setRegistrationNumber] = useState<string | null>(
     null
   );
+
+  function buildRegistrationPayload(): RegistrationForm {
+    return {
+      competition_id: competitionId,
+      category_id: categoryId,
+      participant: {
+        name: participantName,
+        email: participantEmail,
+        phone,
+        education_level: educationLevel,
+        institution: {
+          name: institutionName,
+          country: institutionCountry,
+        },
+        government_id: {
+          type: govIdType,
+          number: govIdNumber,
+        },
+      },
+      project: {
+        title: projectTitle,
+        abstract: projectAbstract,
+      },
+      team: {
+        lead: {
+          name: leadName || participantName,
+          email: leadEmail || participantEmail,
+        },
+        members: members.filter((m) => m.name.trim() || m.email.trim()),
+      },
+      supervisors: supervisors.filter((s) => s.name.trim() || s.email.trim()),
+      documents: documents.filter(
+        (d) => d.file_name.trim() || d.file_url.trim()
+      ),
+    };
+  }
+
+  function validateDetails(): boolean {
+    const parsed = registrationFormSchema.safeParse(buildRegistrationPayload());
+    if (!parsed.success) {
+      const next: FieldErrors = {};
+      for (const issue of parsed.error.issues) {
+        const key = issue.path.join(".") || "form";
+        next[key] ??= issue.message;
+      }
+      setErrors(next);
+      return false;
+    }
+
+    if (documents.some((d) => d.uploading)) {
+      setErrors({ form: "Please wait for document uploads to finish." });
+      return false;
+    }
+
+    setErrors({});
+    return true;
+  }
 
   async function handleDocumentUpload(index: number, file: File | undefined) {
     if (!file) return;
@@ -199,58 +273,76 @@ export function RegistrationForm({
     }
   }
 
+  async function handleReceiptUpload(file: File | undefined) {
+    if (!file) return;
+
+    setReceiptUploading(true);
+    setReceiptUploadError(undefined);
+    setReceiptFileName(file.name);
+    setReceiptUrl("");
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.receipt_url;
+      return next;
+    });
+
+    try {
+      const blob = await upload(`payments/receipts/${file.name}`, file, {
+        access: "private",
+        handleUploadUrl: "/api/blob/upload",
+      });
+      setReceiptUrl(blob.url);
+      setReceiptFileName(file.name);
+      setReceiptUploadError(undefined);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Upload failed. Try again.";
+      setReceiptUrl("");
+      setReceiptUploadError(message);
+    } finally {
+      setReceiptUploading(false);
+    }
+  }
+
+  function handleNext() {
+    if (!validateDetails()) return;
+    setStep("payment");
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const payload: RegistrationForm = {
-      competition_id: competitionId,
-      category_id: categoryId,
-      participant: {
-        name: participantName,
-        email: participantEmail,
-        phone,
-        education_level: educationLevel,
-        institution: {
-          name: institutionName,
-          country: institutionCountry,
-        },
-        government_id: {
-          type: govIdType,
-          number: govIdNumber,
-        },
-      },
-      project: {
-        title: projectTitle,
-        abstract: projectAbstract,
-      },
-      team: {
-        lead: {
-          name: leadName || participantName,
-          email: leadEmail || participantEmail,
-        },
-        members: members.filter((m) => m.name.trim() || m.email.trim()),
-      },
-      supervisors: supervisors.filter((s) => s.name.trim() || s.email.trim()),
-      documents: documents.filter(
-        (d) => d.file_name.trim() || d.file_url.trim()
-      ),
-    };
-
-    const parsed = registrationFormSchema.safeParse(payload);
-    if (!parsed.success) {
-      const next: FieldErrors = {};
-      for (const issue of parsed.error.issues) {
-        const key = issue.path.join(".") || "form";
-        next[key] ??= issue.message;
-      }
-      setErrors(next);
-      setSubmitted(false);
-      setRegistrationNumber(null);
+    if (step === "details") {
+      handleNext();
       return;
     }
 
-    if (documents.some((d) => d.uploading)) {
-      setErrors({ form: "Please wait for document uploads to finish." });
+    const registrationParsed = registrationFormSchema.safeParse(
+      buildRegistrationPayload()
+    );
+    if (!registrationParsed.success) {
+      setStep("details");
+      validateDetails();
+      return;
+    }
+
+    if (receiptUploading) {
+      setErrors({ form: "Please wait for the receipt upload to finish." });
+      return;
+    }
+
+    const receiptCheck = z
+      .string()
+      .url()
+      .safeParse(receiptUrl);
+    if (!receiptCheck.success) {
+      setErrors({
+        receipt_url: receiptUrl
+          ? "Receipt URL is invalid. Please upload again."
+          : "Please upload your payment receipt.",
+      });
+      setSubmitted(false);
+      setRegistrationNumber(null);
       return;
     }
 
@@ -260,26 +352,63 @@ export function RegistrationForm({
     setRegistrationNumber(null);
 
     try {
-      const response = await fetch("/api/registrations", {
+      const registrationResponse = await fetch("/api/registrations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(parsed.data),
+        body: JSON.stringify(registrationParsed.data),
       });
-      const data = await response.json();
+      const registrationData = await registrationResponse.json();
 
-      if (!response.ok) {
+      if (!registrationResponse.ok) {
         setErrors({
           form:
-            typeof data.error === "string"
-              ? data.error
+            typeof registrationData.error === "string"
+              ? registrationData.error
               : "Could not submit registration. Please check your details and try again.",
+        });
+        setStep("details");
+        return;
+      }
+
+      const registrationId = registrationData.registration?._id as
+        | string
+        | undefined;
+      const number =
+        (registrationData.registration?.registration_number as
+          | string
+          | undefined) ?? null;
+
+      if (!registrationId) {
+        setErrors({
+          form: "Registration was created but no ID was returned. Please contact support.",
+        });
+        setRegistrationNumber(number);
+        return;
+      }
+
+      const paymentResponse = await fetch("/api/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          registration_id: registrationId,
+          amount: REGISTRATION_FEE,
+          receipt_url: receiptUrl,
+        }),
+      });
+      const paymentData = await paymentResponse.json();
+
+      if (!paymentResponse.ok) {
+        setRegistrationNumber(number);
+        setErrors({
+          form:
+            typeof paymentData.error === "string"
+              ? `${paymentData.error} Your registration number is ${number ?? "unavailable"} — please contact support to complete payment.`
+              : `Registration was saved${number ? ` (${number})` : ""}, but payment could not be recorded. Please contact support.`,
         });
         return;
       }
 
-      setRegistrationNumber(
-        data.registration?.registration_number ?? null
-      );
+      setRegistrationNumber(number);
       setSubmitted(true);
     } catch {
       setErrors({
@@ -292,6 +421,26 @@ export function RegistrationForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-8" noValidate>
+      <div className="flex items-center gap-3 text-sm text-zinc-600 dark:text-zinc-400">
+        <span
+          className={
+            step === "details" ? "font-medium text-foreground" : undefined
+          }
+        >
+          1. Details
+        </span>
+        <span aria-hidden="true">→</span>
+        <span
+          className={
+            step === "payment" ? "font-medium text-foreground" : undefined
+          }
+        >
+          2. Payment
+        </span>
+      </div>
+
+      {step === "details" ? (
+        <>
       <Section
         title="Category"
         description="Choose the category you are entering."
@@ -755,6 +904,82 @@ export function RegistrationForm({
           </button>
         </div>
       </Section>
+        </>
+      ) : (
+        <Section
+          title="Payment"
+          description="Transfer the registration fee using the bank details below, then upload your receipt."
+        >
+          <div className="flex flex-col gap-4 rounded-lg border border-black/10 px-4 py-5 dark:border-white/10">
+            <p className="text-sm font-medium text-foreground">
+              Manual bank transfer
+            </p>
+            <dl className="grid gap-3 text-sm sm:grid-cols-2">
+              <div>
+                <dt className="text-zinc-600 dark:text-zinc-400">Bank</dt>
+                <dd className="mt-0.5 font-medium text-foreground">
+                  {PAYMENT_BANK.bankName}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-zinc-600 dark:text-zinc-400">
+                  Account name
+                </dt>
+                <dd className="mt-0.5 font-medium text-foreground">
+                  {PAYMENT_BANK.accountName}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-zinc-600 dark:text-zinc-400">
+                  Account number
+                </dt>
+                <dd className="mt-0.5 font-medium tracking-wide text-foreground">
+                  {PAYMENT_BANK.accountNumber}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-zinc-600 dark:text-zinc-400">Amount</dt>
+                <dd className="mt-0.5 font-medium text-foreground">
+                  MYR {REGISTRATION_FEE.toFixed(2)}
+                </dd>
+              </div>
+            </dl>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              Use your participant name as the transfer reference so we can
+              match your payment.
+            </p>
+          </div>
+
+          <Field
+            id="receipt_url"
+            label="Upload payment receipt"
+            error={receiptUploadError || errors.receipt_url}
+          >
+            <input
+              id="receipt_url"
+              type="file"
+              accept=".pdf,image/jpeg,image/png,image/webp,image/gif"
+              disabled={receiptUploading || loading || submitted}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                void handleReceiptUpload(file);
+                e.target.value = "";
+              }}
+              className="block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border file:border-black/10 file:bg-transparent file:px-3 file:py-2 file:text-sm file:font-medium file:text-foreground dark:text-zinc-400 dark:file:border-white/15"
+            />
+            {receiptUploading ? (
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Uploading…
+              </p>
+            ) : null}
+            {receiptUrl && !receiptUploading ? (
+              <p className="truncate text-sm text-zinc-600 dark:text-zinc-400">
+                Uploaded: {receiptFileName}
+              </p>
+            ) : null}
+          </Field>
+        </Section>
+      )}
 
       {errors.form ? <FieldError message={errors.form} /> : null}
 
@@ -770,26 +995,49 @@ export function RegistrationForm({
               </span>
             </>
           ) : null}
-          . Keep it for your records.
+          . Your payment receipt is pending verification. Keep your registration
+          number for your records.
         </p>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={
-          loading ||
-          documents.some((d) => d.uploading) ||
-          !competitionId ||
-          categories.length === 0
-        }
-        className="h-11 rounded-full bg-foreground text-sm font-medium text-background transition-colors hover:bg-[#383838] disabled:opacity-60 dark:hover:bg-[#ccc]"
-      >
-        {loading
-          ? "Submitting…"
-          : documents.some((d) => d.uploading)
-            ? "Uploading documents…"
-            : "Submit registration"}
-      </button>
+      {!submitted ? (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          {step === "payment" ? (
+            <button
+              type="button"
+              onClick={() => {
+                setStep("details");
+                setErrors({});
+              }}
+              disabled={loading}
+              className="h-11 rounded-full border border-black/10 px-6 text-sm font-medium text-foreground transition-colors hover:bg-black/5 disabled:opacity-60 dark:border-white/15 dark:hover:bg-white/5"
+            >
+              Back
+            </button>
+          ) : null}
+          <button
+            type="submit"
+            disabled={
+              loading ||
+              (step === "details" && documents.some((d) => d.uploading)) ||
+              (step === "payment" && receiptUploading) ||
+              !competitionId ||
+              categories.length === 0
+            }
+            className="h-11 flex-1 rounded-full bg-foreground text-sm font-medium text-background transition-colors hover:bg-[#383838] disabled:opacity-60 dark:hover:bg-[#ccc] sm:flex-none sm:px-10"
+          >
+            {loading
+              ? "Submitting…"
+              : step === "details"
+                ? documents.some((d) => d.uploading)
+                  ? "Uploading documents…"
+                  : "Next"
+                : receiptUploading
+                  ? "Uploading receipt…"
+                  : "Submit registration"}
+          </button>
+        </div>
+      ) : null}
     </form>
   );
 }
