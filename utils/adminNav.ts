@@ -2,6 +2,7 @@ import {
   IconDashboard,
   IconListDetails,
   IconScale,
+  IconUserCheck,
   IconUsers,
   type Icon,
 } from "@tabler/icons-react";
@@ -10,6 +11,7 @@ export type AdminSection =
   | "dashboard"
   | "competitions-categories"
   | "judging-criteria"
+  | "judge-assignments"
   | "users";
 
 export type AdminNavItem = {
@@ -40,6 +42,12 @@ export const adminNavMain: AdminNavItem[] = [
     section: "judging-criteria",
   },
   {
+    title: "Judge Assignments",
+    url: "/admin/judge-assignments",
+    icon: IconUserCheck,
+    section: "judge-assignments",
+  },
+  {
     title: "Users",
     url: "/admin/users",
     icon: IconUsers,
@@ -51,6 +59,7 @@ const titleBySection: Record<AdminSection, string> = {
   dashboard: "Dashboard",
   "competitions-categories": "Competitions & Categories",
   "judging-criteria": "Judging Criteria",
+  "judge-assignments": "Judge Assignments",
   users: "Users",
 };
 
@@ -60,6 +69,9 @@ export function getAdminSection(pathname: string): AdminSection {
   }
   if (pathname.startsWith("/admin/judging-criteria")) {
     return "judging-criteria";
+  }
+  if (pathname.startsWith("/admin/judge-assignments")) {
+    return "judge-assignments";
   }
   if (pathname.startsWith("/admin/users")) {
     return "users";
