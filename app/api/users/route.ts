@@ -9,6 +9,10 @@ import { requireAdminSession } from "@/utils/adminAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { serializeUser } from "@/utils/serializeUser";
 
+function userId(user: { _id: string | { toHexString(): string } }): string {
+  return typeof user._id === "string" ? user._id : user._id.toHexString();
+}
+
 export async function GET() {
   try {
     const session = await requireAdminSession();
@@ -45,10 +49,58 @@ export async function POST(req: NextRequest) {
 
     const existing = await model.findByEmail(email);
     if (existing) {
-      return createResponse(
-        { error: "A user with this email already exists." },
-        409
-      );
+      if (existing.roles.includes(role)) {
+        return createResponse(
+          { error: "A user with this email and role already exists." },
+          409
+        );
+      }
+
+      const id = userId(existing);
+      await model.addRole(id, role);
+
+      // Pending invites: refresh token and email so they get the new role.
+      // Active users can already sign in; just add the role.
+      if (existing.status === "INVITED") {
+        const { token, tokenHash, expiresAt } = createInviteToken();
+        await model.setInviteToken(id, {
+          invite_token_hash: tokenHash,
+          invite_expires_at: expiresAt,
+        });
+
+        const origin = await getAppOrigin();
+        const inviteUrl = `${origin}/invite/${token}`;
+
+        try {
+          await sendUserInviteEmail({
+            to: email,
+            role,
+            inviteUrl,
+          });
+        } catch (emailError) {
+          await model.removeRole(id, role);
+          console.error("Invite email failed:", emailError);
+          return createResponse(
+            {
+              error:
+                emailError instanceof Error
+                  ? emailError.message
+                  : "Failed to send invite email.",
+            },
+            502
+          );
+        }
+      }
+
+      const updated = await model.findById(id);
+      if (!updated) {
+        return createResponse({ error: "User not found" }, 404);
+      }
+
+      return createResponse({
+        user: serializeUser(updated),
+        roleAdded: true,
+      });
     }
 
     const { token, tokenHash, expiresAt } = createInviteToken();
@@ -73,11 +125,7 @@ export async function POST(req: NextRequest) {
         inviteUrl,
       });
     } catch (emailError) {
-      const id =
-        typeof created._id === "string"
-          ? created._id
-          : created._id.toHexString();
-      await model.delete(id);
+      await model.delete(userId(created));
       console.error("Invite email failed:", emailError);
       return createResponse(
         {

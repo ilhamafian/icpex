@@ -95,11 +95,23 @@ export function UsersManager({
         return;
       }
 
-      const data = (await res.json()) as { user: SerializedUser };
-      setUsers((prev) => [data.user, ...prev]);
+      const data = (await res.json()) as {
+        user: SerializedUser;
+        roleAdded?: boolean;
+      };
+      setUsers((prev) => {
+        if (data.roleAdded) {
+          return prev.map((u) => (u._id === data.user._id ? data.user : u));
+        }
+        return [data.user, ...prev];
+      });
       setSheetOpen(false);
       setForm(emptyInviteForm());
-      toast.success(`Invite sent to ${data.user.email}`);
+      toast.success(
+        data.roleAdded
+          ? `Added role to ${data.user.email}`
+          : `Invite sent to ${data.user.email}`
+      );
     } catch {
       toast.error("Failed to send invite.");
     } finally {
@@ -212,8 +224,8 @@ export function UsersManager({
               </Select>
             </div>
             <p className="text-muted-foreground text-sm">
-              They will receive an email to verify their address and create a
-              password.
+              New users get an invite email. An existing email can receive
+              additional roles; the same email and role cannot be duplicated.
             </p>
           </form>
           <SheetFooter>

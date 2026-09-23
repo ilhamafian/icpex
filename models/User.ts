@@ -16,6 +16,22 @@ export class UserModel extends ModelBase<User> {
     return result ?? null;
   }
 
+  async addRole(id: string, role: User["roles"][number]) {
+    const collection = await this.getCollection();
+    return collection.updateOne(this.buildIdFilter(id), {
+      $addToSet: { roles: role },
+      $set: { updated_at: new Date() },
+    });
+  }
+
+  async removeRole(id: string, role: User["roles"][number]) {
+    const collection = await this.getCollection();
+    return collection.updateOne(this.buildIdFilter(id), {
+      $pull: { roles: role },
+      $set: { updated_at: new Date() },
+    });
+  }
+
   async setInviteToken(
     id: string,
     data: { invite_token_hash: string; invite_expires_at: Date }
