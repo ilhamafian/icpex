@@ -11,14 +11,13 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import {
-  adminNavMain,
-  getAdminSection,
-  type AdminNavItem,
-} from "@/utils/adminNav"
+  getPortalSection,
+  type PortalNavItem,
+} from "@/utils/portalNav"
 
-export function NavMain({ items = adminNavMain }: { items?: AdminNavItem[] }) {
+export function NavMain({ items }: { items: PortalNavItem[] }) {
   const pathname = usePathname()
-  const activeSection = getAdminSection(pathname)
+  const activeSection = getPortalSection(pathname)
 
   return (
     <SidebarGroup>

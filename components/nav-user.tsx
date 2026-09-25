@@ -8,7 +8,7 @@ import {
   IconUserCircle,
 } from "@tabler/icons-react"
 
-import { adminLogout } from "@/app/actions/adminAuth"
+import { portalLogout } from "@/app/actions/portalAuth"
 import {
   Avatar,
   AvatarFallback,
@@ -103,7 +103,7 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => void adminLogout()}>
+            <DropdownMenuItem onClick={() => void portalLogout()}>
               <IconLogout />
               Log out
             </DropdownMenuItem>

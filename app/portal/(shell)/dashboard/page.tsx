@@ -1,10 +1,13 @@
 import { ChartAreaInteractive } from "@/components/chart-area-interactive";
 import { DataTable } from "@/components/data-table";
 import { SectionCards } from "@/components/section-cards";
+import { requirePortalSection } from "@/utils/requirePortalAccess";
 
 import data from "./data.json";
 
-export default function AdminDashboardPage() {
+export default async function AdminDashboardPage() {
+  await requirePortalSection("dashboard");
+
   return (
     <>
       <SectionCards />

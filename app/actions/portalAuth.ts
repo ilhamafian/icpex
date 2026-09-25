@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 
-import { adminLoginSchema } from "@/schemas/auth";
+import { portalLoginSchema } from "@/schemas/auth";
 import { verifyPassword } from "@/lib/password";
 import {
   createSession,
@@ -10,8 +10,9 @@ import {
   verifyEnvAdminCredentials,
 } from "@/lib/session";
 import { UserModel } from "@/models/User";
+import { getHomePathForRole } from "@/utils/portalHome";
 
-export type AdminLoginState = {
+export type PortalLoginState = {
   error?: string;
   fieldErrors?: {
     role?: string[];
@@ -20,11 +21,11 @@ export type AdminLoginState = {
   };
 };
 
-export async function adminLogin(
-  _prevState: AdminLoginState,
+export async function portalLogin(
+  _prevState: PortalLoginState,
   formData: FormData
-): Promise<AdminLoginState> {
-  const validated = adminLoginSchema.safeParse({
+): Promise<PortalLoginState> {
+  const validated = portalLoginSchema.safeParse({
     role: formData.get("role"),
     username: formData.get("username"),
     password: formData.get("password"),
@@ -40,7 +41,7 @@ export async function adminLogin(
 
   if (role === "ADMIN" && verifyEnvAdminCredentials(username, password)) {
     await createSession(username, "ADMIN");
-    redirect("/admin/dashboard");
+    redirect(getHomePathForRole("ADMIN"));
   }
 
   const user = await new UserModel().findByEmail(username.toLowerCase());
@@ -59,10 +60,10 @@ export async function adminLogin(
   }
 
   await createSession(user.email, role);
-  redirect("/admin/dashboard");
+  redirect(getHomePathForRole(role));
 }
 
-export async function adminLogout(): Promise<void> {
+export async function portalLogout(): Promise<void> {
   await deleteSession();
-  redirect("/admin/login");
+  redirect("/portal/login");
 }

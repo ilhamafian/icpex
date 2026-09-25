@@ -50,8 +50,10 @@ export type PublicUser = z.infer<typeof publicUserSchema>;
 export {
   signupUserSchema,
   loginUserSchema,
+  portalLoginSchema,
   adminLoginSchema,
   type SignupUser,
   type LoginUser,
+  type PortalLogin,
   type AdminLogin,
 } from "./auth";

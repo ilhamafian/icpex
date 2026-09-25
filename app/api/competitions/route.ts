@@ -5,7 +5,7 @@ import {
   competitionInputSchema,
   competitionSchema,
 } from "@/schemas/competitionSchema";
-import { requireAdminSession } from "@/utils/adminAuth";
+import { requireAdminSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { serializeCompetition } from "@/utils/serializeCatalog";
 import { uniqueSlug } from "@/utils/slug";

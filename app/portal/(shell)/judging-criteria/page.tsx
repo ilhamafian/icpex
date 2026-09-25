@@ -1,6 +1,7 @@
 import { JudgingCriteriaManager } from "@/components/JudgingCriteriaManager";
 import { JudgeCriteriaModel } from "@/models/JudgeCriteria";
 import { serializeJudgeCriteria } from "@/utils/serializeJudgeCriteria";
+import { requirePortalSection } from "@/utils/requirePortalAccess";
 
 async function loadCriteria() {
   try {
@@ -15,6 +16,7 @@ async function loadCriteria() {
 }
 
 export default async function JudgingCriteriaPage() {
+  await requirePortalSection("judging-criteria");
   const criteria = await loadCriteria();
 
   return <JudgingCriteriaManager initialCriteria={criteria} />;

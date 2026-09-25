@@ -4,11 +4,11 @@ import { usePathname } from "next/navigation"
 
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
-import { getAdminPageTitle } from "@/utils/adminNav"
+import { getPortalPageTitle } from "@/utils/portalNav"
 
 export function SiteHeader() {
   const pathname = usePathname()
-  const title = getAdminPageTitle(pathname)
+  const title = getPortalPageTitle(pathname)
 
   return (
     <header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">

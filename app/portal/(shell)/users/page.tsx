@@ -1,6 +1,7 @@
 import { UsersManager } from "@/components/UsersManager";
 import { UserModel } from "@/models/User";
 import { serializeUser } from "@/utils/serializeUser";
+import { requirePortalSection } from "@/utils/requirePortalAccess";
 
 async function loadUsers() {
   try {
@@ -11,7 +12,8 @@ async function loadUsers() {
   }
 }
 
-export default async function AdminUsersPage() {
+export default async function UsersPage() {
+  await requirePortalSection("users");
   const users = await loadUsers();
 
   return <UsersManager initialUsers={users} />;

@@ -5,7 +5,7 @@ import {
   categoryUpdateSchema,
   type Category,
 } from "@/schemas/categorySchema";
-import { requireAdminSession } from "@/utils/adminAuth";
+import { requireAdminSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { serializeCategory } from "@/utils/serializeCatalog";
 

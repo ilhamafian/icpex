@@ -1,10 +1,10 @@
 "use client";
 
 import { useActionState } from "react";
-import { adminLogin, type AdminLoginState } from "@/app/actions/adminAuth";
+import { portalLogin, type PortalLoginState } from "@/app/actions/portalAuth";
 import type { UserRole } from "@/schemas/userRole";
 
-const initialState: AdminLoginState = {};
+const initialState: PortalLoginState = {};
 
 const inputClassName =
   "h-11 w-full rounded-lg border border-black/10 bg-transparent px-3 text-sm outline-none transition-colors focus:border-foreground dark:border-white/15";
@@ -16,8 +16,8 @@ const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: "EBOOK_JUDGE", label: "E-book Judge" },
 ];
 
-export function AdminLoginForm() {
-  const [state, action, pending] = useActionState(adminLogin, initialState);
+export function PortalLoginForm() {
+  const [state, action, pending] = useActionState(portalLogin, initialState);
 
   return (
     <form action={action} className="flex flex-col gap-4">

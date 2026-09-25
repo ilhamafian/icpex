@@ -10,7 +10,7 @@ import {
 } from "@/schemas/judgeAssignmentsSchema";
 import { toIdString } from "@/schemas/objectId";
 import type { UserRole } from "@/schemas/userRole";
-import { requireAdminSession } from "@/utils/adminAuth";
+import { requireAdminSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { serializeJudgeAssignment } from "@/utils/serializeJudgeAssignment";
 

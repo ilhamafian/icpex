@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { UserModel } from "@/models/User";
-import { requireAdminSession } from "@/utils/adminAuth";
+import { requireAdminSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
 
 export async function DELETE(

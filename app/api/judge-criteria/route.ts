@@ -5,7 +5,7 @@ import {
   judgeCriteriaInputSchema,
   judgeCriteriaSchema,
 } from "@/schemas/judgeCriteriaSchema";
-import { requireAdminSession } from "@/utils/adminAuth";
+import { requireAdminSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { serializeJudgeCriteria } from "@/utils/serializeJudgeCriteria";
 import { uniqueSlug } from "@/utils/slug";

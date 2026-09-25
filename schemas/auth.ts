@@ -13,12 +13,17 @@ export const loginUserSchema = z.object({
   password: z.string().min(1),
 });
 
-export const adminLoginSchema = z.object({
+export const portalLoginSchema = z.object({
   role: userRoleSchema,
   username: z.string().min(1, "Username or email is required"),
   password: z.string().min(1, "Password is required"),
 });
 
+/** @deprecated Use portalLoginSchema */
+export const adminLoginSchema = portalLoginSchema;
+
 export type SignupUser = z.infer<typeof signupUserSchema>;
 export type LoginUser = z.infer<typeof loginUserSchema>;
-export type AdminLogin = z.infer<typeof adminLoginSchema>;
+export type PortalLogin = z.infer<typeof portalLoginSchema>;
+/** @deprecated Use PortalLogin */
+export type AdminLogin = PortalLogin;

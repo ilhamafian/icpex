@@ -9,15 +9,16 @@ import {
 } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { getSession } from "@/lib/session";
+import { getHomePathForRole } from "@/utils/portalHome";
 
-export default async function AdminShellLayout({
+export default async function PortalShellLayout({
   children,
 }: {
   children: ReactNode;
 }) {
   const session = await getSession();
   if (!session) {
-    redirect("/admin/login");
+    redirect("/portal/login");
   }
 
   return (
@@ -32,9 +33,11 @@ export default async function AdminShellLayout({
       >
         <AppSidebar
           variant="inset"
+          role={session.role}
+          homeHref={getHomePathForRole(session.role)}
           user={{
             name: session.username,
-            email: "admin",
+            email: session.role.toLowerCase().replace(/_/g, " "),
             avatar: "",
           }}
         />

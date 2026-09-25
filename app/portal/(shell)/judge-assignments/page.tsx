@@ -5,6 +5,7 @@ import { UserModel } from "@/models/User";
 import { toAssignmentRegistrationOption } from "@/utils/assignmentOptions";
 import { serializeJudgeAssignment } from "@/utils/serializeJudgeAssignment";
 import { serializeUser } from "@/utils/serializeUser";
+import { requirePortalSection } from "@/utils/requirePortalAccess";
 
 async function loadAssignmentData() {
   try {
@@ -30,6 +31,7 @@ async function loadAssignmentData() {
 }
 
 export default async function JudgeAssignmentsPage() {
+  await requirePortalSection("judge-assignments");
   const { assignments, judges, registrations } = await loadAssignmentData();
 
   return (

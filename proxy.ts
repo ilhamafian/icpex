@@ -7,19 +7,26 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hasSession = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
 
-  if (pathname.startsWith("/admin") && pathname !== "/admin/login") {
+  // Legacy /admin → /portal
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    const target = pathname.replace(/^\/admin/, "/portal") || "/portal";
+    return NextResponse.redirect(new URL(target, request.url));
+  }
+
+  if (pathname.startsWith("/portal") && pathname !== "/portal/login") {
     if (!hasSession) {
-      return NextResponse.redirect(new URL("/admin/login", request.url));
+      return NextResponse.redirect(new URL("/portal/login", request.url));
     }
   }
 
-  if (pathname === "/admin/login" && hasSession) {
-    return NextResponse.redirect(new URL("/admin/dashboard", request.url));
+  if (pathname === "/portal/login" && hasSession) {
+    // Role-specific home is resolved in the login page / shell
+    return NextResponse.redirect(new URL("/portal", request.url));
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/portal", "/portal/:path*", "/admin", "/admin/:path*"],
 };

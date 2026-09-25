@@ -5,6 +5,7 @@ import {
   serializeCategory,
   serializeCompetition,
 } from "@/utils/serializeCatalog";
+import { requirePortalSection } from "@/utils/requirePortalAccess";
 
 async function loadCatalog() {
   try {
@@ -23,6 +24,7 @@ async function loadCatalog() {
 }
 
 export default async function CompetitionsCategoriesPage() {
+  await requirePortalSection("competitions-categories");
   const { competitions, categories } = await loadCatalog();
 
   return (

@@ -5,7 +5,7 @@ import { sendUserInviteEmail } from "@/lib/email";
 import { createInviteToken } from "@/lib/inviteToken";
 import { UserModel } from "@/models/User";
 import type { UserRole } from "@/schemas/userSchema";
-import { requireAdminSession } from "@/utils/adminAuth";
+import { requireAdminSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { serializeUser } from "@/utils/serializeUser";
 

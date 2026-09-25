@@ -1,12 +1,13 @@
 import { redirect } from "next/navigation";
 import { AuthFormLayout } from "@/components/AuthFormLayout";
-import { AdminLoginForm } from "@/components/AdminLoginForm";
+import { PortalLoginForm } from "@/components/PortalLoginForm";
 import { getSession } from "@/lib/session";
+import { getHomePathForRole } from "@/utils/portalHome";
 
-export default async function AdminLoginPage() {
+export default async function PortalLoginPage() {
   const session = await getSession();
   if (session) {
-    redirect("/admin/dashboard");
+    redirect(getHomePathForRole(session.role));
   }
 
   return (
@@ -15,7 +16,7 @@ export default async function AdminLoginPage() {
       subtitle="Sign in with your role and credentials. Invited users use the email from their invitation."
       footer="Internal access only"
     >
-      <AdminLoginForm />
+      <PortalLoginForm />
     </AuthFormLayout>
   );
 }

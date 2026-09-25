@@ -5,7 +5,7 @@ export default function Home() {
     <div className="flex min-h-full flex-1 flex-col">
       <header className="flex w-full items-center justify-end gap-3 border-b border-black/10 px-6 py-4 dark:border-white/10">
         <Link
-          href="/admin/login"
+          href="/portal/login"
           className="rounded-full border border-black/10 px-4 py-2 text-sm font-medium transition-colors hover:bg-black/[.04] dark:border-white/15 dark:hover:bg-white/[.06]"
         >
           Login

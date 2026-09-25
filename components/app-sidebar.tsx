@@ -14,10 +14,13 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { adminNavMain } from "@/utils/adminNav"
+import type { UserRole } from "@/schemas/userRole"
+import { getNavForRole } from "@/utils/portalNav"
 
 export function AppSidebar({
   user,
+  role,
+  homeHref,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   user: {
@@ -25,7 +28,11 @@ export function AppSidebar({
     email: string
     avatar: string
   }
+  role: UserRole
+  homeHref: string
 }) {
+  const navItems = getNavForRole(role)
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -35,7 +42,7 @@ export function AppSidebar({
               asChild
               className="data-[slot=sidebar-menu-button]:p-1.5!"
             >
-              <a href="/admin/dashboard">
+              <a href={homeHref}>
                 <IconInnerShadowTop className="size-5!" />
                 <span className="text-base font-semibold">ICPEX</span>
               </a>
@@ -44,7 +51,7 @@ export function AppSidebar({
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={adminNavMain} />
+        <NavMain items={navItems} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} />

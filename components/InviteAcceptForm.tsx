@@ -70,7 +70,7 @@ export function InviteAcceptForm({
         return;
       }
 
-      router.push("/admin/login");
+      router.push("/portal/login");
     } catch {
       setError("Could not activate your account.");
     } finally {
