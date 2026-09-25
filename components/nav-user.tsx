@@ -103,10 +103,14 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => void portalLogout()}>
-              <IconLogout />
-              Log out
-            </DropdownMenuItem>
+            <form action={portalLogout}>
+              <DropdownMenuItem asChild>
+                <button type="submit" className="w-full cursor-default">
+                  <IconLogout />
+                  Log out
+                </button>
+              </DropdownMenuItem>
+            </form>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

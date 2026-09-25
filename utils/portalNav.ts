@@ -65,7 +65,7 @@ export const portalNavMain: PortalNavItem[] = [
     roles: ["ADMIN"],
   },
   {
-    title: "Registrations",
+    title: "Payments",
     url: "/portal/registrations",
     icon: IconClipboardList,
     section: "registrations",
@@ -86,7 +86,7 @@ const titleBySection: Record<PortalSection, string> = {
   "judging-criteria": "Judging Criteria",
   "judge-assignments": "Judge Assignments",
   users: "Users",
-  registrations: "Registrations",
+  registrations: "Payments",
   "my-assignments": "My Assignments",
 };
 

@@ -39,8 +39,31 @@ export const judgeAssignmentInputSchema = z.object({
 /** Admin may reassign judge, registration, type, or status — not scores. */
 export const judgeAssignmentUpdateSchema = judgeAssignmentInputSchema.partial();
 
+/** Judge accepts or declines a pending assignment. */
+export const judgeAssignmentJudgeStatusSchema = z.object({
+  status: z.enum(["ACCEPTED", "REJECTED"]),
+});
+
+/** Judge submits / updates scores for an accepted assignment. */
+export const judgeAssignmentScoreSubmitSchema = z.object({
+  scores: z
+    .array(
+      judgeScoreSchema.extend({
+        score: z.number().min(0).max(100),
+        comments: z.string().default(""),
+      })
+    )
+    .min(1),
+});
+
 export type JudgeAssignment = z.infer<typeof judgeAssignmentsSchema>;
 export type JudgeAssignmentInput = z.infer<typeof judgeAssignmentInputSchema>;
 export type JudgeAssignmentStatus = z.infer<typeof judgeAssignmentStatusSchema>;
 export type JudgeAssignmentType = z.infer<typeof judgeAssignmentTypeSchema>;
 export type JudgeScore = z.infer<typeof judgeScoreSchema>;
+export type JudgeAssignmentJudgeStatus = z.infer<
+  typeof judgeAssignmentJudgeStatusSchema
+>;
+export type JudgeAssignmentScoreSubmit = z.infer<
+  typeof judgeAssignmentScoreSubmitSchema
+>;

@@ -5,19 +5,76 @@ import { RegistrationModel } from "@/models/Registration";
 import { toIdString } from "@/schemas/objectId";
 import {
   paymentFormSchema,
+  paymentInputSchema,
   paymentSchema,
 } from "@/schemas/paymentSchema";
+import { registrationStatusUpdateSchema } from "@/schemas/registrationSchema";
 import { createResponse, handleError } from "@/utils/apiHelper";
+import { requireSecretarySession } from "@/utils/portalAuth";
+import { serializePayment } from "@/utils/serializePayment";
 
+async function maybeAdvanceRegistrationOnPaid(
+  registrationId: string,
+  paymentStatus: string
+) {
+  if (paymentStatus !== "PAID") return;
+
+  const model = new RegistrationModel();
+  const registration = await model.findById(registrationId);
+  if (!registration || registration.status !== "SUBMITTED") return;
+
+  await model.update(
+    registrationId,
+    { status: "REVIEWING" },
+    registrationStatusUpdateSchema
+  );
+}
+
+/** Secretary: list all payments. */
+export async function GET() {
+  try {
+    const session = await requireSecretarySession();
+    if (!session) {
+      return createResponse({ error: "Unauthorized" }, 401);
+    }
+
+    const payments = await new PaymentModel().find(
+      {},
+      { sort: { created_at: -1 } }
+    );
+
+    return createResponse({
+      payments: payments.map(serializePayment),
+    });
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * Public create (no `status` → PENDING) or secretary create (optional status).
+ */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const parsed = paymentFormSchema.safeParse(body);
+
+    const hasStatus =
+      body != null && typeof body === "object" && "status" in body;
+    if (hasStatus) {
+      const session = await requireSecretarySession();
+      if (!session) {
+        return createResponse({ error: "Unauthorized" }, 401);
+      }
+    }
+
+    const parsed = hasStatus
+      ? paymentInputSchema.safeParse(body)
+      : paymentFormSchema.safeParse(body);
     if (!parsed.success) {
       return createResponse({ error: parsed.error.format() }, 400);
     }
 
-    const registrationId = String(parsed.data.registration_id);
+    const registrationId = toIdString(parsed.data.registration_id);
     const registration = await new RegistrationModel().findById(registrationId);
     if (!registration) {
       return createResponse({ error: "Registration not found." }, 404);
@@ -33,26 +90,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const status =
+      "status" in parsed.data && parsed.data.status
+        ? parsed.data.status
+        : "PENDING";
+
     const created = await new PaymentModel().create(
       paymentSchema.parse({
-        ...parsed.data,
         registration_id: registrationId,
-        status: "PENDING",
+        amount: parsed.data.amount,
+        receipt_url: parsed.data.receipt_url,
+        status,
       })
     );
 
-    return createResponse(
-      {
-        payment: {
-          _id: toIdString(created._id),
-          registration_id: toIdString(created.registration_id),
-          amount: created.amount,
-          status: created.status,
-          receipt_url: created.receipt_url,
-        },
-      },
-      201
-    );
+    await maybeAdvanceRegistrationOnPaid(registrationId, status);
+
+    return createResponse({ payment: serializePayment(created) }, 201);
   } catch (error) {
     return handleError(error);
   }

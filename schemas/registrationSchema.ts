@@ -84,3 +84,18 @@ export const registrationFormSchema = createRegistrationSchema.omit({
 });
 
 export type RegistrationForm = z.infer<typeof registrationFormSchema>;
+
+/** Secretary may advance registration review status. */
+export const registrationStatusUpdateSchema = z.object({
+  status: z.enum([
+    "SUBMITTED",
+    "REVIEWING",
+    "REJECTED",
+    "ACCEPTED",
+    "COMPLETED",
+  ]),
+});
+
+export type RegistrationStatusUpdate = z.infer<
+  typeof registrationStatusUpdateSchema
+>;

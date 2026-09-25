@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 
 import { CategoryModel } from "@/models/Category";
 import { CompetitionModel } from "@/models/Competition";
+import { PaymentModel } from "@/models/Payment";
 import { RegistrationModel } from "@/models/Registration";
 import {
   registrationFormSchema,
@@ -9,7 +10,45 @@ import {
 } from "@/schemas/registrationSchema";
 import { toIdString } from "@/schemas/objectId";
 import { createResponse, handleError } from "@/utils/apiHelper";
+import { requireSecretarySession } from "@/utils/portalAuth";
+import { serializePayment } from "@/utils/serializePayment";
+import { serializeRegistration } from "@/utils/serializeRegistration";
 
+/** Secretary: list registrations with their payment (if any). */
+export async function GET() {
+  try {
+    const session = await requireSecretarySession();
+    if (!session) {
+      return createResponse({ error: "Unauthorized" }, 401);
+    }
+
+    const [registrations, payments] = await Promise.all([
+      new RegistrationModel().find({}, { sort: { created_at: -1 } }),
+      new PaymentModel().find({}, { sort: { created_at: -1 } }),
+    ]);
+
+    const paymentByRegistrationId = new Map(
+      payments.map((payment) => [
+        toIdString(payment.registration_id),
+        serializePayment(payment),
+      ])
+    );
+
+    return createResponse({
+      registrations: registrations.map((registration) => {
+        const id = toIdString(registration._id);
+        return {
+          registration: serializeRegistration(registration),
+          payment: paymentByRegistrationId.get(id) ?? null,
+        };
+      }),
+    });
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/** Public: create a competition registration. */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
