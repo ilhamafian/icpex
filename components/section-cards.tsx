@@ -1,4 +1,10 @@
-import { IconTrendingDown, IconTrendingUp } from "@tabler/icons-react"
+import {
+  IconAlertTriangle,
+  IconCircleCheck,
+  IconClock,
+  IconTrendingDown,
+  IconTrendingUp,
+} from "@tabler/icons-react"
 
 import { Badge } from "@/components/ui/badge"
 import {
@@ -9,92 +15,132 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import type { DashboardStats } from "@/utils/dashboardData"
 
-export function SectionCards() {
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "MYR",
+    minimumFractionDigits: 2,
+  }).format(amount)
+}
+
+function percentChange(current: number, previous: number) {
+  if (previous === 0) return current > 0 ? 100 : 0
+  return ((current - previous) / previous) * 100
+}
+
+export function SectionCards({ stats }: { stats: DashboardStats }) {
+  const registrationChange = percentChange(
+    stats.registrationsThisMonth,
+    stats.registrationsLastMonth
+  )
+  const registrationsUp = registrationChange >= 0
+  const judgingProgress = stats.totalAssignments
+    ? Math.round((stats.submittedAssignments / stats.totalAssignments) * 100)
+    : 0
+  const awaitingVerification = stats.pendingPayments
+
   return (
     <div className="grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4 dark:*:data-[slot=card]:bg-card">
       <Card className="@container/card">
         <CardHeader>
-          <CardDescription>Total Revenue</CardDescription>
+          <CardDescription>Total Registrations</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            $1,250.00
+            {stats.totalRegistrations.toLocaleString()}
           </CardTitle>
           <CardAction>
             <Badge variant="outline">
-              <IconTrendingUp />
-              +12.5%
+              {registrationsUp ? <IconTrendingUp /> : <IconTrendingDown />}
+              {registrationsUp ? "+" : ""}
+              {registrationChange.toFixed(0)}%
             </Badge>
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            Trending up this month <IconTrendingUp className="size-4" />
+            {stats.registrationsThisMonth} new this month
+            {registrationsUp ? (
+              <IconTrendingUp className="size-4" />
+            ) : (
+              <IconTrendingDown className="size-4" />
+            )}
           </div>
           <div className="text-muted-foreground">
-            Visitors for the last 6 months
+            {stats.registrationsLastMonth} last month
           </div>
         </CardFooter>
       </Card>
       <Card className="@container/card">
         <CardHeader>
-          <CardDescription>New Customers</CardDescription>
+          <CardDescription>Verified Revenue</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            1,234
+            {formatCurrency(stats.revenue)}
           </CardTitle>
           <CardAction>
             <Badge variant="outline">
-              <IconTrendingDown />
-              -20%
+              <IconCircleCheck />
+              {stats.paidCount} paid
             </Badge>
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            Down 20% this period <IconTrendingDown className="size-4" />
+            From payments marked as paid
           </div>
           <div className="text-muted-foreground">
-            Acquisition needs attention
+            {stats.withoutPayment} registration
+            {stats.withoutPayment === 1 ? "" : "s"} without a payment
           </div>
         </CardFooter>
       </Card>
       <Card className="@container/card">
         <CardHeader>
-          <CardDescription>Active Accounts</CardDescription>
+          <CardDescription>Awaiting Verification</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            45,678
+            {awaitingVerification.toLocaleString()}
           </CardTitle>
           <CardAction>
             <Badge variant="outline">
-              <IconTrendingUp />
-              +12.5%
+              {stats.failedPayments > 0 ? <IconAlertTriangle /> : <IconClock />}
+              {stats.failedPayments} failed
             </Badge>
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            Strong user retention <IconTrendingUp className="size-4" />
+            {awaitingVerification > 0
+              ? "Receipts need checking"
+              : "All receipts checked"}
+            <IconClock className="size-4" />
           </div>
-          <div className="text-muted-foreground">Engagement exceed targets</div>
+          <div className="text-muted-foreground">
+            Pending payments for the secretary to review
+          </div>
         </CardFooter>
       </Card>
       <Card className="@container/card">
         <CardHeader>
-          <CardDescription>Growth Rate</CardDescription>
+          <CardDescription>Judging Progress</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            4.5%
+            {judgingProgress}%
           </CardTitle>
           <CardAction>
             <Badge variant="outline">
-              <IconTrendingUp />
-              +4.5%
+              <IconCircleCheck />
+              {stats.submittedAssignments}/{stats.totalAssignments}
             </Badge>
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            Steady performance increase <IconTrendingUp className="size-4" />
+            Assignments scored by judges
+            <IconTrendingUp className="size-4" />
           </div>
-          <div className="text-muted-foreground">Meets growth projections</div>
+          <div className="text-muted-foreground">
+            {stats.unassignedRegistrations} registration
+            {stats.unassignedRegistrations === 1 ? "" : "s"} without judges
+          </div>
         </CardFooter>
       </Card>
     </div>

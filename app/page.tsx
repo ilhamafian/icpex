@@ -8,7 +8,7 @@ export default function Home() {
           href="/portal/login"
           className="rounded-full border border-black/10 px-4 py-2 text-sm font-medium transition-colors hover:bg-black/[.04] dark:border-white/15 dark:hover:bg-white/[.06]"
         >
-          Login
+          Internal Login
         </Link>
         <Link
           href="/register"
