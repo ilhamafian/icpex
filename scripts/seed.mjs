@@ -264,7 +264,7 @@ const REGISTRATIONS = [
       name: "Ahmad Danial Hakimi bin Zulkarnain",
       email: "danialhakimi.z@yahoo.com",
       phone: "0139876012",
-      education_level: "DIPLOMA",
+      education_level: "UNDERGRADUATE",
       institution: { name: "Universiti Teknologi MARA", country: MY },
       government_id: { type: "NATIONAL_ID", number: "040209110157" },
     },
@@ -289,7 +289,7 @@ const REGISTRATIONS = [
       name: "Kavitha a/p Muniandy",
       email: "kavitha.muniandy@student.usm.my",
       phone: "0164412987",
-      education_level: "GRADUATE",
+      education_level: "POSTGRADUATE",
       institution: { name: "Universiti Sains Malaysia", country: MY },
       government_id: { type: "NATIONAL_ID", number: "970603075218" },
     },
@@ -313,7 +313,7 @@ const REGISTRATIONS = [
       name: "Rizky Pratama",
       email: "rizky.pratama@ui.ac.id",
       phone: "+62 812-3456-7821",
-      education_level: "GRADUATE",
+      education_level: "POSTGRADUATE",
       institution: { name: "Universitas Indonesia", country: "Indonesia" },
       government_id: { type: "PASSPORT", number: "C4821937" },
     },
@@ -387,7 +387,7 @@ const REGISTRATIONS = [
       name: "Lee Jun Wei",
       email: "junwei.lee@s.unikl.edu.my",
       phone: "0187765409",
-      education_level: "DIPLOMA",
+      education_level: "UNDERGRADUATE",
       institution: { name: "Universiti Kuala Lumpur", country: MY },
       government_id: { type: "NATIONAL_ID", number: "030718080571" },
     },
@@ -462,7 +462,7 @@ const REGISTRATIONS = [
       name: "Arjun Nair a/l Gopal",
       email: "arjun.gopal@student.mmu.edu.my",
       phone: "0123381902",
-      education_level: "GRADUATE",
+      education_level: "POSTGRADUATE",
       institution: { name: "Multimedia University", country: MY },
       government_id: { type: "NATIONAL_ID", number: "980115145523" },
     },
@@ -485,7 +485,7 @@ const REGISTRATIONS = [
       name: "Mohd Syafiq bin Hamzah",
       email: "syafiqhamzah03@gmail.com",
       phone: "0104456721",
-      education_level: "DIPLOMA",
+      education_level: "UNDERGRADUATE",
       institution: { name: "Politeknik Ungku Omar", country: MY },
       government_id: { type: "DRIVING_LICENSE", number: "D0348821" },
     },
@@ -511,7 +511,7 @@ const REGISTRATIONS = [
       name: "Farhana binti Yusof",
       email: "gs61234@student.upm.edu.my",
       phone: "0193347812",
-      education_level: "PHD",
+      education_level: "POSTGRADUATE",
       institution: { name: "Universiti Putra Malaysia", country: MY },
       government_id: { type: "NATIONAL_ID", number: "910822065034" },
     },
@@ -534,7 +534,7 @@ const REGISTRATIONS = [
       name: "Somchai Wongsakul",
       email: "somchai.w@student.chula.ac.th",
       phone: "+66 81 234 5678",
-      education_level: "GRADUATE",
+      education_level: "POSTGRADUATE",
       institution: { name: "Chulalongkorn University", country: "Thailand" },
       government_id: { type: "PASSPORT", number: "AA3928174" },
     },
@@ -632,7 +632,7 @@ const REGISTRATIONS = [
       name: "Muhammad Hafizuddin bin Salleh",
       email: "m032310045@student.utem.edu.my",
       phone: "0176603218",
-      education_level: "GRADUATE",
+      education_level: "POSTGRADUATE",
       institution: { name: "Universiti Teknikal Malaysia Melaka", country: MY },
       government_id: { type: "NATIONAL_ID", number: "960411045671" },
     },
@@ -654,7 +654,7 @@ const REGISTRATIONS = [
       name: "Nurul Huda binti Rahim",
       email: "nurulhuda.rahim05@gmail.com",
       phone: "0198812345",
-      education_level: "DIPLOMA",
+      education_level: "UNDERGRADUATE",
       institution: { name: "Universiti Teknologi MARA", country: MY },
       government_id: { type: "NATIONAL_ID", number: "050619020448" },
     },
@@ -678,7 +678,7 @@ const REGISTRATIONS = [
       name: "Wong Kah Mun",
       email: "kahmun.wong@siswa.um.edu.my",
       phone: "0122245698",
-      education_level: "PHD",
+      education_level: "POSTGRADUATE",
       institution: { name: "Universiti Malaya", country: MY },
       government_id: { type: "NATIONAL_ID", number: "900727145086" },
     },
@@ -726,7 +726,7 @@ const REGISTRATIONS = [
       name: "Dk Nur Syazwani binti Pg Hj Ahmad",
       email: "21m8134@ubd.edu.bn",
       phone: "+673 872 4419",
-      education_level: "GRADUATE",
+      education_level: "POSTGRADUATE",
       institution: { name: "Universiti Brunei Darussalam", country: "Brunei" },
       government_id: { type: "PASSPORT", number: "B01928374" },
     },
@@ -748,7 +748,7 @@ const REGISTRATIONS = [
       name: "Siva Kumar a/l Rajendran",
       email: "sivakumar.r@s.unikl.edu.my",
       phone: "0165521908",
-      education_level: "DIPLOMA",
+      education_level: "UNDERGRADUATE",
       institution: { name: "Universiti Kuala Lumpur", country: MY },
       government_id: { type: "NATIONAL_ID", number: "040823085513" },
     },
@@ -847,6 +847,20 @@ async function seedJudgeCriteria(db) {
 
 async function seedUsers(db) {
   const col = db.collection("users");
+
+  // Staff roles are scoped to the current competition (latest published).
+  const [competition] = await db
+    .collection("competitions")
+    .find({ status: "PUBLISHED" })
+    .sort({ start_date: -1 })
+    .limit(1)
+    .toArray();
+  if (!competition) {
+    console.log("users: skipped (no published competition to assign roles to)");
+    return;
+  }
+  const competitionId = competition._id.toString();
+
   const passwordHash = await hashPassword(DEV_PASSWORD);
   const now = Date.now();
   let inserted = 0;
@@ -855,7 +869,9 @@ async function seedUsers(db) {
     const created = new Date(Date.UTC(2026, 8, 22, 15) + i * 3 * HOUR);
     const doc = {
       email: u.email.toLowerCase(),
-      roles: u.roles,
+      roles: u.roles.map((role) =>
+        role === "ADMIN" ? { role } : { role, competition_id: competitionId }
+      ),
       status: u.status,
       email_verified: u.status !== "INVITED",
       created_at: created,

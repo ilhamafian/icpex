@@ -72,6 +72,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { educationLevelLabel } from "@/schemas/educationLevel"
 import type { DashboardRow } from "@/utils/dashboardData"
 
 const features = tableFeatures({
@@ -602,7 +603,7 @@ function TableCellViewer({ item }: { item: DashboardRow }) {
             <DetailField label="Participant" value={item.participant_name} />
             <DetailField label="Email" value={item.participant_email} />
             <DetailField label="Phone" value={item.participant_phone} />
-            <DetailField label="Education" value={item.education_level} />
+            <DetailField label="Education" value={educationLevelLabel(item.education_level)} />
             <DetailField label="Institution" value={item.institution} />
             <DetailField label="Country" value={item.country} />
             <DetailField label="Status" value={item.status} />

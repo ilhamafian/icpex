@@ -5,6 +5,7 @@ import {
   serializeCategory,
   serializeCompetition,
 } from "@/utils/serializeCatalog";
+import { getCurrentCompetitionId } from "@/utils/currentCompetition";
 import { requirePortalSection } from "@/utils/requirePortalAccess";
 
 async function loadCatalog() {
@@ -25,11 +26,16 @@ async function loadCatalog() {
 
 export default async function CompetitionsCategoriesPage() {
   await requirePortalSection("competitions-categories");
-  const { competitions, categories } = await loadCatalog();
+  const [{ competitions, categories }, currentCompetitionId] =
+    await Promise.all([
+      loadCatalog(),
+      getCurrentCompetitionId().catch(() => null),
+    ]);
 
   return (
     <CompetitionsCategoriesManager
       initialCompetitions={competitions}
+      currentCompetitionId={currentCompetitionId}
       initialCategories={categories}
     />
   );

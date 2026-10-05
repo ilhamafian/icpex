@@ -30,10 +30,14 @@ const ROLE_LABELS: Record<UserRole, string> = {
 export async function sendUserInviteEmail(options: {
   to: string;
   role: UserRole;
+  /** Shown for competition-scoped roles (everything except ADMIN). */
+  competitionName?: string;
   inviteUrl: string;
 }) {
   const resend = getResendClient();
-  const roleLabel = ROLE_LABELS[options.role];
+  const roleLabel = options.competitionName
+    ? `${ROLE_LABELS[options.role]} for ${options.competitionName}`
+    : ROLE_LABELS[options.role];
 
   const { error } = await resend.emails.send({
     from: getFromEmail(),

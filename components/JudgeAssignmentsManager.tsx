@@ -37,10 +37,12 @@ async function readError(res: Response): Promise<string> {
 export function JudgeAssignmentsManager({
   initialAssignments,
   judges,
+  competitionId,
   registrations,
 }: {
   initialAssignments: SerializedJudgeAssignment[];
   judges: SerializedUser[];
+  competitionId: string | null;
   registrations: AssignmentRegistrationOption[];
 }) {
   const [assignments, setAssignments] = useState(initialAssignments);
@@ -152,6 +154,7 @@ export function JudgeAssignmentsManager({
       <JudgeAssignmentsDataTable
         data={rows}
         judges={judges}
+        competitionId={competitionId}
         busyKey={busyKey}
         onToggleJudge={handleToggleJudge}
       />

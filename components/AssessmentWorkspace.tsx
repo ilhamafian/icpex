@@ -34,6 +34,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { educationLevelLabel } from "@/schemas/educationLevel";
 import {
   assignmentStatusVariant,
   TYPE_LABELS,
@@ -64,16 +65,6 @@ type ScoreFormRow = {
   criteria_id: string;
   score: string;
   comments: string;
-};
-
-const EDUCATION_LABELS: Record<
-  Registration["participant"]["education_level"],
-  string
-> = {
-  DIPLOMA: "Diploma",
-  UNDERGRADUATE: "Undergraduate",
-  GRADUATE: "Graduate",
-  PHD: "PhD",
 };
 
 const DOCUMENT_LABELS: Record<Registration["documents"][number]["type"], string> =
@@ -361,7 +352,7 @@ export function AssessmentWorkspace({
               <DetailField label="Email" value={participant.email} />
               <DetailField
                 label="Education level"
-                value={EDUCATION_LABELS[participant.education_level]}
+                value={educationLevelLabel(participant.education_level)}
               />
               <DetailField
                 label="Institution"

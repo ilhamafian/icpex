@@ -57,6 +57,7 @@ import {
 } from "@/components/ui/table";
 import type { UserRole, UserStatus } from "@/schemas/userSchema";
 import type { SerializedUser } from "@/types/user";
+import { rolesForCompetition } from "@/utils/roleGrants";
 
 const features = tableFeatures({
   columnVisibilityFeature,
@@ -99,6 +100,9 @@ function formatDate(iso?: string) {
 
 type UsersDataTableProps = {
   data: SerializedUser[];
+  /** Roles are shown for this competition (plus global ADMIN). */
+  competitionId: string | null;
+  toolbar?: React.ReactNode;
   onAddUser: () => void;
   onResendInvite: (user: SerializedUser) => void;
   onDeleteUser: (user: SerializedUser) => void;
@@ -107,6 +111,8 @@ type UsersDataTableProps = {
 
 export function UsersDataTable({
   data,
+  competitionId,
+  toolbar,
   onAddUser,
   onResendInvite,
   onDeleteUser,
@@ -139,15 +145,25 @@ export function UsersDataTable({
         }),
         columnHelper.accessor("roles", {
           header: "Role",
-          cell: ({ row }) => (
-            <div className="flex flex-wrap gap-1">
-              {row.original.roles.map((role) => (
-                <Badge key={role} variant="outline" className="px-1.5">
-                  {ROLE_LABELS[role] ?? role}
-                </Badge>
-              ))}
-            </div>
-          ),
+          cell: ({ row }) => {
+            const roles = rolesForCompetition(row.original.roles, competitionId);
+            if (roles.length === 0) {
+              return (
+                <span className="text-muted-foreground text-sm">
+                  No role in this competition
+                </span>
+              );
+            }
+            return (
+              <div className="flex flex-wrap gap-1">
+                {roles.map((role) => (
+                  <Badge key={role} variant="outline" className="px-1.5">
+                    {ROLE_LABELS[role] ?? role}
+                  </Badge>
+                ))}
+              </div>
+            );
+          },
         }),
         columnHelper.accessor("status", {
           header: "Status",
@@ -226,7 +242,7 @@ export function UsersDataTable({
           },
         }),
       ]),
-    [busyId, onDeleteUser, onResendInvite]
+    [busyId, competitionId, onDeleteUser, onResendInvite]
   );
 
   const table = useTable({
@@ -250,10 +266,11 @@ export function UsersDataTable({
         <div>
           <h2 className="text-lg font-medium">Users</h2>
           <p className="text-muted-foreground text-sm">
-            Invite internal users and manage their roles.
+            Invite internal users and manage their roles per competition.
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {toolbar}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">

@@ -12,6 +12,8 @@ import { toIdString } from "@/schemas/objectId";
 import type { UserRole } from "@/schemas/userRole";
 import { requireAdminSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
+import { registrationCompetitionId } from "@/utils/competitionScope";
+import { hasGrant } from "@/utils/roleGrants";
 import { serializeJudgeAssignment } from "@/utils/serializeJudgeAssignment";
 
 const ROLE_FOR_TYPE: Record<JudgeAssignmentType, UserRole> = {
@@ -49,25 +51,33 @@ export async function PATCH(
       parsed.data.registration_number ?? existing.registration_number;
     const nextType = parsed.data.type ?? existing.type;
 
-    if (parsed.data.registration_number) {
-      const registration = await new RegistrationModel().findOne({
-        registration_number: nextRegistration,
-      });
-      if (!registration) {
-        return createResponse({ error: "Registration not found." }, 400);
-      }
+    const registration = await new RegistrationModel().findOne({
+      registration_number: nextRegistration,
+    });
+    if (!registration) {
+      return createResponse({ error: "Registration not found." }, 400);
     }
 
-    if (parsed.data.judge_id || parsed.data.type) {
+    if (
+      parsed.data.judge_id ||
+      parsed.data.type ||
+      parsed.data.registration_number
+    ) {
       const judge = await new UserModel().findById(nextJudgeId);
       if (!judge) {
         return createResponse({ error: "Judge not found." }, 400);
       }
       const requiredRole = ROLE_FOR_TYPE[nextType];
-      if (!judge.roles.includes(requiredRole)) {
+      if (
+        !hasGrant(
+          judge.roles,
+          requiredRole,
+          registrationCompetitionId(registration)
+        )
+      ) {
         return createResponse(
           {
-            error: `Judge must have the ${requiredRole} role for ${nextType} assignments.`,
+            error: `Judge must have the ${requiredRole} role in this registration's competition for ${nextType} assignments.`,
           },
           400
         );

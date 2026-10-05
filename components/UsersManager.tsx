@@ -34,6 +34,7 @@ import {
   ROLE_LABELS,
   UsersDataTable,
 } from "@/components/users-data-table";
+import type { CompetitionStatus } from "@/schemas/competitionSchema";
 import type { UserRole } from "@/schemas/userSchema";
 import type { SerializedUser } from "@/types/user";
 
@@ -44,13 +45,30 @@ const ROLE_OPTIONS: UserRole[] = [
   "EBOOK_JUDGE",
 ];
 
+export type UserCompetitionOption = {
+  id: string;
+  name: string;
+  status: CompetitionStatus;
+};
+
 type InviteFormState = {
   email: string;
   role: UserRole;
+  competitionId: string;
 };
 
-function emptyInviteForm(): InviteFormState {
-  return { email: "", role: "SECRETARY" };
+function emptyInviteForm(competitionId: string): InviteFormState {
+  return { email: "", role: "SECRETARY", competitionId };
+}
+
+function competitionLabel(
+  competition: UserCompetitionOption,
+  currentCompetitionId: string | null
+) {
+  if (competition.id === currentCompetitionId) {
+    return `${competition.name} (current)`;
+  }
+  return `${competition.name} · ${competition.status.toLowerCase()}`;
 }
 
 async function readError(res: Response): Promise<string> {
@@ -65,12 +83,22 @@ async function readError(res: Response): Promise<string> {
 
 export function UsersManager({
   initialUsers,
+  competitions,
+  currentCompetitionId,
 }: {
   initialUsers: SerializedUser[];
+  competitions: UserCompetitionOption[];
+  currentCompetitionId: string | null;
 }) {
   const [users, setUsers] = useState(initialUsers);
+  const [competitionId, setCompetitionId] = useState(
+    currentCompetitionId ?? competitions[0]?.id ?? ""
+  );
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [form, setForm] = useState<InviteFormState>(emptyInviteForm);
+  const [form, setForm] = useState<InviteFormState>(() =>
+    emptyInviteForm(competitionId)
+  );
+  const needsCompetition = form.role !== "ADMIN";
   const [submitting, setSubmitting] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SerializedUser | null>(
@@ -87,6 +115,7 @@ export function UsersManager({
         body: JSON.stringify({
           email: form.email.trim(),
           role: form.role,
+          ...(needsCompetition ? { competition_id: form.competitionId } : {}),
         }),
       });
 
@@ -106,7 +135,7 @@ export function UsersManager({
         return [data.user, ...prev];
       });
       setSheetOpen(false);
-      setForm(emptyInviteForm());
+      setForm(emptyInviteForm(competitionId));
       toast.success(
         data.roleAdded
           ? `Added role to ${data.user.email}`
@@ -167,9 +196,30 @@ export function UsersManager({
     <>
       <UsersDataTable
         data={users}
+        competitionId={competitionId || null}
+        toolbar={
+          competitions.length > 0 ? (
+            <Select value={competitionId} onValueChange={setCompetitionId}>
+              <SelectTrigger
+                size="sm"
+                className="w-56"
+                aria-label="Show roles for competition"
+              >
+                <SelectValue placeholder="Select competition" />
+              </SelectTrigger>
+              <SelectContent>
+                {competitions.map((competition) => (
+                  <SelectItem key={competition.id} value={competition.id}>
+                    {competitionLabel(competition, currentCompetitionId)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null
+        }
         busyId={busyId}
         onAddUser={() => {
-          setForm(emptyInviteForm());
+          setForm(emptyInviteForm(competitionId));
           setSheetOpen(true);
         }}
         onResendInvite={handleResendInvite}
@@ -223,9 +273,40 @@ export function UsersManager({
                 </SelectContent>
               </Select>
             </div>
+            {needsCompetition ? (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="invite-competition">Competition</Label>
+                <Select
+                  value={form.competitionId}
+                  onValueChange={(value) =>
+                    setForm((prev) => ({ ...prev, competitionId: value }))
+                  }
+                  disabled={competitions.length === 0}
+                >
+                  <SelectTrigger id="invite-competition" className="w-full">
+                    <SelectValue
+                      placeholder={
+                        competitions.length === 0
+                          ? "Create a competition first"
+                          : "Select a competition"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {competitions.map((competition) => (
+                      <SelectItem key={competition.id} value={competition.id}>
+                        {competitionLabel(competition, currentCompetitionId)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
             <p className="text-muted-foreground text-sm">
-              New users get an invite email. An existing email can receive
-              additional roles; the same email and role cannot be duplicated.
+              {needsCompetition
+                ? "Secretary and judge roles apply to one competition only. When a newer competition is published, staff need to be assigned again."
+                : "Administrators have access to every competition."}{" "}
+              New users get an invite email; existing users just gain the role.
             </p>
           </form>
           <SheetFooter>
@@ -240,7 +321,11 @@ export function UsersManager({
             <Button
               type="submit"
               form="invite-user-form"
-              disabled={submitting || !form.email.trim()}
+              disabled={
+                submitting ||
+                !form.email.trim() ||
+                (needsCompetition && !form.competitionId)
+              }
             >
               {submitting ? "Sending…" : "Send invite"}
             </Button>

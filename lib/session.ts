@@ -1,19 +1,37 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
+import { cache } from "react";
+import { z } from "zod";
 
-import {
-  userRoleSchema,
-  type UserRole,
-} from "@/schemas/userRole";
+import { UserModel } from "@/models/User";
+import { userRoleSchema, type UserRole } from "@/schemas/userRole";
+import { getCurrentCompetitionId } from "@/utils/currentCompetition";
+import { rolesForCompetition } from "@/utils/roleGrants";
 
 export const SESSION_COOKIE = "icpex_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
-export type SessionPayload = {
+/** What the signed cookie stores: identity and the role the user picked. */
+type SessionToken = {
   role: UserRole;
   username: string;
+  /** "env" for the ADMIN_USERNAME / ADMIN_PASSWORD login (no DB user). */
+  source?: "env";
   exp: number;
 };
+
+export type SessionPayload = SessionToken & {
+  /** Roles available right now, resolved per request for the current competition. */
+  roles: UserRole[];
+  competition_id: string | null;
+};
+
+const sessionTokenSchema = z.object({
+  role: userRoleSchema,
+  username: z.string(),
+  source: z.literal("env").optional(),
+  exp: z.number(),
+});
 
 function getSessionSecret(): string {
   const secret =
@@ -28,23 +46,15 @@ function getSessionSecret(): string {
   return secret;
 }
 
-function encodePayload(payload: SessionPayload): string {
-  return Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+function encodeToken(token: SessionToken): string {
+  return Buffer.from(JSON.stringify(token), "utf8").toString("base64url");
 }
 
-function decodePayload(encoded: string): SessionPayload | null {
+function decodeToken(encoded: string): SessionToken | null {
   try {
     const json = Buffer.from(encoded, "base64url").toString("utf8");
-    const parsed = JSON.parse(json) as SessionPayload;
-    const role = userRoleSchema.safeParse(parsed?.role);
-    if (
-      !role.success ||
-      typeof parsed.username !== "string" ||
-      typeof parsed.exp !== "number"
-    ) {
-      return null;
-    }
-    return { ...parsed, role: role.data };
+    const parsed = sessionTokenSchema.safeParse(JSON.parse(json));
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
@@ -65,34 +75,45 @@ function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(aBuf, bBuf);
 }
 
-export function sealSession(payload: SessionPayload): string {
-  const body = encodePayload(payload);
+function sealSession(token: SessionToken): string {
+  const body = encodeToken(token);
   return `${body}.${sign(body)}`;
 }
 
-export function unsealSession(token: string | undefined): SessionPayload | null {
-  if (!token) return null;
+function unsealSession(value: string | undefined): SessionToken | null {
+  if (!value) return null;
 
-  const [body, signature] = token.split(".");
+  const [body, signature] = value.split(".");
   if (!body || !signature) return null;
   if (!safeEqual(sign(body), signature)) return null;
 
-  const payload = decodePayload(body);
-  if (!payload) return null;
-  if (payload.exp < Date.now()) return null;
+  const token = decodeToken(body);
+  if (!token) return null;
+  if (token.exp < Date.now()) return null;
 
-  return payload;
+  return token;
+}
+
+/** Roles a DB user can act as in the current competition (empty if none). */
+export async function resolveUserRoles(
+  email: string,
+  competitionId: string | null
+): Promise<UserRole[]> {
+  const user = await new UserModel().findByEmail(email.toLowerCase());
+  if (!user || user.status !== "ACTIVE") return [];
+  return rolesForCompetition(user.roles, competitionId);
 }
 
 export async function createSession(
   username: string,
-  role: UserRole
+  role: UserRole,
+  options: { source?: "env" } = {}
 ): Promise<void> {
-  const expiresAt = Date.now() + SESSION_TTL_SECONDS * 1000;
   const token = sealSession({
     role,
     username,
-    exp: expiresAt,
+    ...(options.source ? { source: options.source } : {}),
+    exp: Date.now() + SESSION_TTL_SECONDS * 1000,
   });
 
   const cookieStore = await cookies();
@@ -105,15 +126,37 @@ export async function createSession(
   });
 }
 
-/** @deprecated Prefer createSession(username, role) */
+/** @deprecated Prefer createSession(username, role, { source: "env" }) */
 export async function createAdminSession(username: string): Promise<void> {
-  await createSession(username, "ADMIN");
+  await createSession(username, "ADMIN", { source: "env" });
 }
 
-export async function getSession(): Promise<SessionPayload | null> {
+/**
+ * Current session with roles resolved for the current competition. Returns
+ * null when the user no longer holds any role (e.g. a judge from a previous
+ * competition), which signs them out everywhere at once.
+ */
+export const getSession = cache(async (): Promise<SessionPayload | null> => {
   const cookieStore = await cookies();
-  return unsealSession(cookieStore.get(SESSION_COOKIE)?.value);
-}
+  const token = unsealSession(cookieStore.get(SESSION_COOKIE)?.value);
+  if (!token) return null;
+
+  const competitionId = await getCurrentCompetitionId();
+  const roles: UserRole[] =
+    token.source === "env"
+      ? ["ADMIN"]
+      : await resolveUserRoles(token.username, competitionId);
+
+  const [fallbackRole] = roles;
+  if (!fallbackRole) return null;
+
+  return {
+    ...token,
+    role: roles.includes(token.role) ? token.role : fallbackRole,
+    roles,
+    competition_id: competitionId,
+  };
+});
 
 export async function deleteSession(): Promise<void> {
   const cookieStore = await cookies();

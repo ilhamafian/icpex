@@ -4,6 +4,10 @@ import { upload } from "@vercel/blob/client";
 import { FormEvent, useState } from "react";
 import { z } from "zod";
 import {
+  EDUCATION_LEVEL_LABELS,
+  type EducationLevel,
+} from "@/schemas/educationLevel";
+import {
   registrationFormSchema,
   type RegistrationForm,
 } from "@/schemas/registrationSchema";
@@ -23,13 +27,6 @@ type DocumentRow = {
   uploading?: boolean;
   uploadError?: string;
 };
-
-const EDUCATION_LEVELS = [
-  "DIPLOMA",
-  "UNDERGRADUATE",
-  "GRADUATE",
-  "PHD",
-] as const;
 
 const ID_TYPES = ["PASSPORT", "NATIONAL_ID", "DRIVING_LICENSE"] as const;
 
@@ -110,11 +107,14 @@ function Field({
 type RegistrationFormProps = {
   /** Active published competition — only one is open at a time. */
   competitionId: string;
+  /** Education levels the competition accepts. */
+  educationLevels: EducationLevel[];
   categories: Option[];
 };
 
 export function RegistrationForm({
   competitionId,
+  educationLevels,
   categories = [],
 }: RegistrationFormProps) {
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
@@ -122,8 +122,9 @@ export function RegistrationForm({
   const [participantName, setParticipantName] = useState("");
   const [participantEmail, setParticipantEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [educationLevel, setEducationLevel] =
-    useState<(typeof EDUCATION_LEVELS)[number]>("UNDERGRADUATE");
+  const [educationLevel, setEducationLevel] = useState<EducationLevel>(
+    educationLevels[0] ?? "UNDERGRADUATE"
+  );
   const [institutionName, setInstitutionName] = useState("");
   const [institutionCountry, setInstitutionCountry] = useState("");
   const [govIdType, setGovIdType] =
@@ -525,15 +526,14 @@ export function RegistrationForm({
               id="participant.education_level"
               value={educationLevel}
               onChange={(e) =>
-                setEducationLevel(
-                  e.target.value as (typeof EDUCATION_LEVELS)[number]
-                )
+                setEducationLevel(e.target.value as EducationLevel)
               }
               className={inputClassName}
+              disabled={educationLevels.length < 2}
             >
-              {EDUCATION_LEVELS.map((level) => (
+              {educationLevels.map((level) => (
                 <option key={level} value={level}>
-                  {level.charAt(0) + level.slice(1).toLowerCase()}
+                  {EDUCATION_LEVEL_LABELS[level]}
                 </option>
               ))}
             </select>

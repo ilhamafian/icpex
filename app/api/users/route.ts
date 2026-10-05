@@ -3,15 +3,18 @@ import { NextRequest } from "next/server";
 import { getAppOrigin } from "@/lib/appOrigin";
 import { sendUserInviteEmail } from "@/lib/email";
 import { createInviteToken } from "@/lib/inviteToken";
+import { CompetitionModel } from "@/models/Competition";
 import { UserModel } from "@/models/User";
-import { inviteUserSchema, userSchema } from "@/schemas/userSchema";
+import { toIdString } from "@/schemas/objectId";
+import {
+  inviteUserSchema,
+  userSchema,
+  type RoleGrant,
+} from "@/schemas/userSchema";
 import { requireAdminSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
+import { hasGrant } from "@/utils/roleGrants";
 import { serializeUser } from "@/utils/serializeUser";
-
-function userId(user: { _id: string | { toHexString(): string } }): string {
-  return typeof user._id === "string" ? user._id : user._id.toHexString();
-}
 
 export async function GET() {
   try {
@@ -45,19 +48,42 @@ export async function POST(req: NextRequest) {
 
     const email = parsed.data.email.toLowerCase();
     const role = parsed.data.role;
-    const model = new UserModel();
 
+    let grant: RoleGrant = { role };
+    let competitionName: string | undefined;
+    if (role !== "ADMIN") {
+      if (!parsed.data.competition_id) {
+        return createResponse(
+          { error: "Choose the competition this role is for." },
+          400
+        );
+      }
+      const competition = await new CompetitionModel().findById(
+        toIdString(parsed.data.competition_id)
+      );
+      if (!competition) {
+        return createResponse({ error: "Competition not found." }, 400);
+      }
+      grant = { role, competition_id: toIdString(competition._id) };
+      competitionName = competition.name;
+    }
+
+    const model = new UserModel();
     const existing = await model.findByEmail(email);
     if (existing) {
-      if (existing.roles.includes(role)) {
+      if (hasGrant(existing.roles, role, grant.competition_id)) {
         return createResponse(
-          { error: "A user with this email and role already exists." },
+          {
+            error: competitionName
+              ? `This user already has that role in ${competitionName}.`
+              : "This user is already an administrator.",
+          },
           409
         );
       }
 
-      const id = userId(existing);
-      await model.addRole(id, role);
+      const id = toIdString(existing._id);
+      await model.addRole(id, grant);
 
       // Pending invites: refresh token and email so they get the new role.
       // Active users can already sign in; just add the role.
@@ -75,10 +101,11 @@ export async function POST(req: NextRequest) {
           await sendUserInviteEmail({
             to: email,
             role,
+            competitionName,
             inviteUrl,
           });
         } catch (emailError) {
-          await model.removeRole(id, role);
+          await model.removeRole(id, grant);
           console.error("Invite email failed:", emailError);
           return createResponse(
             {
@@ -107,7 +134,7 @@ export async function POST(req: NextRequest) {
     const created = await model.create(
       userSchema.parse({
         email,
-        roles: [role],
+        roles: [grant],
         status: "INVITED",
         email_verified: false,
         invite_token_hash: tokenHash,
@@ -122,10 +149,11 @@ export async function POST(req: NextRequest) {
       await sendUserInviteEmail({
         to: email,
         role,
+        competitionName,
         inviteUrl,
       });
     } catch (emailError) {
-      await model.delete(userId(created));
+      await model.delete(toIdString(created._id));
       console.error("Invite email failed:", emailError);
       return createResponse(
         {

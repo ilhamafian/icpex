@@ -8,9 +8,15 @@ import {
   type JudgeAssignment,
 } from "@/schemas/judgeAssignmentsSchema";
 import { toIdString } from "@/schemas/objectId";
+import { RegistrationModel } from "@/models/Registration";
 import { requireJudgeSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
-import { resolveJudgeUser } from "@/utils/resolveJudgeUser";
+import { registrationCompetitionId } from "@/utils/competitionScope";
+import { judgeTypesForRoles } from "@/utils/judgeTypes";
+import {
+  resolveJudgeUser,
+  type PortalJudgeUser,
+} from "@/utils/resolveJudgeUser";
 import { serializeJudgeAssignment } from "@/utils/serializeJudgeAssignment";
 import { z } from "zod";
 
@@ -20,15 +26,36 @@ const scoresUpdateSchema = z.object({
   submitted_at: z.coerce.date(),
 });
 
-async function loadOwnedAssignment(id: string, judgeId: string) {
+async function loadOwnedAssignment(
+  id: string,
+  judge: PortalJudgeUser,
+  competitionId: string | null
+) {
   const model = new JudgeAssignmentModel();
   const existing = await model.findById(id);
   if (!existing) {
     return { error: "Assignment not found", status: 404 as const };
   }
-  if (toIdString(existing.judge_id) !== judgeId) {
+  if (
+    toIdString(existing.judge_id) !== judge._id ||
+    !judgeTypesForRoles(judge.roles).includes(existing.type)
+  ) {
     return { error: "Forbidden", status: 403 as const };
   }
+
+  const registration = await new RegistrationModel().findOne({
+    registration_number: existing.registration_number,
+  });
+  if (
+    !registration ||
+    registrationCompetitionId(registration) !== competitionId
+  ) {
+    return {
+      error: "This assignment is not part of the current competition.",
+      status: 403 as const,
+    };
+  }
+
   return { model, existing };
 }
 
@@ -48,7 +75,7 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    const owned = await loadOwnedAssignment(id, judge._id);
+    const owned = await loadOwnedAssignment(id, judge, session.competition_id);
     if ("error" in owned) {
       return createResponse({ error: owned.error }, owned.status);
     }
@@ -187,7 +214,7 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const owned = await loadOwnedAssignment(id, judge._id);
+    const owned = await loadOwnedAssignment(id, judge, session.competition_id);
     if ("error" in owned) {
       return createResponse({ error: owned.error }, owned.status);
     }

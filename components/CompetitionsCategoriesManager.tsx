@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 
 import {
@@ -40,6 +41,11 @@ import {
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { CompetitionStatus } from "@/schemas/competitionSchema";
+import {
+  COMPETITION_ELIGIBILITY_LABELS,
+  competitionEligibilitySchema,
+  type CompetitionEligibility,
+} from "@/schemas/educationLevel";
 import type {
   SerializedCategory,
   SerializedCompetition,
@@ -52,6 +58,7 @@ type CompetitionFormState = {
   start_date: string;
   end_date: string;
   status: CompetitionStatus;
+  eligibility: CompetitionEligibility;
 };
 
 type CategoryFormState = {
@@ -75,6 +82,7 @@ function emptyCompetitionForm(): CompetitionFormState {
     start_date: "",
     end_date: "",
     status: "DRAFT",
+    eligibility: "BOTH",
   };
 }
 
@@ -86,6 +94,7 @@ function competitionToForm(
     start_date: toDateInputValue(competition.start_date),
     end_date: toDateInputValue(competition.end_date),
     status: competition.status,
+    eligibility: competition.eligibility,
   };
 }
 
@@ -133,11 +142,15 @@ function formatDateRange(start: string, end: string) {
 
 export function CompetitionsCategoriesManager({
   initialCompetitions,
+  currentCompetitionId,
   initialCategories,
 }: {
   initialCompetitions: SerializedCompetition[];
+  /** Published competition that staff roles currently apply to. */
+  currentCompetitionId: string | null;
   initialCategories: SerializedCategory[];
 }) {
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>("competitions");
   const [competitions, setCompetitions] = useState(initialCompetitions);
   const [categories, setCategories] = useState(initialCategories);
@@ -229,6 +242,7 @@ export function CompetitionsCategoriesManager({
       start_date: competitionForm.start_date,
       end_date: competitionForm.end_date,
       status: competitionForm.status,
+      eligibility: competitionForm.eligibility,
     };
 
     setSaving(true);
@@ -266,6 +280,7 @@ export function CompetitionsCategoriesManager({
         return [saved, ...current];
       });
       setSheetOpen(false);
+      router.refresh();
     } finally {
       setSaving(false);
     }
@@ -337,7 +352,8 @@ export function CompetitionsCategoriesManager({
           <h2 className="text-lg font-semibold">Competitions & Categories</h2>
           <p className="text-sm text-muted-foreground">
             Manage competitions and registration categories used on the public
-            form.
+            form. The published competition with the latest start date is
+            current — publishing a newer one resets secretary and judge roles.
           </p>
         </div>
         <Button
@@ -391,8 +407,18 @@ export function CompetitionsCategoriesManager({
                             competition.end_date
                           )}
                         </CardDescription>
+                        <CardDescription>
+                          {
+                            COMPETITION_ELIGIBILITY_LABELS[
+                              competition.eligibility
+                            ]
+                          }
+                        </CardDescription>
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
+                        {competition._id === currentCompetitionId ? (
+                          <Badge variant="secondary">Current</Badge>
+                        ) : null}
                         <Badge variant={statusVariant(competition.status)}>
                           {competition.status}
                         </Badge>
@@ -569,6 +595,28 @@ export function CompetitionsCategoriesManager({
                     <SelectItem value="DRAFT">DRAFT</SelectItem>
                     <SelectItem value="PUBLISHED">PUBLISHED</SelectItem>
                     <SelectItem value="COMPLETED">COMPLETED</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Open to">
+                <Select
+                  value={competitionForm.eligibility}
+                  onValueChange={(value) =>
+                    setCompetitionForm((current) => ({
+                      ...current,
+                      eligibility: value as CompetitionEligibility,
+                    }))
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select education level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {competitionEligibilitySchema.options.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {COMPETITION_ELIGIBILITY_LABELS[option]}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </Field>

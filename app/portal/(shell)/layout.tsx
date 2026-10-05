@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { redirect } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { RoleSwitcher } from "@/components/RoleSwitcher";
 import { SiteHeader } from "@/components/site-header";
 import {
   SidebarInset,
@@ -51,6 +52,7 @@ export default async function PortalShellLayout({
             </div>
           </div>
         </SidebarInset>
+        <RoleSwitcher role={session.role} roles={session.roles} />
       </SidebarProvider>
     </TooltipProvider>
   );

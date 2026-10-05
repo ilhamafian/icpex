@@ -1,6 +1,52 @@
 import Link from "next/link";
+import { connection } from "next/server";
 
-export default function Home() {
+import { LandingHero, type LandingHeroProps } from "@/components/LandingHero";
+import { BannerModel } from "@/models/Banner";
+import { toIdString } from "@/schemas/objectId";
+import { formatCompetitionDates } from "@/utils/competitionDates";
+import { getCurrentCompetition } from "@/utils/currentCompetition";
+import { bannerImageSrc } from "@/utils/serializeBanner";
+
+async function loadHero(): Promise<LandingHeroProps> {
+  await connection();
+  try {
+    const competition = await getCurrentCompetition();
+    if (!competition) {
+      return {
+        headline: "ICPEX",
+        subheadline:
+          "Registration is closed right now. Please check back for the next competition.",
+      };
+    }
+
+    const banner = await new BannerModel().findByCompetition(
+      toIdString(competition._id)
+    );
+    const meta = formatCompetitionDates(
+      competition.start_date,
+      competition.end_date
+    );
+    if (!banner) {
+      return { headline: competition.name, meta, ctaLabel: "Register now" };
+    }
+
+    return {
+      eyebrow: banner.eyebrow,
+      headline: banner.headline,
+      subheadline: banner.subheadline,
+      ctaLabel: banner.cta_label,
+      imageSrc: bannerImageSrc(banner),
+      meta,
+    };
+  } catch {
+    return { headline: "ICPEX" };
+  }
+}
+
+export default async function Home() {
+  const hero = await loadHero();
+
   return (
     <div className="flex min-h-full flex-1 flex-col">
       <header className="flex w-full items-center justify-end gap-3 border-b border-black/10 px-6 py-4 dark:border-white/10">
@@ -17,7 +63,9 @@ export default function Home() {
           Competition registration
         </Link>
       </header>
-      <main className="flex-1" />
+      <main className="flex-1">
+        <LandingHero {...hero} />
+      </main>
     </div>
   );
 }

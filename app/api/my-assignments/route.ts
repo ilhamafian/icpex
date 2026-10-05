@@ -1,6 +1,7 @@
 import { JudgeAssignmentModel } from "@/models/JudgeAssignment";
 import { requireJudgeSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
+import { findRegistrationsForCompetition } from "@/utils/competitionScope";
 import { resolveJudgeUser } from "@/utils/resolveJudgeUser";
 import { serializeJudgeAssignment } from "@/utils/serializeJudgeAssignment";
 
@@ -16,10 +17,21 @@ export async function GET() {
       return createResponse({ error: "Judge account not found." }, 401);
     }
 
-    const assignments = await new JudgeAssignmentModel().find(
-      { judge_id: judge._id },
-      { sort: { type: 1, created_at: -1 } }
+    const registrations = await findRegistrationsForCompetition(
+      session.competition_id
     );
+    const assignments =
+      registrations.length === 0
+        ? []
+        : await new JudgeAssignmentModel().find(
+            {
+              judge_id: judge._id,
+              registration_number: {
+                $in: registrations.map((item) => item.registration_number),
+              },
+            },
+            { sort: { type: 1, created_at: -1 } }
+          );
 
     return createResponse({
       assignments: assignments.map(serializeJudgeAssignment),

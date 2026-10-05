@@ -12,6 +12,8 @@ import { toIdString } from "@/schemas/objectId";
 import type { UserRole } from "@/schemas/userRole";
 import { requireAdminSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
+import { registrationCompetitionId } from "@/utils/competitionScope";
+import { hasGrant } from "@/utils/roleGrants";
 import { serializeJudgeAssignment } from "@/utils/serializeJudgeAssignment";
 
 const ROLE_FOR_TYPE: Record<JudgeAssignmentType, UserRole> = {
@@ -37,9 +39,11 @@ async function validateAssignmentRefs(input: {
   }
 
   const requiredRole = ROLE_FOR_TYPE[input.type];
-  if (!judge.roles.includes(requiredRole)) {
+  if (
+    !hasGrant(judge.roles, requiredRole, registrationCompetitionId(registration))
+  ) {
     return {
-      error: `Judge must have the ${requiredRole} role for ${input.type} assignments.`,
+      error: `Judge must have the ${requiredRole} role in this registration's competition for ${input.type} assignments.`,
       status: 400 as const,
     };
   }

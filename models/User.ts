@@ -1,6 +1,12 @@
+import type { UpdateFilter } from "mongodb";
 import { ZodSchema } from "zod";
 import { ModelBase } from "@/models/ModelBase";
-import { userSchema, User } from "@/schemas/userSchema";
+import {
+  roleGrantSchema,
+  userSchema,
+  type RoleGrant,
+  type User,
+} from "@/schemas/userSchema";
 
 export class UserModel extends ModelBase<User> {
   protected collectionName = "users";
@@ -16,20 +22,24 @@ export class UserModel extends ModelBase<User> {
     return result ?? null;
   }
 
-  async addRole(id: string, role: User["roles"][number]) {
+  async addRole(id: string, grant: RoleGrant) {
     const collection = await this.getCollection();
     return collection.updateOne(this.buildIdFilter(id), {
-      $addToSet: { roles: role },
+      $addToSet: { roles: roleGrantSchema.parse(grant) },
       $set: { updated_at: new Date() },
     });
   }
 
-  async removeRole(id: string, role: User["roles"][number]) {
+  async removeRole(id: string, grant: RoleGrant) {
     const collection = await this.getCollection();
     return collection.updateOne(this.buildIdFilter(id), {
-      $pull: { roles: role },
+      $pull: {
+        roles: grant.competition_id
+          ? { role: grant.role, competition_id: grant.competition_id }
+          : { role: grant.role, competition_id: { $exists: false } },
+      },
       $set: { updated_at: new Date() },
-    });
+    } as UpdateFilter<User>);
   }
 
   async setInviteToken(

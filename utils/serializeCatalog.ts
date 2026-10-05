@@ -4,6 +4,7 @@ import { WithId } from "mongodb";
 
 import type { Category } from "@/schemas/categorySchema";
 import type { Competition } from "@/schemas/competitionSchema";
+import { DEFAULT_COMPETITION_ELIGIBILITY } from "@/schemas/educationLevel";
 import { toIdString } from "@/schemas/objectId";
 
 function toIso(value: Date | string | undefined) {
@@ -18,6 +19,7 @@ export type SerializedCompetition = {
   start_date: string;
   end_date: string;
   status: Competition["status"];
+  eligibility: Competition["eligibility"];
   created_at?: string;
   updated_at?: string;
 };
@@ -38,6 +40,7 @@ export function serializeCompetition(
     start_date: toIso(competition.start_date)!,
     end_date: toIso(competition.end_date)!,
     status: competition.status,
+    eligibility: competition.eligibility ?? DEFAULT_COMPETITION_ELIGIBILITY,
     created_at: toIso(competition.created_at),
     updated_at: toIso(competition.updated_at),
   };

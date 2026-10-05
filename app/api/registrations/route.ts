@@ -1,15 +1,19 @@
 import { NextRequest } from "next/server";
 
 import { CategoryModel } from "@/models/Category";
-import { CompetitionModel } from "@/models/Competition";
 import { PaymentModel } from "@/models/Payment";
 import { RegistrationModel } from "@/models/Registration";
 import {
   registrationFormSchema,
   registrationSchema,
 } from "@/schemas/registrationSchema";
+import {
+  EDUCATION_LEVEL_LABELS,
+  allowedEducationLevels,
+} from "@/schemas/educationLevel";
 import { toIdString } from "@/schemas/objectId";
 import { createResponse, handleError } from "@/utils/apiHelper";
+import { getCurrentCompetition } from "@/utils/currentCompetition";
 import { requireSecretarySession } from "@/utils/portalAuth";
 import { serializePayment } from "@/utils/serializePayment";
 import { serializeRegistration } from "@/utils/serializeRegistration";
@@ -60,10 +64,22 @@ export async function POST(req: NextRequest) {
     const competitionId = String(parsed.data.competition_id);
     const categoryId = String(parsed.data.category_id);
 
-    const competition = await new CompetitionModel().findById(competitionId);
-    if (!competition || competition.status !== "PUBLISHED") {
+    const competition = await getCurrentCompetition();
+    if (!competition || toIdString(competition._id) !== competitionId) {
       return createResponse(
         { error: "No published competition available for registration." },
+        400
+      );
+    }
+
+    const allowedLevels = allowedEducationLevels(competition.eligibility);
+    if (!allowedLevels.includes(parsed.data.participant.education_level)) {
+      return createResponse(
+        {
+          error: `This competition is open to ${allowedLevels
+            .map((level) => EDUCATION_LEVEL_LABELS[level].toLowerCase())
+            .join(" and ")} participants only.`,
+        },
         400
       );
     }

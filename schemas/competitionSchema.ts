@@ -1,3 +1,4 @@
+import { competitionEligibilitySchema } from "./educationLevel";
 import { objectIdSchema } from "./objectId";
 import { z } from "zod";
 
@@ -14,6 +15,7 @@ export const competitionSchema = z.object({
   start_date: z.coerce.date(),
   end_date: z.coerce.date(),
   status: competitionStatusSchema,
+  eligibility: competitionEligibilitySchema,
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional(),
 });

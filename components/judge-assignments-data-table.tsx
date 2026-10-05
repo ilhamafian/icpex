@@ -57,6 +57,7 @@ import type {
   JudgeAssignmentType,
 } from "@/schemas/judgeAssignmentsSchema";
 import type { SerializedUser } from "@/types/user";
+import { hasGrant } from "@/utils/roleGrants";
 import type { AssignmentRegistrationOption } from "@/utils/assignmentOptions";
 import type { SerializedJudgeAssignment } from "@/utils/serializeJudgeAssignment";
 
@@ -131,6 +132,8 @@ export function judgeName(judge: SerializedUser | undefined, fallback: string) {
 type JudgeAssignmentsDataTableProps = {
   data: JudgeAssignmentRow[];
   judges: SerializedUser[];
+  /** Judges are offered only for roles held in this competition. */
+  competitionId: string | null;
   busyKey?: string | null;
   onToggleJudge: (
     row: JudgeAssignmentRow,
@@ -151,6 +154,7 @@ export function assignmentKey(
 export function JudgeAssignmentsDataTable({
   data,
   judges,
+  competitionId,
   busyKey,
   onToggleJudge,
 }: JudgeAssignmentsDataTableProps) {
@@ -282,7 +286,7 @@ export function JudgeAssignmentsDataTable({
                       );
                       const options = judges.filter(
                         (judge) =>
-                          judge.roles.includes(role) &&
+                          hasGrant(judge.roles, role, competitionId) &&
                           (judge.status !== "DISABLED" ||
                             assignedIds.has(judge._id))
                       );
@@ -342,7 +346,7 @@ export function JudgeAssignmentsDataTable({
           },
         }),
       ]),
-    [busyKey, judges, judgesById, onToggleJudge]
+    [busyKey, competitionId, judges, judgesById, onToggleJudge]
   );
 
   const table = useTable({

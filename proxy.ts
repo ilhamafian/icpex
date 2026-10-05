@@ -19,11 +19,8 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  if (pathname === "/portal/login" && hasSession) {
-    // Role-specific home is resolved in the login page / shell
-    return NextResponse.redirect(new URL("/portal", request.url));
-  }
-
+  // /portal/login is not redirected here: a cookie may belong to staff with no
+  // role in the current competition. The login page validates the session.
   return NextResponse.next();
 }
 

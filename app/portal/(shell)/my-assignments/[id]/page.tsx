@@ -10,6 +10,7 @@ import { JudgeAssignmentModel } from "@/models/JudgeAssignment";
 import { JudgeCriteriaModel } from "@/models/JudgeCriteria";
 import { RegistrationModel } from "@/models/Registration";
 import { toIdString } from "@/schemas/objectId";
+import { registrationCompetitionId } from "@/utils/competitionScope";
 import { judgeTypesForRoles } from "@/utils/judgeTypes";
 import { requirePortalSection } from "@/utils/requirePortalAccess";
 import { resolveJudgeUser } from "@/utils/resolveJudgeUser";
@@ -40,7 +41,10 @@ export default async function AssessmentPage({
   const registration = await new RegistrationModel().findOne({
     registration_number: assignment.registration_number,
   });
-  if (!registration) {
+  if (
+    !registration ||
+    registrationCompetitionId(registration) !== session.competition_id
+  ) {
     notFound();
   }
 

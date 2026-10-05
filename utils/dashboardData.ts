@@ -117,7 +117,7 @@ export async function loadDashboardData(): Promise<DashboardData> {
       new PaymentModel().find({}, { sort: { created_at: -1 } }),
       new JudgeAssignmentModel().find({}),
       new UserModel().find({
-        roles: { $in: ["THESIS_JUDGE", "EBOOK_JUDGE"] },
+        "roles.role": { $in: ["THESIS_JUDGE", "EBOOK_JUDGE"] },
       }),
       new CompetitionModel().find({}),
       new CategoryModel().find({}),

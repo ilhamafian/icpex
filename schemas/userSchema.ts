@@ -6,12 +6,31 @@ export { userRoleSchema, type UserRole } from "./userRole";
 
 export const userStatusSchema = z.enum(["INVITED", "ACTIVE", "DISABLED"]);
 
+/**
+ * A role held by a user. ADMIN is global (no competition); every other role is
+ * scoped to a single competition so staff reset when a new competition starts.
+ */
+export const roleGrantSchema = z
+  .object({
+    role: userRoleSchema,
+    competition_id: z
+      .string()
+      .regex(/^[a-fA-F0-9]{24}$/, "Invalid competition id")
+      .optional(),
+  })
+  .refine(
+    (grant) => (grant.role === "ADMIN") === !grant.competition_id,
+    "ADMIN is global; every other role needs a competition"
+  );
+
+export type RoleGrant = z.infer<typeof roleGrantSchema>;
+
 export const userSchema = z.object({
   _id: objectIdSchema.optional(),
   email: z.email(),
   name: z.string().min(1).optional(),
   password_hash: z.string().min(1).optional(),
-  roles: z.array(userRoleSchema).min(1),
+  roles: z.array(roleGrantSchema).min(1),
   status: userStatusSchema.default("INVITED"),
   email_verified: z.boolean().default(false),
   invite_token_hash: z.string().min(1).optional(),
@@ -23,6 +42,8 @@ export const userSchema = z.object({
 export const inviteUserSchema = z.object({
   email: z.email(),
   role: userRoleSchema,
+  /** Required for every role except ADMIN. */
+  competition_id: objectIdSchema.optional(),
 });
 
 export const acceptInviteSchema = z.object({

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { educationLevelSchema } from "./educationLevel";
 import { objectIdSchema } from "./objectId";
 
 export const registrationSchema = z.object({
@@ -10,7 +11,7 @@ export const registrationSchema = z.object({
     name: z.string().min(1),
     email: z.string().email(),
     phone: z.string().min(1),
-    education_level: z.enum(["DIPLOMA", "UNDERGRADUATE", "GRADUATE", "PHD"]),
+    education_level: educationLevelSchema,
     institution: z.object({
       name: z.string().min(1),
       country: z.string().min(1),

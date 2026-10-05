@@ -1,33 +1,39 @@
 import Link from "next/link";
 import { RegistrationForm } from "@/components/RegistrationForm";
+import { allowedEducationLevels } from "@/schemas/educationLevel";
 import { toIdString } from "@/schemas/objectId";
 import { CategoryModel } from "@/models/Category";
-import { CompetitionModel } from "@/models/Competition";
+import { getCurrentCompetition } from "@/utils/currentCompetition";
 
 async function loadOptions() {
   try {
-    const [competitions, categories] = await Promise.all([
-      new CompetitionModel().getValidCompetitions(),
+    const [competition, categories] = await Promise.all([
+      getCurrentCompetition(),
       new CategoryModel().getCategories(),
     ]);
-
-    const competition = competitions?.[0];
 
     return {
       competitionId: competition ? toIdString(competition._id) : "",
       competitionName: competition?.name ?? "",
+      educationLevels: allowedEducationLevels(competition?.eligibility),
       categories: (categories ?? []).map((c) => ({
         id: toIdString(c._id),
         name: c.name,
       })),
     };
   } catch {
-    return { competitionId: "", competitionName: "", categories: [] };
+    return {
+      competitionId: "",
+      competitionName: "",
+      educationLevels: allowedEducationLevels(undefined),
+      categories: [],
+    };
   }
 }
 
 export default async function RegisterPage() {
-  const { competitionId, competitionName, categories } = await loadOptions();
+  const { competitionId, competitionName, educationLevels, categories } =
+    await loadOptions();
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
@@ -58,6 +64,7 @@ export default async function RegisterPage() {
         {competitionId ? (
           <RegistrationForm
             competitionId={competitionId}
+            educationLevels={educationLevels}
             categories={categories}
           />
         ) : (

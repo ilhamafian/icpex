@@ -4,6 +4,7 @@ import { hashInviteToken } from "@/lib/inviteToken";
 import { hashPassword } from "@/lib/password";
 import { UserModel } from "@/models/User";
 import { acceptInviteSchema } from "@/schemas/userSchema";
+import { sortRoles } from "@/schemas/userRole";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { toIdString } from "@/schemas/objectId";
 
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
 
     return createResponse({
       email: user.email,
-      roles: user.roles,
+      roles: sortRoles(user.roles.map((grant) => grant.role)),
     });
   } catch (error) {
     return handleError(error);

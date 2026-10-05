@@ -3,8 +3,8 @@ import { NextRequest } from "next/server";
 import { getAppOrigin } from "@/lib/appOrigin";
 import { sendUserInviteEmail } from "@/lib/email";
 import { createInviteToken } from "@/lib/inviteToken";
+import { CompetitionModel } from "@/models/Competition";
 import { UserModel } from "@/models/User";
-import type { UserRole } from "@/schemas/userSchema";
 import { requireAdminSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { serializeUser } from "@/utils/serializeUser";
@@ -39,14 +39,18 @@ export async function POST(
       invite_expires_at: expiresAt,
     });
 
-    const role = existing.roles[0] as UserRole;
+    const grant = existing.roles[existing.roles.length - 1];
+    const competition = grant.competition_id
+      ? await new CompetitionModel().findById(grant.competition_id)
+      : null;
     const origin = await getAppOrigin();
     const inviteUrl = `${origin}/invite/${token}`;
 
     try {
       await sendUserInviteEmail({
         to: existing.email,
-        role,
+        role: grant.role,
+        competitionName: competition?.name,
         inviteUrl,
       });
     } catch (emailError) {

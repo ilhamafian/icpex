@@ -2,7 +2,7 @@ import { AuthFormLayout } from "@/components/AuthFormLayout";
 import { InviteAcceptForm } from "@/components/InviteAcceptForm";
 import { hashInviteToken } from "@/lib/inviteToken";
 import { UserModel } from "@/models/User";
-import type { UserRole } from "@/schemas/userSchema";
+import { sortRoles } from "@/schemas/userRole";
 
 type InvitePageProps = {
   params: Promise<{ token: string }>;
@@ -24,7 +24,7 @@ async function loadInvite(token: string) {
     }
     return {
       email: user.email,
-      roles: user.roles as UserRole[],
+      roles: sortRoles(user.roles.map((grant) => grant.role)),
     };
   } catch {
     return { error: "invalid" as const };
