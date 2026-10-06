@@ -8,6 +8,7 @@ import {
   type EducationLevel,
 } from "@/schemas/educationLevel";
 import {
+  MAX_TEAM_MEMBERS,
   registrationFormSchema,
   type RegistrationForm,
 } from "@/schemas/registrationSchema";
@@ -669,17 +670,33 @@ export function RegistrationForm({
 
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">Team members</p>
+            <p className="text-sm font-medium">
+              Team members{" "}
+              <span className="font-normal text-zinc-600 dark:text-zinc-400">
+                ({members.length}/{MAX_TEAM_MEMBERS})
+              </span>
+            </p>
             <button
               type="button"
               onClick={() =>
-                setMembers((prev) => [...prev, { name: "", email: "" }])
+                setMembers((prev) =>
+                  prev.length >= MAX_TEAM_MEMBERS
+                    ? prev
+                    : [...prev, { name: "", email: "" }]
+                )
               }
-              className="text-sm font-medium text-foreground underline-offset-4 hover:underline"
+              disabled={members.length >= MAX_TEAM_MEMBERS}
+              className="text-sm font-medium text-foreground underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:text-zinc-400 disabled:no-underline"
             >
               Add member
             </button>
           </div>
+          {members.length >= MAX_TEAM_MEMBERS ? (
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              You&apos;ve reached the maximum of {MAX_TEAM_MEMBERS} team members.
+            </p>
+          ) : null}
+          <FieldError message={errors["team.members"]} />
           {members.length === 0 ? (
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
               No additional members yet.

@@ -2,6 +2,9 @@ import { z } from "zod";
 import { educationLevelSchema } from "./educationLevel";
 import { objectIdSchema } from "./objectId";
 
+/** Additional team members, not counting the team lead. */
+export const MAX_TEAM_MEMBERS = 6;
+
 export const registrationSchema = z.object({
   _id: objectIdSchema.optional(),
   registration_number: z.string(),
@@ -35,7 +38,7 @@ export const registrationSchema = z.object({
         name: z.string().min(1),
         email: z.string().email(),
       })
-    ),
+    ).max(MAX_TEAM_MEMBERS, `A team can have at most ${MAX_TEAM_MEMBERS} members.`),
   }),
   supervisors: z.array(
     z.object({
