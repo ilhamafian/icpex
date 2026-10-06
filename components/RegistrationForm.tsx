@@ -11,6 +11,7 @@ import {
   registrationFormSchema,
   type RegistrationForm,
 } from "@/schemas/registrationSchema";
+import { REGISTRATION_FEE } from "@/utils/registrationFee";
 
 type Option = { id: string; name: string };
 
@@ -40,7 +41,6 @@ const DOCUMENT_TYPES = [
 ] as const;
 
 /** Manual bank transfer — placeholder details for participants. */
-const REGISTRATION_FEE = 150;
 const PAYMENT_BANK = {
   bankName: "Maybank",
   accountName: "ICPEX Competition Secretariat",

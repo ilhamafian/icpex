@@ -27,7 +27,7 @@ export function LandingHero({
   return (
     <section
       className={cn(
-        "relative isolate flex min-h-[28rem] items-end overflow-hidden bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-950 text-white",
+        "relative isolate flex min-h-[28rem] items-end overflow-hidden bg-gradient-to-br from-primary via-[oklch(0.32_0.07_225)] to-zinc-950 text-white",
         className
       )}
     >
@@ -44,7 +44,12 @@ export function LandingHero({
           />
           <div className="absolute inset-0 -z-10 bg-gradient-to-t from-black/85 via-black/50 to-black/20" />
         </>
-      ) : null}
+      ) : (
+        <div
+          aria-hidden
+          className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_80%_20%,oklch(0.72_0.14_215/0.35),transparent_45%),radial-gradient(circle_at_10%_90%,oklch(0.6_0.12_200/0.25),transparent_40%)]"
+        />
+      )}
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-6 py-16 sm:py-20">
         {eyebrow ? (
           <p className="text-xs font-semibold tracking-[0.2em] text-white/70 uppercase">
