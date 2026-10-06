@@ -109,12 +109,15 @@ type RegistrationFormProps = {
   competitionId: string;
   /** Education levels the competition accepts. */
   educationLevels: EducationLevel[];
+  /** Preselected from the landing page's level-specific registration link. */
+  initialEducationLevel?: EducationLevel;
   categories: Option[];
 };
 
 export function RegistrationForm({
   competitionId,
   educationLevels,
+  initialEducationLevel,
   categories = [],
 }: RegistrationFormProps) {
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
@@ -123,7 +126,7 @@ export function RegistrationForm({
   const [participantEmail, setParticipantEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [educationLevel, setEducationLevel] = useState<EducationLevel>(
-    educationLevels[0] ?? "UNDERGRADUATE"
+    initialEducationLevel ?? educationLevels[0] ?? "UNDERGRADUATE"
   );
   const [institutionName, setInstitutionName] = useState("");
   const [institutionCountry, setInstitutionCountry] = useState("");

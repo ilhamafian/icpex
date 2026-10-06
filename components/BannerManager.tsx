@@ -37,6 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatCompetitionDates } from "@/utils/competitionDates";
+import { registrationLinks } from "@/utils/registrationLinks";
 import type { SerializedBanner } from "@/utils/serializeBanner";
 import type { SerializedCompetition } from "@/utils/serializeCatalog";
 
@@ -46,7 +47,6 @@ type BannerFormState = {
   eyebrow: string;
   headline: string;
   subheadline: string;
-  cta_label: string;
   image_url: string;
 };
 
@@ -59,7 +59,6 @@ function bannerToForm(
       eyebrow: banner.eyebrow,
       headline: banner.headline,
       subheadline: banner.subheadline,
-      cta_label: banner.cta_label,
       image_url: banner.image_url,
     };
   }
@@ -67,7 +66,6 @@ function bannerToForm(
     eyebrow: "",
     headline: competition?.name ?? "",
     subheadline: "",
-    cta_label: "Register now",
     image_url: "",
   };
 }
@@ -186,11 +184,6 @@ export function BannerManager({
       toast.error("Headline is required.");
       return;
     }
-    if (!form.cta_label.trim()) {
-      toast.error("Button label is required.");
-      return;
-    }
-
     setSaving(true);
     try {
       const response = await fetch(`/api/banners/${competitionId}`, {
@@ -330,15 +323,6 @@ export function BannerManager({
               />
             </Field>
 
-            <Field label="Button label" htmlFor="banner-cta" hint="Links to the registration form.">
-              <Input
-                id="banner-cta"
-                value={form.cta_label}
-                maxLength={40}
-                onChange={(e) => updateField("cta_label", e.target.value)}
-              />
-            </Field>
-
             <Field label="Background image" hint="JPG, PNG, WebP or GIF up to 10 MB. Wide images (e.g. 1920×800) work best.">
               <div className="flex items-center gap-2">
                 <Button variant="outline" asChild disabled={uploading}>
@@ -382,7 +366,7 @@ export function BannerManager({
                 eyebrow={form.eyebrow}
                 headline={form.headline || "Headline"}
                 subheadline={form.subheadline}
-                ctaLabel={form.cta_label}
+                actions={registrationLinks(competition?.eligibility)}
                 imageSrc={previewImage}
                 meta={
                   competition

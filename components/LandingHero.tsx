@@ -2,13 +2,14 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { cn } from "@/lib/utils";
+import type { RegistrationLink } from "@/utils/registrationLinks";
 
 export type LandingHeroProps = {
   eyebrow?: string;
   headline: string;
   subheadline?: string;
-  ctaLabel?: string;
-  ctaHref?: string;
+  /** The first action is styled as primary, the rest as secondary. */
+  actions?: RegistrationLink[];
   imageSrc?: string | null;
   meta?: string;
   className?: string;
@@ -18,8 +19,7 @@ export function LandingHero({
   eyebrow,
   headline,
   subheadline,
-  ctaLabel,
-  ctaHref = "/register",
+  actions = [],
   imageSrc,
   meta,
   className,
@@ -65,14 +65,22 @@ export function LandingHero({
           </p>
         ) : null}
         {meta ? <p className="text-sm font-medium text-white/70">{meta}</p> : null}
-        {ctaLabel ? (
-          <div className="pt-2">
-            <Link
-              href={ctaHref}
-              className="inline-flex h-11 items-center rounded-full bg-white px-6 text-sm font-medium text-zinc-900 transition-colors hover:bg-white/85"
-            >
-              {ctaLabel}
-            </Link>
+        {actions.length ? (
+          <div className="flex flex-wrap gap-3 pt-2">
+            {actions.map((action, index) => (
+              <Link
+                key={action.href}
+                href={action.href}
+                className={cn(
+                  "inline-flex h-11 items-center rounded-full px-6 text-sm font-medium transition-colors",
+                  index === 0
+                    ? "bg-white text-zinc-900 hover:bg-white/85"
+                    : "border border-white/40 text-white hover:bg-white/10"
+                )}
+              >
+                {action.label}
+              </Link>
+            ))}
           </div>
         ) : null}
       </div>

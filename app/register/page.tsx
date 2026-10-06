@@ -4,6 +4,7 @@ import { allowedEducationLevels } from "@/schemas/educationLevel";
 import { toIdString } from "@/schemas/objectId";
 import { CategoryModel } from "@/models/Category";
 import { getCurrentCompetition } from "@/utils/currentCompetition";
+import { parseLevelParam } from "@/utils/registrationLinks";
 
 async function loadOptions() {
   try {
@@ -31,9 +32,16 @@ async function loadOptions() {
   }
 }
 
-export default async function RegisterPage() {
-  const { competitionId, competitionName, educationLevels, categories } =
-    await loadOptions();
+export default async function RegisterPage({
+  searchParams,
+}: PageProps<"/register">) {
+  const [{ competitionId, competitionName, educationLevels, categories }, { level }] =
+    await Promise.all([loadOptions(), searchParams]);
+  const requestedLevel = parseLevelParam(level);
+  const initialEducationLevel =
+    requestedLevel && educationLevels.includes(requestedLevel)
+      ? requestedLevel
+      : undefined;
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
@@ -65,6 +73,7 @@ export default async function RegisterPage() {
           <RegistrationForm
             competitionId={competitionId}
             educationLevels={educationLevels}
+            initialEducationLevel={initialEducationLevel}
             categories={categories}
           />
         ) : (

@@ -11,7 +11,6 @@ export type SerializedBanner = {
   eyebrow: string;
   headline: string;
   subheadline: string;
-  cta_label: string;
   /** Raw private blob URL — only useful to the server. */
   image_url: string;
   /** Public, cache-busted URL that streams the private blob. */
@@ -34,7 +33,6 @@ export function serializeBanner(banner: WithId<Banner>): SerializedBanner {
     eyebrow: banner.eyebrow ?? "",
     headline: banner.headline,
     subheadline: banner.subheadline ?? "",
-    cta_label: banner.cta_label,
     image_url: banner.image_url ?? "",
     image_src: bannerImageSrc(banner),
     updated_at: banner.updated_at

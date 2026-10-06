@@ -26,6 +26,7 @@ import { toIdString } from "@/schemas/objectId";
 import { formatCompetitionDates } from "@/utils/competitionDates";
 import { getCurrentCompetition } from "@/utils/currentCompetition";
 import { REGISTRATION_FEE } from "@/utils/registrationFee";
+import { registrationLinks } from "@/utils/registrationLinks";
 import { bannerImageSrc } from "@/utils/serializeBanner";
 
 type LandingData = {
@@ -68,12 +69,13 @@ async function loadLanding(): Promise<LandingData> {
       competition.start_date,
       competition.end_date
     );
+    const actions = registrationLinks(competition.eligibility);
     const hero: LandingHeroProps = banner
       ? {
           eyebrow: banner.eyebrow,
           headline: banner.headline,
           subheadline: banner.subheadline,
-          ctaLabel: banner.cta_label,
+          actions,
           imageSrc: bannerImageSrc(banner),
           meta: dates,
         }
@@ -81,7 +83,7 @@ async function loadLanding(): Promise<LandingData> {
           eyebrow: "Registration now open",
           headline: competition.name,
           meta: dates,
-          ctaLabel: "Register now",
+          actions,
         };
 
     return {

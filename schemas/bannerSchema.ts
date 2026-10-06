@@ -8,7 +8,6 @@ export const bannerSchema = z.object({
   eyebrow: z.string().trim().max(60).default(""),
   headline: z.string().trim().min(1, "Headline is required.").max(120),
   subheadline: z.string().trim().max(300).default(""),
-  cta_label: z.string().trim().min(1, "Button label is required.").max(40),
   image_url: z.string().url().or(z.literal("")).default(""),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional(),
