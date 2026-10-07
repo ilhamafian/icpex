@@ -7,7 +7,10 @@ import { registrationStatusUpdateSchema } from "@/schemas/registrationSchema";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { requireSecretarySession } from "@/utils/portalAuth";
 import { serializePayment } from "@/utils/serializePayment";
-import { serializeRegistration } from "@/utils/serializeRegistration";
+import {
+  serializeRegistration,
+  submissionNumbersFor,
+} from "@/utils/serializeRegistration";
 
 export async function GET(
   _req: NextRequest,
@@ -30,7 +33,10 @@ export async function GET(
     });
 
     return createResponse({
-      registration: serializeRegistration(registration),
+      registration: serializeRegistration(
+        registration,
+        await submissionNumbersFor([registration])
+      ),
       payment: payment ? serializePayment(payment) : null,
     });
   } catch (error) {
@@ -73,7 +79,10 @@ export async function PATCH(
     });
 
     return createResponse({
-      registration: serializeRegistration(updated),
+      registration: serializeRegistration(
+        updated,
+        await submissionNumbersFor([updated])
+      ),
       payment: payment ? serializePayment(payment) : null,
     });
   } catch (error) {

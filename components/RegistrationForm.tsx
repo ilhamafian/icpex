@@ -2,44 +2,48 @@
 
 import { upload } from "@vercel/blob/client";
 import { FormEvent, useState } from "react";
-import { z } from "zod";
+import { IconChevronDown, IconTrash } from "@tabler/icons-react";
+
 import {
-  EDUCATION_LEVEL_LABELS,
-  type EducationLevel,
-} from "@/schemas/educationLevel";
+  emptyProject,
+  ProjectFields,
+  projectIsUploading,
+  projectToPayload,
+  type ProjectState,
+} from "@/components/ProjectFields";
 import {
-  MAX_TEAM_MEMBERS,
-  registrationFormSchema,
-  type RegistrationForm,
+  Field,
+  FieldError,
+  fileInputClassName,
+  inputClassName,
+  linkButtonClassName,
+  mutedTextClassName,
+  Section,
+} from "@/components/registrationFormUi";
+import type { EducationLevel } from "@/schemas/educationLevel";
+import {
+  FREE_PROJECT_EVERY,
+  MAX_PROJECTS_PER_SUBMISSION,
 } from "@/schemas/registrationSchema";
-import { REGISTRATION_FEE } from "@/utils/registrationFee";
+import {
+  institutionSchema,
+  submissionFormSchema,
+  type SubmissionForm,
+} from "@/schemas/submissionSchema";
 
 type Option = { id: string; name: string };
 
 type FieldErrors = Record<string, string>;
 
-type Person = { name: string; email: string };
+type FormStep = "university" | "projects" | "payment";
 
-type FormStep = "details" | "payment";
+type Quote = { fees: number[]; freeCount: number; total: number };
 
-type DocumentRow = {
-  type: RegistrationForm["documents"][number]["type"];
-  file_name: string;
-  file_url: string;
-  uploading?: boolean;
-  uploadError?: string;
+type SubmissionResult = {
+  submission_number: string;
+  total: number;
+  projects: { registration_number: string; title: string; fee: number }[];
 };
-
-const ID_TYPES = ["PASSPORT", "NATIONAL_ID", "DRIVING_LICENSE"] as const;
-
-const DOCUMENT_TYPES = [
-  "PROJECT_REPORT",
-  "PROJECT_PRESENTATION",
-  "PROJECT_DEMO",
-  "PROJECT_VIDEO",
-  "PROJECT_PHOTO",
-  "PROJECT_OTHER",
-] as const;
 
 /** Manual bank transfer — placeholder details for participants. */
 const PAYMENT_BANK = {
@@ -48,60 +52,32 @@ const PAYMENT_BANK = {
   accountNumber: "512345678901",
 } as const;
 
-const inputClassName =
-  "h-11 w-full rounded-lg border border-black/10 bg-transparent px-3 text-sm outline-none transition-colors focus:border-foreground dark:border-white/15";
+const STEPS: { id: FormStep; label: string }[] = [
+  { id: "university", label: "1. University" },
+  { id: "projects", label: "2. Projects" },
+  { id: "payment", label: "3. Payment" },
+];
 
-const textareaClassName =
-  "min-h-28 w-full rounded-lg border border-black/10 bg-transparent px-3 py-2.5 text-sm outline-none transition-colors focus:border-foreground dark:border-white/15";
-
-function FieldError({ message }: { message?: string }) {
-  if (!message) return null;
-  return (
-    <p className="text-sm text-red-600 dark:text-red-400">{message}</p>
-  );
+function formatMyr(amount: number) {
+  return `MYR ${amount.toFixed(2)}`;
 }
 
-function Section({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="flex flex-col gap-4 border-t border-black/10 pt-8 first:border-t-0 first:pt-0 dark:border-white/10">
-      <div>
-        <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          {description}
-        </p>
-      </div>
-      {children}
-    </section>
-  );
+function issuesToErrors(issues: { path: PropertyKey[]; message: string }[]) {
+  const next: FieldErrors = {};
+  for (const issue of issues) {
+    const key = issue.path.map(String).join(".") || "form";
+    next[key] ??= issue.message;
+  }
+  return next;
 }
 
-function Field({
-  id,
-  label,
-  error,
-  children,
-}: {
-  id: string;
-  label: string;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-medium">
-        {label}
-      </label>
-      {children}
-      <FieldError message={error} />
-    </div>
+/** Errors under `projects.<index>.`, with that prefix removed. */
+function projectErrors(errors: FieldErrors, index: number): FieldErrors {
+  const prefix = `projects.${index}.`;
+  return Object.fromEntries(
+    Object.entries(errors)
+      .filter(([key]) => key.startsWith(prefix))
+      .map(([key, message]) => [key.slice(prefix.length), message])
   );
 }
 
@@ -121,34 +97,20 @@ export function RegistrationForm({
   initialEducationLevel,
   categories = [],
 }: RegistrationFormProps) {
-  const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
+  const defaultLevel =
+    initialEducationLevel ?? educationLevels[0] ?? "UNDERGRADUATE";
+  const newProject = () => emptyProject(categories[0]?.id ?? "", defaultLevel);
 
-  const [participantName, setParticipantName] = useState("");
-  const [participantEmail, setParticipantEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [educationLevel, setEducationLevel] = useState<EducationLevel>(
-    initialEducationLevel ?? educationLevels[0] ?? "UNDERGRADUATE"
-  );
+  const [step, setStep] = useState<FormStep>("university");
   const [institutionName, setInstitutionName] = useState("");
   const [institutionCountry, setInstitutionCountry] = useState("");
-  const [govIdType, setGovIdType] =
-    useState<(typeof ID_TYPES)[number]>("NATIONAL_ID");
-  const [govIdNumber, setGovIdNumber] = useState("");
+  const [projects, setProjects] = useState<ProjectState[]>(() => [newProject()]);
+  const [expanded, setExpanded] = useState<Set<string>>(
+    () => new Set(projects.map((p) => p.key))
+  );
 
-  const [projectTitle, setProjectTitle] = useState("");
-  const [projectAbstract, setProjectAbstract] = useState("");
-
-  const [leadName, setLeadName] = useState("");
-  const [leadEmail, setLeadEmail] = useState("");
-  const [members, setMembers] = useState<Person[]>([]);
-  const [supervisors, setSupervisors] = useState<Person[]>([
-    { name: "", email: "" },
-  ]);
-  const [documents, setDocuments] = useState<DocumentRow[]>([
-    { type: "PROJECT_REPORT", file_name: "", file_url: "" },
-  ]);
-
-  const [step, setStep] = useState<FormStep>("details");
+  const [quote, setQuote] = useState<Quote | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
   const [receiptUrl, setReceiptUrl] = useState("");
   const [receiptFileName, setReceiptFileName] = useState("");
   const [receiptUploading, setReceiptUploading] = useState(false);
@@ -156,125 +118,113 @@ export function RegistrationForm({
 
   const [errors, setErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [registrationNumber, setRegistrationNumber] = useState<string | null>(
-    null
-  );
+  const [result, setResult] = useState<SubmissionResult | null>(null);
 
-  function buildRegistrationPayload(): RegistrationForm {
+  const anyUploading = projects.some(projectIsUploading);
+  const institution = { name: institutionName, country: institutionCountry };
+
+  function buildPayload(): SubmissionForm {
     return {
       competition_id: competitionId,
-      category_id: categoryId,
-      participant: {
-        name: participantName,
-        email: participantEmail,
-        phone,
-        education_level: educationLevel,
-        institution: {
-          name: institutionName,
-          country: institutionCountry,
-        },
-        government_id: {
-          type: govIdType,
-          number: govIdNumber,
-        },
-      },
-      project: {
-        title: projectTitle,
-        abstract: projectAbstract,
-      },
-      team: {
-        lead: {
-          name: leadName || participantName,
-          email: leadEmail || participantEmail,
-        },
-        members: members.filter((m) => m.name.trim() || m.email.trim()),
-      },
-      supervisors: supervisors.filter((s) => s.name.trim() || s.email.trim()),
-      documents: documents.filter(
-        (d) => d.file_name.trim() || d.file_url.trim()
-      ),
+      institution,
+      projects: projects.map(projectToPayload),
+      receipt_url: quote && quote.total > 0 ? receiptUrl : undefined,
     };
   }
 
-  function validateDetails(): boolean {
-    const parsed = registrationFormSchema.safeParse(buildRegistrationPayload());
+  function updateProject(
+    key: string,
+    update: (project: ProjectState) => ProjectState
+  ) {
+    setProjects((prev) => prev.map((p) => (p.key === key ? update(p) : p)));
+  }
+
+  function toggleProject(key: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function addProject() {
+    if (projects.length >= MAX_PROJECTS_PER_SUBMISSION) return;
+    const project = newProject();
+    setProjects((prev) => [...prev, project]);
+    setExpanded((prev) => new Set(prev).add(project.key));
+  }
+
+  function removeProject(key: string) {
+    setProjects((prev) => prev.filter((p) => p.key !== key));
+    setErrors({});
+  }
+
+  function validateUniversity(): boolean {
+    const parsed = institutionSchema.safeParse(institution);
     if (!parsed.success) {
-      const next: FieldErrors = {};
-      for (const issue of parsed.error.issues) {
-        const key = issue.path.join(".") || "form";
-        next[key] ??= issue.message;
-      }
-      setErrors(next);
+      setErrors(
+        Object.fromEntries(
+          Object.entries(issuesToErrors(parsed.error.issues)).map(
+            ([key, message]) => [`institution.${key}`, message]
+          )
+        )
+      );
       return false;
     }
-
-    if (documents.some((d) => d.uploading)) {
-      setErrors({ form: "Please wait for document uploads to finish." });
-      return false;
-    }
-
     setErrors({});
     return true;
   }
 
-  async function handleDocumentUpload(index: number, file: File | undefined) {
-    if (!file) return;
-
-    setDocuments((prev) =>
-      prev.map((d, i) =>
-        i === index
-          ? {
-              ...d,
-              uploading: true,
-              uploadError: undefined,
-              file_name: file.name,
-              file_url: "",
-            }
-          : d
-      )
-    );
-    setErrors((prev) => {
-      const next = { ...prev };
-      delete next[`documents.${index}.file_url`];
-      delete next[`documents.${index}.file_name`];
-      return next;
+  function validateProjects(): boolean {
+    const parsed = submissionFormSchema.safeParse({
+      ...buildPayload(),
+      receipt_url: undefined,
     });
-
-    try {
-      const blob = await upload(`registrations/${file.name}`, file, {
-        access: "private",
-        handleUploadUrl: "/api/blob/upload",
+    if (!parsed.success) {
+      const next = issuesToErrors(parsed.error.issues);
+      setErrors(next);
+      setExpanded((prev) => {
+        const open = new Set(prev);
+        projects.forEach((p, index) => {
+          if (Object.keys(projectErrors(next, index)).length) open.add(p.key);
+        });
+        return open;
       });
+      return false;
+    }
+    if (anyUploading) {
+      setErrors({ form: "Please wait for document uploads to finish." });
+      return false;
+    }
+    setErrors({});
+    return true;
+  }
 
-      setDocuments((prev) =>
-        prev.map((d, i) =>
-          i === index
-            ? {
-                ...d,
-                uploading: false,
-                uploadError: undefined,
-                file_name: file.name,
-                file_url: blob.url,
-              }
-            : d
-        )
-      );
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Upload failed. Try again.";
-      setDocuments((prev) =>
-        prev.map((d, i) =>
-          i === index
-            ? {
-                ...d,
-                uploading: false,
-                uploadError: message,
-                file_url: "",
-              }
-            : d
-        )
-      );
+  async function loadQuote() {
+    setQuoteLoading(true);
+    setQuote(null);
+    try {
+      const params = new URLSearchParams({
+        institution: institutionName,
+        count: String(projects.length),
+      });
+      const response = await fetch(`/api/submissions/quote?${params}`);
+      const data = await response.json();
+      if (!response.ok) {
+        setErrors({
+          form:
+            typeof data.error === "string"
+              ? data.error
+              : "Could not calculate the registration fee.",
+        });
+        return;
+      }
+      setQuote(data.quote as Quote);
+    } catch {
+      setErrors({ form: "Network error. Please try again." });
+    } finally {
+      setQuoteLoading(false);
     }
   }
 
@@ -297,767 +247,427 @@ export function RegistrationForm({
         handleUploadUrl: "/api/blob/upload",
       });
       setReceiptUrl(blob.url);
-      setReceiptFileName(file.name);
-      setReceiptUploadError(undefined);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Upload failed. Try again.";
-      setReceiptUrl("");
-      setReceiptUploadError(message);
+      setReceiptUploadError(
+        error instanceof Error ? error.message : "Upload failed. Try again."
+      );
     } finally {
       setReceiptUploading(false);
     }
   }
 
-  function handleNext() {
-    if (!validateDetails()) return;
-    setStep("payment");
+  function goTo(next: FormStep) {
+    setErrors({});
+    setStep(next);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (step === "details") {
-      handleNext();
+    if (step === "university") {
+      if (validateUniversity()) goTo("projects");
       return;
     }
 
-    const registrationParsed = registrationFormSchema.safeParse(
-      buildRegistrationPayload()
-    );
-    if (!registrationParsed.success) {
-      setStep("details");
-      validateDetails();
+    if (step === "projects") {
+      if (validateProjects()) {
+        goTo("payment");
+        void loadQuote();
+      }
       return;
     }
 
+    if (!quote) return;
     if (receiptUploading) {
       setErrors({ form: "Please wait for the receipt upload to finish." });
       return;
     }
+    if (quote.total > 0 && !receiptUrl) {
+      setErrors({ receipt_url: "Please upload your payment receipt." });
+      return;
+    }
 
-    const receiptCheck = z
-      .string()
-      .url()
-      .safeParse(receiptUrl);
-    if (!receiptCheck.success) {
-      setErrors({
-        receipt_url: receiptUrl
-          ? "Receipt URL is invalid. Please upload again."
-          : "Please upload your payment receipt.",
-      });
-      setSubmitted(false);
-      setRegistrationNumber(null);
+    const parsed = submissionFormSchema.safeParse(buildPayload());
+    if (!parsed.success) {
+      goTo("projects");
+      validateProjects();
       return;
     }
 
     setErrors({});
     setLoading(true);
-    setSubmitted(false);
-    setRegistrationNumber(null);
-
     try {
-      const registrationResponse = await fetch("/api/registrations", {
+      const response = await fetch("/api/submissions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(registrationParsed.data),
+        body: JSON.stringify(parsed.data),
       });
-      const registrationData = await registrationResponse.json();
-
-      if (!registrationResponse.ok) {
+      const data = await response.json();
+      if (!response.ok) {
         setErrors({
           form:
-            typeof registrationData.error === "string"
-              ? registrationData.error
+            typeof data.error === "string"
+              ? data.error
               : "Could not submit registration. Please check your details and try again.",
         });
-        setStep("details");
         return;
       }
-
-      const registrationId = registrationData.registration?._id as
-        | string
-        | undefined;
-      const number =
-        (registrationData.registration?.registration_number as
-          | string
-          | undefined) ?? null;
-
-      if (!registrationId) {
-        setErrors({
-          form: "Registration was created but no ID was returned. Please contact support.",
-        });
-        setRegistrationNumber(number);
-        return;
-      }
-
-      const paymentResponse = await fetch("/api/payments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          registration_id: registrationId,
-          amount: REGISTRATION_FEE,
-          receipt_url: receiptUrl,
-        }),
-      });
-      const paymentData = await paymentResponse.json();
-
-      if (!paymentResponse.ok) {
-        setRegistrationNumber(number);
-        setErrors({
-          form:
-            typeof paymentData.error === "string"
-              ? `${paymentData.error} Your registration number is ${number ?? "unavailable"} — please contact support to complete payment.`
-              : `Registration was saved${number ? ` (${number})` : ""}, but payment could not be recorded. Please contact support.`,
-        });
-        return;
-      }
-
-      setRegistrationNumber(number);
-      setSubmitted(true);
+      setResult(data.submission as SubmissionResult);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch {
-      setErrors({
-        form: "Network error. Please try again.",
-      });
+      setErrors({ form: "Network error. Please try again." });
     } finally {
       setLoading(false);
     }
   }
 
+  if (result) {
+    return (
+      <div className="flex flex-col gap-6 rounded-lg border border-black/10 px-5 py-6 dark:border-white/10">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">
+            Registration submitted
+          </h2>
+          <p className={`mt-1 ${mutedTextClassName}`}>
+            Your submission number is{" "}
+            <span className="font-medium text-foreground">
+              {result.submission_number}
+            </span>
+            .{" "}
+            {result.total > 0
+              ? "Your payment receipt is pending verification."
+              : "No payment was required for this submission."}{" "}
+            Keep these numbers for your records.
+          </p>
+        </div>
+        <ul className="flex flex-col divide-y divide-black/10 text-sm dark:divide-white/10">
+          {result.projects.map((project) => (
+            <li
+              key={project.registration_number}
+              className="flex items-center justify-between gap-4 py-2.5"
+            >
+              <div className="min-w-0">
+                <p className="truncate font-medium">{project.title}</p>
+                <p className={mutedTextClassName}>
+                  {project.registration_number}
+                </p>
+              </div>
+              <span className="shrink-0 font-medium">
+                {project.fee === 0 ? "Free" : formatMyr(project.fee)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
+  const stepIndex = STEPS.findIndex((s) => s.id === step);
+
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-8" noValidate>
-      <div className="flex items-center gap-3 text-sm text-zinc-600 dark:text-zinc-400">
-        <span
-          className={
-            step === "details" ? "font-medium text-foreground" : undefined
-          }
-        >
-          1. Details
-        </span>
-        <span aria-hidden="true">→</span>
-        <span
-          className={
-            step === "payment" ? "font-medium text-foreground" : undefined
-          }
-        >
-          2. Payment
-        </span>
+      <div className={`flex flex-wrap items-center gap-3 ${mutedTextClassName}`}>
+        {STEPS.map((s, index) => (
+          <span key={s.id} className="flex items-center gap-3">
+            {index > 0 ? <span aria-hidden="true">→</span> : null}
+            <span
+              className={
+                index === stepIndex ? "font-medium text-foreground" : undefined
+              }
+            >
+              {s.label}
+            </span>
+          </span>
+        ))}
       </div>
 
-      {step === "details" ? (
-        <>
-      <Section
-        title="Category"
-        description="Choose the category you are entering."
-      >
-        <input type="hidden" name="competition_id" value={competitionId} />
-        <Field
-          id="category_id"
-          label="Category"
-          error={errors.category_id}
+      {step === "university" ? (
+        <Section
+          title="University"
+          description={`All projects in this submission are entered under one university. Every ${FREE_PROJECT_EVERY}th project from the same university is free, so use your university's full official name to have your projects counted together.`}
         >
-          <select
-            id="category_id"
-            name="category_id"
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-            className={inputClassName}
-            aria-invalid={Boolean(errors.category_id)}
-            disabled={categories.length === 0}
-          >
-            {categories.length === 0 ? (
-              <option value="">No categories available</option>
-            ) : (
-              categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))
-            )}
-          </select>
-        </Field>
-        <FieldError message={errors.competition_id} />
-      </Section>
-
-      <Section
-        title="Participant"
-        description="Your details are stored with this registration only — no account is created."
-      >
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field id="participant.name" label="Full name" error={errors["participant.name"]}>
-            <input
-              id="participant.name"
-              type="text"
-              autoComplete="name"
-              value={participantName}
-              onChange={(e) => setParticipantName(e.target.value)}
-              className={inputClassName}
-              aria-invalid={Boolean(errors["participant.name"])}
-            />
-          </Field>
-          <Field
-            id="participant.email"
-            label="Email"
-            error={errors["participant.email"]}
-          >
-            <input
-              id="participant.email"
-              type="email"
-              autoComplete="email"
-              value={participantEmail}
-              onChange={(e) => setParticipantEmail(e.target.value)}
-              className={inputClassName}
-              aria-invalid={Boolean(errors["participant.email"])}
-            />
-          </Field>
-          <Field id="participant.phone" label="Phone" error={errors["participant.phone"]}>
-            <input
-              id="participant.phone"
-              type="tel"
-              autoComplete="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className={inputClassName}
-              aria-invalid={Boolean(errors["participant.phone"])}
-            />
-          </Field>
-          <Field
-            id="participant.education_level"
-            label="Education level"
-            error={errors["participant.education_level"]}
-          >
-            <select
-              id="participant.education_level"
-              value={educationLevel}
-              onChange={(e) =>
-                setEducationLevel(e.target.value as EducationLevel)
-              }
-              className={inputClassName}
-              disabled={educationLevels.length < 2}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              id="institution.name"
+              label="University"
+              error={errors["institution.name"]}
             >
-              {educationLevels.map((level) => (
-                <option key={level} value={level}>
-                  {EDUCATION_LEVEL_LABELS[level]}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field
-            id="participant.institution.name"
-            label="Institution"
-            error={errors["participant.institution.name"]}
-          >
-            <input
-              id="participant.institution.name"
-              type="text"
-              value={institutionName}
-              onChange={(e) => setInstitutionName(e.target.value)}
-              className={inputClassName}
-              aria-invalid={Boolean(errors["participant.institution.name"])}
-            />
-          </Field>
-          <Field
-            id="participant.institution.country"
-            label="Country"
-            error={errors["participant.institution.country"]}
-          >
-            <input
-              id="participant.institution.country"
-              type="text"
-              autoComplete="country-name"
-              value={institutionCountry}
-              onChange={(e) => setInstitutionCountry(e.target.value)}
-              className={inputClassName}
-              aria-invalid={Boolean(errors["participant.institution.country"])}
-            />
-          </Field>
-          <Field
-            id="participant.government_id.type"
-            label="ID type"
-            error={errors["participant.government_id.type"]}
-          >
-            <select
-              id="participant.government_id.type"
-              value={govIdType}
-              onChange={(e) =>
-                setGovIdType(e.target.value as (typeof ID_TYPES)[number])
-              }
-              className={inputClassName}
+              <input
+                id="institution.name"
+                type="text"
+                autoComplete="organization"
+                value={institutionName}
+                onChange={(e) => setInstitutionName(e.target.value)}
+                placeholder="e.g. Universiti Malaya"
+                className={inputClassName}
+                aria-invalid={Boolean(errors["institution.name"])}
+              />
+            </Field>
+            <Field
+              id="institution.country"
+              label="Country"
+              error={errors["institution.country"]}
             >
-              <option value="NATIONAL_ID">National ID</option>
-              <option value="PASSPORT">Passport</option>
-              <option value="DRIVING_LICENSE">Driving license</option>
-            </select>
-          </Field>
-          <Field
-            id="participant.government_id.number"
-            label="ID number"
-            error={errors["participant.government_id.number"]}
-          >
-            <input
-              id="participant.government_id.number"
-              type="text"
-              value={govIdNumber}
-              onChange={(e) => setGovIdNumber(e.target.value)}
-              className={inputClassName}
-              aria-invalid={Boolean(errors["participant.government_id.number"])}
-            />
-          </Field>
-        </div>
-      </Section>
+              <input
+                id="institution.country"
+                type="text"
+                autoComplete="country-name"
+                value={institutionCountry}
+                onChange={(e) => setInstitutionCountry(e.target.value)}
+                className={inputClassName}
+                aria-invalid={Boolean(errors["institution.country"])}
+              />
+            </Field>
+          </div>
+        </Section>
+      ) : null}
 
-      <Section
-        title="Project"
-        description="Describe the project you are submitting for this competition."
-      >
-        <Field id="project.title" label="Project title" error={errors["project.title"]}>
-          <input
-            id="project.title"
-            type="text"
-            value={projectTitle}
-            onChange={(e) => setProjectTitle(e.target.value)}
-            className={inputClassName}
-            aria-invalid={Boolean(errors["project.title"])}
-          />
-        </Field>
-        <Field
-          id="project.abstract"
-          label="Abstract"
-          error={errors["project.abstract"]}
-        >
-          <textarea
-            id="project.abstract"
-            value={projectAbstract}
-            onChange={(e) => setProjectAbstract(e.target.value)}
-            className={textareaClassName}
-            aria-invalid={Boolean(errors["project.abstract"])}
-          />
-        </Field>
-      </Section>
-
-      <Section
-        title="Team"
-        description="Name the team lead and any additional members. Defaults to the participant if left blank."
-      >
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field id="team.lead.name" label="Lead name" error={errors["team.lead.name"]}>
-            <input
-              id="team.lead.name"
-              type="text"
-              value={leadName}
-              onChange={(e) => setLeadName(e.target.value)}
-              placeholder={participantName || "Same as participant"}
-              className={inputClassName}
-              aria-invalid={Boolean(errors["team.lead.name"])}
-            />
-          </Field>
-          <Field
-            id="team.lead.email"
-            label="Lead email"
-            error={errors["team.lead.email"]}
-          >
-            <input
-              id="team.lead.email"
-              type="email"
-              value={leadEmail}
-              onChange={(e) => setLeadEmail(e.target.value)}
-              placeholder={participantEmail || "Same as participant"}
-              className={inputClassName}
-              aria-invalid={Boolean(errors["team.lead.email"])}
-            />
-          </Field>
-        </div>
-
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">
-              Team members{" "}
-              <span className="font-normal text-zinc-600 dark:text-zinc-400">
-                ({members.length}/{MAX_TEAM_MEMBERS})
-              </span>
-            </p>
+      {step === "projects" ? (
+        <div className="flex flex-col gap-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight">
+                Projects{" "}
+                <span className={`font-normal ${mutedTextClassName}`}>
+                  ({projects.length}/{MAX_PROJECTS_PER_SUBMISSION})
+                </span>
+              </h2>
+              <p className={`mt-1 ${mutedTextClassName}`}>
+                Add up to {MAX_PROJECTS_PER_SUBMISSION} projects from{" "}
+                <span className="font-medium text-foreground">
+                  {institutionName}
+                </span>
+                . Each project has its own participant, team, supervisors and
+                documents.
+              </p>
+            </div>
             <button
               type="button"
-              onClick={() =>
-                setMembers((prev) =>
-                  prev.length >= MAX_TEAM_MEMBERS
-                    ? prev
-                    : [...prev, { name: "", email: "" }]
-                )
-              }
-              disabled={members.length >= MAX_TEAM_MEMBERS}
-              className="text-sm font-medium text-foreground underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:text-zinc-400 disabled:no-underline"
+              onClick={addProject}
+              disabled={projects.length >= MAX_PROJECTS_PER_SUBMISSION}
+              className={`shrink-0 ${linkButtonClassName}`}
             >
-              Add member
+              Add project
             </button>
           </div>
-          {members.length >= MAX_TEAM_MEMBERS ? (
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              You&apos;ve reached the maximum of {MAX_TEAM_MEMBERS} team members.
-            </p>
-          ) : null}
-          <FieldError message={errors["team.members"]} />
-          {members.length === 0 ? (
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              No additional members yet.
-            </p>
-          ) : (
-            members.map((member, index) => (
+          <FieldError message={errors.projects} />
+
+          {projects.map((project, index) => {
+            const isOpen = expanded.has(project.key);
+            const scopedErrors = projectErrors(errors, index);
+            const hasErrors = Object.keys(scopedErrors).length > 0;
+            const category = categories.find((c) => c.id === project.categoryId);
+            return (
               <div
-                key={index}
-                className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]"
+                key={project.key}
+                className={`rounded-lg border ${
+                  hasErrors
+                    ? "border-red-600/50 dark:border-red-400/50"
+                    : "border-black/10 dark:border-white/10"
+                }`}
               >
-                <input
-                  type="text"
-                  aria-label={`Member ${index + 1} name`}
-                  placeholder="Name"
-                  value={member.name}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setMembers((prev) =>
-                      prev.map((m, i) =>
-                        i === index ? { ...m, name: value } : m
-                      )
-                    );
-                  }}
-                  className={inputClassName}
-                />
-                <input
-                  type="email"
-                  aria-label={`Member ${index + 1} email`}
-                  placeholder="Email"
-                  value={member.email}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setMembers((prev) =>
-                      prev.map((m, i) =>
-                        i === index ? { ...m, email: value } : m
-                      )
-                    );
-                  }}
-                  className={inputClassName}
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    setMembers((prev) => prev.filter((_, i) => i !== index))
-                  }
-                  className="h-11 text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-400"
-                >
-                  Remove
-                </button>
-                <FieldError message={errors[`team.members.${index}.name`]} />
-                <FieldError message={errors[`team.members.${index}.email`]} />
-              </div>
-            ))
-          )}
-        </div>
-      </Section>
-
-      <Section
-        title="Supervisors"
-        description="List academic or project supervisors for this submission."
-      >
-        <div className="flex flex-col gap-3">
-          {supervisors.map((supervisor, index) => (
-            <div
-              key={index}
-              className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]"
-            >
-              <div className="flex flex-col gap-1.5">
-                <input
-                  type="text"
-                  aria-label={`Supervisor ${index + 1} name`}
-                  placeholder="Name"
-                  value={supervisor.name}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setSupervisors((prev) =>
-                      prev.map((s, i) =>
-                        i === index ? { ...s, name: value } : s
-                      )
-                    );
-                  }}
-                  className={inputClassName}
-                />
-                <FieldError message={errors[`supervisors.${index}.name`]} />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <input
-                  type="email"
-                  aria-label={`Supervisor ${index + 1} email`}
-                  placeholder="Email"
-                  value={supervisor.email}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setSupervisors((prev) =>
-                      prev.map((s, i) =>
-                        i === index ? { ...s, email: value } : s
-                      )
-                    );
-                  }}
-                  className={inputClassName}
-                />
-                <FieldError message={errors[`supervisors.${index}.email`]} />
-              </div>
-              <button
-                type="button"
-                onClick={() =>
-                  setSupervisors((prev) =>
-                    prev.length === 1
-                      ? [{ name: "", email: "" }]
-                      : prev.filter((_, i) => i !== index)
-                  )
-                }
-                className="h-11 text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-400"
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={() =>
-              setSupervisors((prev) => [...prev, { name: "", email: "" }])
-            }
-            className="self-start text-sm font-medium text-foreground underline-offset-4 hover:underline"
-          >
-            Add supervisor
-          </button>
-        </div>
-      </Section>
-
-      <Section
-        title="Documents"
-        description="Upload project documents (PDF, Office, images, video, or zip — up to 100 MB each)."
-      >
-        <div className="flex flex-col gap-3">
-          {documents.map((doc, index) => (
-            <div key={index} className="grid gap-3 sm:grid-cols-[1fr_2fr_auto]">
-              <select
-                aria-label={`Document ${index + 1} type`}
-                value={doc.type}
-                onChange={(e) => {
-                  const value = e.target
-                    .value as DocumentRow["type"];
-                  setDocuments((prev) =>
-                    prev.map((d, i) =>
-                      i === index ? { ...d, type: value } : d
-                    )
-                  );
-                }}
-                className={inputClassName}
-              >
-                {DOCUMENT_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {type
-                      .replace(/^PROJECT_/, "")
-                      .replaceAll("_", " ")
-                      .toLowerCase()
-                      .replace(/^\w/, (c) => c.toUpperCase())}
-                  </option>
-                ))}
-              </select>
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <input
-                  type="file"
-                  aria-label={`Document ${index + 1} file`}
-                  accept=".pdf,.doc,.docx,.ppt,.pptx,.zip,image/*,video/mp4,video/webm,video/quicktime"
-                  disabled={doc.uploading || loading}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    void handleDocumentUpload(index, file);
-                    e.target.value = "";
-                  }}
-                  className="block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border file:border-black/10 file:bg-transparent file:px-3 file:py-2 file:text-sm file:font-medium file:text-foreground dark:text-zinc-400 dark:file:border-white/15"
-                />
-                {doc.uploading ? (
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                    Uploading…
-                  </p>
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => toggleProject(project.key)}
+                    aria-expanded={isOpen}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                  >
+                    <IconChevronDown
+                      className={`size-4 shrink-0 transition-transform ${
+                        isOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium">
+                        Project {index + 1}
+                        {project.projectTitle ? ` — ${project.projectTitle}` : ""}
+                      </span>
+                      <span className={`block truncate ${mutedTextClassName}`}>
+                        {[category?.name, project.participantName]
+                          .filter(Boolean)
+                          .join(" · ") || "Not started"}
+                        {hasErrors ? " · needs attention" : ""}
+                      </span>
+                    </span>
+                  </button>
+                  {projects.length > 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => removeProject(project.key)}
+                      aria-label={`Remove project ${index + 1}`}
+                      className={`shrink-0 p-1 ${mutedTextClassName} hover:text-foreground`}
+                    >
+                      <IconTrash className="size-4" />
+                    </button>
+                  ) : null}
+                </div>
+                {isOpen ? (
+                  <div className="border-t border-black/10 px-4 py-6 dark:border-white/10">
+                    <ProjectFields
+                      index={index}
+                      project={project}
+                      onChange={(update) => updateProject(project.key, update)}
+                      errors={scopedErrors}
+                      categories={categories}
+                      educationLevels={educationLevels}
+                      disabled={loading}
+                    />
+                  </div>
                 ) : null}
-                {doc.file_url && !doc.uploading ? (
-                  <p className="truncate text-sm text-zinc-600 dark:text-zinc-400">
-                    Uploaded: {doc.file_name}
-                  </p>
-                ) : null}
-                <FieldError
-                  message={
-                    doc.uploadError ||
-                    errors[`documents.${index}.file_name`] ||
-                    errors[`documents.${index}.file_url`]
-                  }
-                />
               </div>
-              <button
-                type="button"
-                onClick={() =>
-                  setDocuments((prev) =>
-                    prev.length === 1
-                      ? [
-                          {
-                            type: "PROJECT_REPORT",
-                            file_name: "",
-                            file_url: "",
-                          },
-                        ]
-                      : prev.filter((_, i) => i !== index)
-                  )
-                }
-                className="h-11 shrink-0 text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-400"
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={() =>
-              setDocuments((prev) => [
-                ...prev,
-                { type: "PROJECT_REPORT", file_name: "", file_url: "" },
-              ])
-            }
-            className="self-start text-sm font-medium text-foreground underline-offset-4 hover:underline"
-          >
-            Add document
-          </button>
+            );
+          })}
         </div>
-      </Section>
-        </>
-      ) : (
+      ) : null}
+
+      {step === "payment" ? (
         <Section
           title="Payment"
-          description="Transfer the registration fee using the bank details below, then upload your receipt."
+          description="Review your fee, transfer it using the bank details below, then upload your receipt."
         >
-          <div className="flex flex-col gap-4 rounded-lg border border-black/10 px-4 py-5 dark:border-white/10">
-            <p className="text-sm font-medium text-foreground">
-              Manual bank transfer
+          <div className="flex flex-col gap-3 rounded-lg border border-black/10 px-4 py-5 dark:border-white/10">
+            <p className="text-sm font-medium">
+              {institutionName} · {projects.length} project
+              {projects.length === 1 ? "" : "s"}
             </p>
-            <dl className="grid gap-3 text-sm sm:grid-cols-2">
-              <div>
-                <dt className="text-zinc-600 dark:text-zinc-400">Bank</dt>
-                <dd className="mt-0.5 font-medium text-foreground">
-                  {PAYMENT_BANK.bankName}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-zinc-600 dark:text-zinc-400">
-                  Account name
-                </dt>
-                <dd className="mt-0.5 font-medium text-foreground">
-                  {PAYMENT_BANK.accountName}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-zinc-600 dark:text-zinc-400">
-                  Account number
-                </dt>
-                <dd className="mt-0.5 font-medium tracking-wide text-foreground">
-                  {PAYMENT_BANK.accountNumber}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-zinc-600 dark:text-zinc-400">Amount</dt>
-                <dd className="mt-0.5 font-medium text-foreground">
-                  MYR {REGISTRATION_FEE.toFixed(2)}
-                </dd>
-              </div>
-            </dl>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              Use your participant name as the transfer reference so we can
-              match your payment.
-            </p>
+            {quoteLoading ? (
+              <p className={mutedTextClassName}>Calculating fee…</p>
+            ) : quote ? (
+              <>
+                <ul className="flex flex-col divide-y divide-black/10 text-sm dark:divide-white/10">
+                  {projects.map((project, index) => (
+                    <li
+                      key={project.key}
+                      className="flex items-center justify-between gap-4 py-2"
+                    >
+                      <span className="min-w-0 truncate">
+                        Project {index + 1}: {project.projectTitle}
+                      </span>
+                      <span className="shrink-0 font-medium">
+                        {quote.fees[index] === 0
+                          ? `Free (${FREE_PROJECT_EVERY}th project)`
+                          : formatMyr(quote.fees[index])}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="flex items-center justify-between border-t border-black/10 pt-3 text-sm font-semibold dark:border-white/10">
+                  <span>Total</span>
+                  <span>{formatMyr(quote.total)}</span>
+                </div>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void loadQuote()}
+                className={`self-start ${linkButtonClassName}`}
+              >
+                Retry fee calculation
+              </button>
+            )}
           </div>
 
-          <Field
-            id="receipt_url"
-            label="Upload payment receipt"
-            error={receiptUploadError || errors.receipt_url}
-          >
-            <input
-              id="receipt_url"
-              type="file"
-              accept=".pdf,image/jpeg,image/png,image/webp,image/gif"
-              disabled={receiptUploading || loading || submitted}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                void handleReceiptUpload(file);
-                e.target.value = "";
-              }}
-              className="block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border file:border-black/10 file:bg-transparent file:px-3 file:py-2 file:text-sm file:font-medium file:text-foreground dark:text-zinc-400 dark:file:border-white/15"
-            />
-            {receiptUploading ? (
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                Uploading…
-              </p>
-            ) : null}
-            {receiptUrl && !receiptUploading ? (
-              <p className="truncate text-sm text-zinc-600 dark:text-zinc-400">
-                Uploaded: {receiptFileName}
-              </p>
-            ) : null}
-          </Field>
-        </Section>
-      )}
-
-      {errors.form ? <FieldError message={errors.form} /> : null}
-
-      {submitted ? (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Registration submitted
-          {registrationNumber ? (
+          {quote && quote.total > 0 ? (
             <>
-              {" "}
-              — your registration number is{" "}
-              <span className="font-medium text-foreground">
-                {registrationNumber}
-              </span>
+              <div className="flex flex-col gap-4 rounded-lg border border-black/10 px-4 py-5 dark:border-white/10">
+                <p className="text-sm font-medium">Manual bank transfer</p>
+                <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className={mutedTextClassName}>Bank</dt>
+                    <dd className="mt-0.5 font-medium">{PAYMENT_BANK.bankName}</dd>
+                  </div>
+                  <div>
+                    <dt className={mutedTextClassName}>Account name</dt>
+                    <dd className="mt-0.5 font-medium">{PAYMENT_BANK.accountName}</dd>
+                  </div>
+                  <div>
+                    <dt className={mutedTextClassName}>Account number</dt>
+                    <dd className="mt-0.5 font-medium tracking-wide">
+                      {PAYMENT_BANK.accountNumber}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className={mutedTextClassName}>Amount</dt>
+                    <dd className="mt-0.5 font-medium">{formatMyr(quote.total)}</dd>
+                  </div>
+                </dl>
+                <p className={mutedTextClassName}>
+                  Use your university name as the transfer reference so we can
+                  match your payment.
+                </p>
+              </div>
+
+              <Field
+                id="receipt_url"
+                label="Upload payment receipt"
+                error={receiptUploadError || errors.receipt_url}
+              >
+                <input
+                  id="receipt_url"
+                  type="file"
+                  accept=".pdf,image/jpeg,image/png,image/webp,image/gif"
+                  disabled={receiptUploading || loading}
+                  onChange={(e) => {
+                    void handleReceiptUpload(e.target.files?.[0]);
+                    e.target.value = "";
+                  }}
+                  className={fileInputClassName}
+                />
+                {receiptUploading ? (
+                  <p className={mutedTextClassName}>Uploading…</p>
+                ) : null}
+                {receiptUrl && !receiptUploading ? (
+                  <p className={`truncate ${mutedTextClassName}`}>
+                    Uploaded: {receiptFileName}
+                  </p>
+                ) : null}
+              </Field>
             </>
+          ) : quote ? (
+            <p className={mutedTextClassName}>
+              No payment is needed for this submission — just submit to finish.
+            </p>
           ) : null}
-          . Your payment receipt is pending verification. Keep your registration
-          number for your records.
-        </p>
+        </Section>
       ) : null}
 
-      {!submitted ? (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          {step === "payment" ? (
-            <button
-              type="button"
-              onClick={() => {
-                setStep("details");
-                setErrors({});
-              }}
-              disabled={loading}
-              className="h-11 rounded-full border border-black/10 px-6 text-sm font-medium text-foreground transition-colors hover:bg-black/5 disabled:opacity-60 dark:border-white/15 dark:hover:bg-white/5"
-            >
-              Back
-            </button>
-          ) : null}
+      <FieldError message={errors.form} />
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        {step !== "university" ? (
           <button
-            type="submit"
-            disabled={
-              loading ||
-              (step === "details" && documents.some((d) => d.uploading)) ||
-              (step === "payment" && receiptUploading) ||
-              !competitionId ||
-              categories.length === 0
-            }
-            className="h-11 flex-1 rounded-full bg-foreground text-sm font-medium text-background transition-colors hover:bg-[#383838] disabled:opacity-60 dark:hover:bg-[#ccc] sm:flex-none sm:px-10"
+            type="button"
+            onClick={() => goTo(step === "payment" ? "projects" : "university")}
+            disabled={loading}
+            className="h-11 rounded-full border border-black/10 px-6 text-sm font-medium text-foreground transition-colors hover:bg-black/5 disabled:opacity-60 dark:border-white/15 dark:hover:bg-white/5"
           >
-            {loading
-              ? "Submitting…"
-              : step === "details"
-                ? documents.some((d) => d.uploading)
-                  ? "Uploading documents…"
-                  : "Next"
-                : receiptUploading
-                  ? "Uploading receipt…"
-                  : "Submit registration"}
+            Back
           </button>
-        </div>
-      ) : null}
+        ) : null}
+        <button
+          type="submit"
+          disabled={
+            loading ||
+            (step === "projects" && anyUploading) ||
+            (step === "payment" && (receiptUploading || quoteLoading || !quote)) ||
+            !competitionId ||
+            categories.length === 0
+          }
+          className="h-11 flex-1 rounded-full bg-foreground text-sm font-medium text-background transition-colors hover:bg-[#383838] disabled:opacity-60 dark:hover:bg-[#ccc] sm:flex-none sm:px-10"
+        >
+          {loading
+            ? "Submitting…"
+            : step === "payment"
+              ? receiptUploading
+                ? "Uploading receipt…"
+                : "Submit registration"
+              : step === "projects" && anyUploading
+                ? "Uploading documents…"
+                : "Next"}
+        </button>
+      </div>
     </form>
   );
 }

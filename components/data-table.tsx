@@ -618,19 +618,23 @@ function TableCellViewer({ item }: { item: DashboardRow }) {
                 <div className="flex items-center gap-2">
                   <PaymentBadge payment={item.payment} />
                   <span className="font-medium">
-                    {formatCurrency(item.payment.amount)}
+                    {item.payment.amount === 0
+                      ? "Free"
+                      : formatCurrency(item.payment.amount)}
                   </span>
                 </div>
-                <Button size="sm" variant="outline" asChild>
-                  <a
-                    href={item.payment.receipt_url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <IconExternalLink />
-                    Receipt
-                  </a>
-                </Button>
+                {item.payment.receipt_url ? (
+                  <Button size="sm" variant="outline" asChild>
+                    <a
+                      href={item.payment.receipt_url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <IconExternalLink />
+                      Receipt
+                    </a>
+                  </Button>
+                ) : null}
               </div>
             ) : (
               <span className="text-muted-foreground">

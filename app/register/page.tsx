@@ -59,9 +59,10 @@ export default async function RegisterPage({
             Competition registration
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">
-            Complete your participant, project, team, supervisor, and document
-            details, then continue to payment. Manual bank transfer only — no
-            account or password is required.
+            Enter up to 6 projects from your university in one submission, each
+            with its own participant, team, supervisors and documents, then pay
+            once by manual bank transfer. Every 6th project from the same
+            university is free. No account or password is required.
           </p>
           {competitionName ? (
             <p className="mt-3 text-sm font-medium text-foreground">

@@ -4,7 +4,10 @@ import { RegistrationModel } from "@/models/Registration";
 import { toIdString } from "@/schemas/objectId";
 import { requirePortalSection } from "@/utils/requirePortalAccess";
 import { serializePayment } from "@/utils/serializePayment";
-import { serializeRegistration } from "@/utils/serializeRegistration";
+import {
+  serializeRegistration,
+  submissionNumbersFor,
+} from "@/utils/serializeRegistration";
 
 async function loadRows() {
   try {
@@ -20,10 +23,12 @@ async function loadRows() {
       ])
     );
 
+    const submissionNumbers = await submissionNumbersFor(registrations);
+
     return registrations.map((registration) => {
       const id = toIdString(registration._id);
       return {
-        registration: serializeRegistration(registration),
+        registration: serializeRegistration(registration, submissionNumbers),
         payment: paymentByRegistrationId.get(id) ?? null,
       };
     });

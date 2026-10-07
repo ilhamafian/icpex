@@ -23,6 +23,11 @@ import {
   DEFAULT_COMPETITION_ELIGIBILITY,
 } from "@/schemas/educationLevel";
 import { toIdString } from "@/schemas/objectId";
+import {
+  FREE_PROJECT_EVERY,
+  MAX_PROJECTS_PER_SUBMISSION,
+  MAX_TEAM_MEMBERS,
+} from "@/schemas/registrationSchema";
 import { formatCompetitionDates } from "@/utils/competitionDates";
 import { getCurrentCompetition } from "@/utils/currentCompetition";
 import { REGISTRATION_FEE } from "@/utils/registrationFee";
@@ -113,13 +118,13 @@ const NAV_LINKS = [
 const STEPS: { icon: Icon; title: string; body: string }[] = [
   {
     icon: IconFileText,
-    title: "Submit your project",
-    body: "Fill in participant, team and supervisor details, then upload your project documents.",
+    title: "Submit your projects",
+    body: `Enter up to ${MAX_PROJECTS_PER_SUBMISSION} projects from your university at once, each with its own team, supervisors and documents.`,
   },
   {
     icon: IconReceipt,
     title: "Pay by bank transfer",
-    body: `Transfer the MYR ${REGISTRATION_FEE} registration fee and upload your receipt — no account needed.`,
+    body: `MYR ${REGISTRATION_FEE} per project, and every ${FREE_PROJECT_EVERY}th project from your university is free. Upload one receipt for the whole submission.`,
   },
   {
     icon: IconCircleCheck,
@@ -148,8 +153,12 @@ const FAQS = [
     a: "No. Registration is a single form — your details are stored with the registration only. Keep your registration number for reference.",
   },
   {
+    q: "Can my university submit several projects?",
+    a: `Yes. One submission can include up to ${MAX_PROJECTS_PER_SUBMISSION} projects, and every ${FREE_PROJECT_EVERY}th project from the same university in this competition is free — including across separate submissions. Use your university's full official name each time so your projects are counted together.`,
+  },
+  {
     q: "How do I pay?",
-    a: `Payment is by manual bank transfer of MYR ${REGISTRATION_FEE}. The bank details appear on the second step of the registration form, where you upload your receipt.`,
+    a: `Payment is by manual bank transfer of MYR ${REGISTRATION_FEE} per project, minus any free projects. The form shows your total and the bank details on the last step, where you upload one receipt for the whole submission.`,
   },
   {
     q: "What file types can I upload?",
@@ -157,7 +166,7 @@ const FAQS = [
   },
   {
     q: "Can I register as a team?",
-    a: "Yes. Name a team lead and add as many team members as you need, along with your academic supervisors.",
+    a: `Yes. Each project names a team lead plus up to ${MAX_TEAM_MEMBERS} team members, along with its academic supervisors.`,
   },
   {
     q: "How is my project judged?",
@@ -263,7 +272,7 @@ export default async function Home() {
             <div className="grid divide-y overflow-hidden rounded-2xl border bg-card shadow-lg sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
               <Fact icon={IconCalendarEvent} label="Competition dates" value={competition.dates} />
               <Fact icon={IconSchool} label="Open to" value={competition.eligibility} />
-              <Fact icon={IconCash} label="Registration fee" value={`MYR ${REGISTRATION_FEE.toFixed(2)}`} />
+              <Fact icon={IconCash} label="Registration fee" value={`MYR ${REGISTRATION_FEE.toFixed(2)} per project`} />
               <Fact
                 icon={IconCategory}
                 label="Categories"

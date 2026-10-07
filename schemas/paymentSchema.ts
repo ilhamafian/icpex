@@ -6,9 +6,13 @@ export const paymentStatusSchema = z.enum(["PENDING", "PAID", "FAILED"]);
 export const paymentSchema = z.object({
   _id: objectIdSchema.optional(),
   registration_id: objectIdSchema,
-  amount: z.number(),
+  /** Payments from one multi-project submission share a receipt. */
+  submission_id: objectIdSchema.optional(),
+  /** 0 for a free project. */
+  amount: z.number().nonnegative(),
   status: paymentStatusSchema,
-  receipt_url: z.string().url(),
+  /** Omitted only when the whole submission was free. */
+  receipt_url: z.string().url().optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional(),
 });
@@ -24,10 +28,10 @@ export const createPaymentSchema = paymentSchema.omit({
 
 export type CreatePayment = z.infer<typeof createPaymentSchema>;
 
-/** Public payment step after registration details (status set on submit). */
-export const paymentFormSchema = createPaymentSchema.omit({
-  status: true,
-});
+/** Public payment step for a single legacy registration (status set on submit). */
+export const paymentFormSchema = createPaymentSchema
+  .omit({ status: true, submission_id: true })
+  .extend({ receipt_url: z.string().url() });
 
 export type PaymentForm = z.infer<typeof paymentFormSchema>;
 
@@ -43,7 +47,7 @@ export type PaymentInput = z.infer<typeof paymentInputSchema>;
 
 /** Secretary update — verify status, adjust amount / receipt. */
 export const paymentUpdateSchema = z.object({
-  amount: z.number().positive().optional(),
+  amount: z.number().nonnegative().optional(),
   status: paymentStatusSchema.optional(),
   receipt_url: z.string().url().optional(),
 });

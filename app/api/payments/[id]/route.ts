@@ -1,9 +1,14 @@
+import { WithId } from "mongodb";
 import { NextRequest } from "next/server";
 
 import { PaymentModel } from "@/models/Payment";
 import { RegistrationModel } from "@/models/Registration";
 import { toIdString } from "@/schemas/objectId";
-import { paymentUpdateSchema } from "@/schemas/paymentSchema";
+import {
+  paymentUpdateSchema,
+  type Payment,
+  type PaymentUpdate,
+} from "@/schemas/paymentSchema";
 import { registrationStatusUpdateSchema } from "@/schemas/registrationSchema";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { requireSecretarySession } from "@/utils/portalAuth";
@@ -24,6 +29,32 @@ async function maybeAdvanceRegistrationOnPaid(
     { status: "REVIEWING" },
     registrationStatusUpdateSchema
   );
+}
+
+/**
+ * Payments from one submission share a single receipt, so verifying (or
+ * failing, or replacing the receipt of) one applies to all of them.
+ */
+async function syncSubmissionSiblings(
+  paymentId: string,
+  submissionId: Payment["submission_id"],
+  changes: Pick<PaymentUpdate, "status" | "receipt_url">
+): Promise<WithId<Payment>[]> {
+  if (!submissionId) return [];
+  const shared = Object.fromEntries(
+    Object.entries(changes).filter(([, value]) => value !== undefined)
+  ) as PaymentUpdate;
+  if (Object.keys(shared).length === 0) return [];
+
+  const model = new PaymentModel();
+  const siblings = (
+    await model.find({ submission_id: toIdString(submissionId) })
+  ).filter((payment) => toIdString(payment._id) !== paymentId);
+
+  for (const sibling of siblings) {
+    await model.update(toIdString(sibling._id), shared, paymentUpdateSchema);
+  }
+  return siblings.map((sibling) => ({ ...sibling, ...shared }));
 }
 
 export async function GET(
@@ -89,14 +120,24 @@ export async function PATCH(
       return createResponse({ error: "Payment not found" }, 404);
     }
 
+    const siblings = await syncSubmissionSiblings(id, updated.submission_id, {
+      status: parsed.data.status,
+      receipt_url: parsed.data.receipt_url,
+    });
+
     if (parsed.data.status) {
-      await maybeAdvanceRegistrationOnPaid(
-        toIdString(updated.registration_id),
-        parsed.data.status
-      );
+      for (const payment of [updated, ...siblings]) {
+        await maybeAdvanceRegistrationOnPaid(
+          toIdString(payment.registration_id),
+          parsed.data.status
+        );
+      }
     }
 
-    return createResponse({ payment: serializePayment(updated) });
+    return createResponse({
+      payment: serializePayment(updated),
+      siblings: siblings.map(serializePayment),
+    });
   } catch (error) {
     return handleError(error);
   }

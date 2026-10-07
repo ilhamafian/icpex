@@ -13,6 +13,8 @@ function toIso(value: Date | string | undefined) {
 export type SerializedPayment = {
   _id: string;
   registration_id: string;
+  /** Payments sharing a submission share one receipt. */
+  submission_id?: string;
   amount: number;
   status: Payment["status"];
   receipt_url: string;
@@ -24,9 +26,10 @@ export function serializePayment(payment: WithId<Payment>): SerializedPayment {
   return {
     _id: toIdString(payment._id),
     registration_id: toIdString(payment.registration_id),
+    submission_id: toIdString(payment.submission_id) || undefined,
     amount: payment.amount,
     status: payment.status,
-    receipt_url: payment.receipt_url,
+    receipt_url: payment.receipt_url ?? "",
     created_at: toIso(payment.created_at),
     updated_at: toIso(payment.updated_at),
   };

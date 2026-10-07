@@ -175,7 +175,7 @@ export async function loadDashboardData(): Promise<DashboardData> {
         ? {
             status: payment.status,
             amount: payment.amount,
-            receipt_url: payment.receipt_url,
+            receipt_url: payment.receipt_url ?? "",
           }
         : null,
       judges: registrationAssignments.map((item) => ({

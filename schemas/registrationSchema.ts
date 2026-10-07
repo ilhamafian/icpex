@@ -5,9 +5,21 @@ import { objectIdSchema } from "./objectId";
 /** Additional team members, not counting the team lead. */
 export const MAX_TEAM_MEMBERS = 6;
 
+/** Projects one university can enter in a single submission. */
+export const MAX_PROJECTS_PER_SUBMISSION = 6;
+
+/** Every Nth project from the same university (per competition) is free. */
+export const FREE_PROJECT_EVERY = 6;
+
 export const registrationSchema = z.object({
   _id: objectIdSchema.optional(),
   registration_number: z.string(),
+  /** Absent on registrations created before multi-project submissions. */
+  submission_id: objectIdSchema.optional(),
+  /** Normalised university name used to count projects for the free rule. */
+  institution_key: z.string().optional(),
+  /** Fee charged for this project in MYR — 0 when it was a free project. */
+  fee: z.number().nonnegative().optional(),
   competition_id: objectIdSchema,
   category_id: objectIdSchema,
   participant: z.object({

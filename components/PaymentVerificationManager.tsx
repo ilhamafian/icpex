@@ -46,7 +46,10 @@ import {
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { PaymentStatus } from "@/schemas/paymentSchema";
-import type { Registration } from "@/schemas/registrationSchema";
+import {
+  FREE_PROJECT_EVERY,
+  type Registration,
+} from "@/schemas/registrationSchema";
 import type { SerializedPayment } from "@/utils/serializePayment";
 import type { SerializedRegistration } from "@/utils/serializeRegistration";
 
@@ -177,6 +180,40 @@ export function PaymentVerificationManager({
     [rows]
   );
 
+  const submissionSizes = useMemo(() => {
+    const sizes = new Map<string, number>();
+    for (const row of rows) {
+      const id = row.registration.submission_id;
+      if (id) sizes.set(id, (sizes.get(id) ?? 0) + 1);
+    }
+    return sizes;
+  }, [rows]);
+
+  /** Re-fetch rows whose payment changed, including submission siblings. */
+  async function refreshRows(registrationIds: string[]) {
+    const refreshed = await Promise.all(
+      [...new Set(registrationIds)].map(refreshRegistration)
+    );
+    for (const row of refreshed) {
+      if (row) upsertRow(row);
+    }
+  }
+
+  async function changedRegistrationIds(
+    res: Response,
+    registrationId: string
+  ): Promise<string[]> {
+    try {
+      const data = (await res.json()) as { siblings?: SerializedPayment[] };
+      return [
+        registrationId,
+        ...(data.siblings ?? []).map((payment) => payment.registration_id),
+      ];
+    } catch {
+      return [registrationId];
+    }
+  }
+
   function upsertRow(next: RegistrationPaymentRow) {
     setRows((prev) => {
       const index = prev.findIndex(
@@ -219,11 +256,12 @@ export function PaymentVerificationManager({
       toast.error("Select a registration.");
       return;
     }
-    if (!Number.isFinite(amount) || amount <= 0) {
+    const minAmount = editingPaymentId ? 0 : 0.01;
+    if (!Number.isFinite(amount) || amount < minAmount) {
       toast.error("Enter a valid amount.");
       return;
     }
-    if (!form.receipt_url.trim()) {
+    if (amount > 0 && !form.receipt_url.trim()) {
       toast.error("Receipt URL is required.");
       return;
     }
@@ -241,7 +279,7 @@ export function PaymentVerificationManager({
             editingPaymentId
               ? {
                   amount,
-                  receipt_url: form.receipt_url.trim(),
+                  receipt_url: form.receipt_url.trim() || undefined,
                   status: form.status,
                 }
               : {
@@ -259,8 +297,9 @@ export function PaymentVerificationManager({
         return;
       }
 
-      const refreshed = await refreshRegistration(form.registration_id);
-      if (refreshed) upsertRow(refreshed);
+      await refreshRows(
+        await changedRegistrationIds(res, form.registration_id)
+      );
 
       setSheetOpen(false);
       toast.success(
@@ -289,8 +328,16 @@ export function PaymentVerificationManager({
         toast.error(await readError(res));
         return;
       }
-      const refreshed = await refreshRegistration(row.registration._id);
-      if (refreshed) upsertRow(refreshed);
+      const changed = await changedRegistrationIds(res, row.registration._id);
+      await refreshRows(changed);
+      const others = changed.length - 1;
+      if (others > 0) {
+        toast.info(
+          `Also applied to ${others} other project${others === 1 ? "" : "s"} in ${
+            row.registration.submission_number ?? "this submission"
+          } (same receipt).`
+        );
+      }
       toast.success(
         status === "PAID"
           ? "Payment verified as paid."
@@ -428,9 +475,26 @@ export function PaymentVerificationManager({
                               {row.registration.participant.email} ·{" "}
                               {row.registration.participant.institution.name}
                             </p>
+                            {row.registration.submission_id ? (
+                              <p className="mt-1 text-sm text-muted-foreground">
+                                Submission{" "}
+                                <span className="font-medium text-foreground">
+                                  {row.registration.submission_number ?? "—"}
+                                </span>
+                                {(submissionSizes.get(
+                                  row.registration.submission_id
+                                ) ?? 1) > 1
+                                  ? ` · 1 of ${submissionSizes.get(
+                                      row.registration.submission_id
+                                    )} projects sharing one receipt`
+                                  : ""}
+                              </p>
+                            ) : null}
                             {row.payment ? (
                               <p className="mt-2 text-sm">
-                                {formatAmount(row.payment.amount)}
+                                {row.payment.amount === 0
+                                  ? "No charge"
+                                  : formatAmount(row.payment.amount)}
                                 {row.payment.created_at
                                   ? ` · submitted ${new Date(
                                       row.payment.created_at
@@ -460,22 +524,29 @@ export function PaymentVerificationManager({
                                 {row.payment.status}
                               </Badge>
                             ) : null}
+                            {row.payment?.amount === 0 ? (
+                              <Badge variant="secondary">
+                                Free ({FREE_PROJECT_EVERY}th project)
+                              </Badge>
+                            ) : null}
                           </div>
                         </div>
                       </CardHeader>
                       <CardContent className="flex flex-wrap gap-2 pt-0">
                         {row.payment ? (
                           <>
-                            <Button size="sm" variant="outline" asChild>
-                              <a
-                                href={row.payment.receipt_url}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                <IconExternalLink />
-                                Receipt
-                              </a>
-                            </Button>
+                            {row.payment.receipt_url ? (
+                              <Button size="sm" variant="outline" asChild>
+                                <a
+                                  href={row.payment.receipt_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  <IconExternalLink />
+                                  Receipt
+                                </a>
+                              </Button>
+                            ) : null}
                             {row.payment.status === "PENDING" ? (
                               <>
                                 <Button

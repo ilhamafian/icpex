@@ -1,22 +1,13 @@
-import { NextRequest } from "next/server";
-
-import { CategoryModel } from "@/models/Category";
 import { PaymentModel } from "@/models/Payment";
 import { RegistrationModel } from "@/models/Registration";
-import {
-  registrationFormSchema,
-  registrationSchema,
-} from "@/schemas/registrationSchema";
-import {
-  EDUCATION_LEVEL_LABELS,
-  allowedEducationLevels,
-} from "@/schemas/educationLevel";
 import { toIdString } from "@/schemas/objectId";
 import { createResponse, handleError } from "@/utils/apiHelper";
-import { getCurrentCompetition } from "@/utils/currentCompetition";
 import { requireSecretarySession } from "@/utils/portalAuth";
 import { serializePayment } from "@/utils/serializePayment";
-import { serializeRegistration } from "@/utils/serializeRegistration";
+import {
+  serializeRegistration,
+  submissionNumbersFor,
+} from "@/utils/serializeRegistration";
 
 /** Secretary: list registrations with their payment (if any). */
 export async function GET() {
@@ -38,80 +29,17 @@ export async function GET() {
       ])
     );
 
+    const submissionNumbers = await submissionNumbersFor(registrations);
+
     return createResponse({
       registrations: registrations.map((registration) => {
         const id = toIdString(registration._id);
         return {
-          registration: serializeRegistration(registration),
+          registration: serializeRegistration(registration, submissionNumbers),
           payment: paymentByRegistrationId.get(id) ?? null,
         };
       }),
     });
-  } catch (error) {
-    return handleError(error);
-  }
-}
-
-/** Public: create a competition registration. */
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const parsed = registrationFormSchema.safeParse(body);
-    if (!parsed.success) {
-      return createResponse({ error: parsed.error.format() }, 400);
-    }
-
-    const competitionId = String(parsed.data.competition_id);
-    const categoryId = String(parsed.data.category_id);
-
-    const competition = await getCurrentCompetition();
-    if (!competition || toIdString(competition._id) !== competitionId) {
-      return createResponse(
-        { error: "No published competition available for registration." },
-        400
-      );
-    }
-
-    const allowedLevels = allowedEducationLevels(competition.eligibility);
-    if (!allowedLevels.includes(parsed.data.participant.education_level)) {
-      return createResponse(
-        {
-          error: `This competition is open to ${allowedLevels
-            .map((level) => EDUCATION_LEVEL_LABELS[level].toLowerCase())
-            .join(" and ")} participants only.`,
-        },
-        400
-      );
-    }
-
-    const category = await new CategoryModel().findById(categoryId);
-    if (!category) {
-      return createResponse({ error: "Invalid category." }, 400);
-    }
-
-    const model = new RegistrationModel();
-    const registration_number = await model.nextRegistrationNumber();
-
-    const created = await model.create(
-      registrationSchema.parse({
-        ...parsed.data,
-        competition_id: competitionId,
-        category_id: categoryId,
-        registration_number,
-        status: "SUBMITTED",
-      })
-    );
-
-    return createResponse(
-      {
-        registration: {
-          _id: toIdString(created._id),
-          registration_number: created.registration_number,
-          status: created.status,
-        },
-      },
-      201
-    );
   } catch (error) {
     return handleError(error);
   }
