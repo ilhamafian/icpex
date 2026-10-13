@@ -7,6 +7,8 @@ import {
   IconChevronRight,
   IconChevronsLeft,
   IconChevronsRight,
+  IconArrowsSort,
+  IconFilter,
   IconLayoutColumns,
   IconSearch,
   IconUserPlus,
@@ -116,6 +118,93 @@ function registrationStatusVariant(
   }
 }
 
+type RegistrationStatus = AssignmentRegistrationOption["status"];
+type PaymentFilter = PaymentStatus | "NONE";
+type AssignmentFilter = "ASSIGNED" | "UNASSIGNED";
+
+const REGISTRATION_STATUSES: RegistrationStatus[] = [
+  "SUBMITTED",
+  "REVIEWING",
+  "ACCEPTED",
+  "REJECTED",
+  "COMPLETED",
+];
+
+const PAYMENT_FILTERS: { value: PaymentFilter; label: string }[] = [
+  { value: "PENDING", label: "Pending" },
+  { value: "PAID", label: "Paid" },
+  { value: "FAILED", label: "Failed" },
+  { value: "NONE", label: "No payment" },
+];
+
+const ASSIGNMENT_FILTERS: { value: AssignmentFilter; label: string }[] = [
+  { value: "ASSIGNED", label: "Has judges" },
+  { value: "UNASSIGNED", label: "No judges yet" },
+];
+
+const SORT_OPTIONS = {
+  newest: "Newest first",
+  oldest: "Oldest first",
+  registration: "Registration number",
+  participant: "Participant (A–Z)",
+  institution: "Institution (A–Z)",
+  status: "Registration status",
+  payment: "Payment status",
+  fewestJudges: "Fewest judges first",
+} as const;
+
+type SortOption = keyof typeof SORT_OPTIONS;
+
+const PAYMENT_ORDER: Record<PaymentFilter, number> = {
+  PAID: 0,
+  PENDING: 1,
+  FAILED: 2,
+  NONE: 3,
+};
+
+function paymentFilterValue(row: JudgeAssignmentRow): PaymentFilter {
+  return row.registration.payment_status ?? "NONE";
+}
+
+function compareRows(
+  a: JudgeAssignmentRow,
+  b: JudgeAssignmentRow,
+  sortBy: SortOption
+) {
+  const ra = a.registration;
+  const rb = b.registration;
+  switch (sortBy) {
+    case "newest":
+      return (rb.created_at ?? "").localeCompare(ra.created_at ?? "");
+    case "oldest":
+      return (ra.created_at ?? "").localeCompare(rb.created_at ?? "");
+    case "registration":
+      return ra.registration_number.localeCompare(rb.registration_number, undefined, {
+        numeric: true,
+      });
+    case "participant":
+      return ra.participant_name.localeCompare(rb.participant_name);
+    case "institution":
+      return ra.institution_name.localeCompare(rb.institution_name);
+    case "status":
+      return (
+        REGISTRATION_STATUSES.indexOf(ra.status) -
+        REGISTRATION_STATUSES.indexOf(rb.status)
+      );
+    case "payment":
+      return PAYMENT_ORDER[paymentFilterValue(a)] - PAYMENT_ORDER[paymentFilterValue(b)];
+    case "fewestJudges":
+      return a.assignments.length - b.assignments.length;
+  }
+}
+
+function toggleIn<T>(set: Set<T>, value: T, on: boolean) {
+  const next = new Set(set);
+  if (on) next.add(value);
+  else next.delete(value);
+  return next;
+}
+
 function paymentStatusVariant(
   status: PaymentStatus
 ): "default" | "secondary" | "outline" | "destructive" {
@@ -173,6 +262,16 @@ export function JudgeAssignmentsDataTable({
   onToggleJudge,
 }: JudgeAssignmentsDataTableProps) {
   const [query, setQuery] = React.useState("");
+  const [statusFilter, setStatusFilter] = React.useState<
+    Set<RegistrationStatus>
+  >(() => new Set());
+  const [paymentFilter, setPaymentFilter] = React.useState<Set<PaymentFilter>>(
+    () => new Set()
+  );
+  const [assignmentFilter, setAssignmentFilter] = React.useState<
+    Set<AssignmentFilter>
+  >(() => new Set());
+  const [sortBy, setSortBy] = React.useState<SortOption>("newest");
   const [columnVisibility, setColumnVisibility] =
     React.useState<ColumnVisibilityState>({});
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -188,19 +287,45 @@ export function JudgeAssignmentsDataTable({
 
   const filtered = React.useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return data;
-    return data.filter(({ registration, assignments }) =>
-      [
-        registration.registration_number,
-        registration.project_title,
-        registration.participant_name,
-        registration.institution_name,
-        ...assignments.map((item) =>
-          judgeName(judgesById.get(item.judge_id), item.judge_id)
-        ),
-      ].some((value) => value.toLowerCase().includes(needle))
-    );
-  }, [data, query, judgesById]);
+    return data
+      .filter((row) => {
+        const { registration, assignments } = row;
+        if (statusFilter.size && !statusFilter.has(registration.status)) {
+          return false;
+        }
+        if (paymentFilter.size && !paymentFilter.has(paymentFilterValue(row))) {
+          return false;
+        }
+        if (
+          assignmentFilter.size &&
+          !assignmentFilter.has(assignments.length ? "ASSIGNED" : "UNASSIGNED")
+        ) {
+          return false;
+        }
+        if (!needle) return true;
+        return [
+          registration.registration_number,
+          registration.project_title,
+          registration.participant_name,
+          registration.institution_name,
+          ...assignments.map((item) =>
+            judgeName(judgesById.get(item.judge_id), item.judge_id)
+          ),
+        ].some((value) => value.toLowerCase().includes(needle));
+      })
+      .sort((a, b) => compareRows(a, b, sortBy));
+  }, [
+    data,
+    query,
+    judgesById,
+    statusFilter,
+    paymentFilter,
+    assignmentFilter,
+    sortBy,
+  ]);
+
+  const activeFilterCount =
+    statusFilter.size + paymentFilter.size + assignmentFilter.size;
 
   const columns = React.useMemo(
     () =>
@@ -414,7 +539,7 @@ export function JudgeAssignmentsDataTable({
             Choose which thesis and e-book judges review each registration.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="relative">
             <IconSearch className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
             <Input
@@ -427,6 +552,106 @@ export function JudgeAssignmentsDataTable({
               className="h-8 w-56 pl-8"
             />
           </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <IconFilter />
+                Filter
+                {activeFilterCount ? (
+                  <Badge variant="secondary" className="px-1.5">
+                    {activeFilterCount}
+                  </Badge>
+                ) : null}
+                <IconChevronDown />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Registration status</DropdownMenuLabel>
+              {REGISTRATION_STATUSES.map((status) => (
+                <DropdownMenuCheckboxItem
+                  key={status}
+                  className="capitalize"
+                  checked={statusFilter.has(status)}
+                  onSelect={(event) => event.preventDefault()}
+                  onCheckedChange={(checked) => {
+                    setStatusFilter((prev) => toggleIn(prev, status, checked === true));
+                    table.setPageIndex(0);
+                  }}
+                >
+                  {status.toLowerCase()}
+                </DropdownMenuCheckboxItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Payment</DropdownMenuLabel>
+              {PAYMENT_FILTERS.map(({ value, label }) => (
+                <DropdownMenuCheckboxItem
+                  key={value}
+                  checked={paymentFilter.has(value)}
+                  onSelect={(event) => event.preventDefault()}
+                  onCheckedChange={(checked) => {
+                    setPaymentFilter((prev) => toggleIn(prev, value, checked === true));
+                    table.setPageIndex(0);
+                  }}
+                >
+                  {label}
+                </DropdownMenuCheckboxItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Judges</DropdownMenuLabel>
+              {ASSIGNMENT_FILTERS.map(({ value, label }) => (
+                <DropdownMenuCheckboxItem
+                  key={value}
+                  checked={assignmentFilter.has(value)}
+                  onSelect={(event) => event.preventDefault()}
+                  onCheckedChange={(checked) => {
+                    setAssignmentFilter((prev) =>
+                      toggleIn(prev, value, checked === true)
+                    );
+                    table.setPageIndex(0);
+                  }}
+                >
+                  {label}
+                </DropdownMenuCheckboxItem>
+              ))}
+              {activeFilterCount ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-start"
+                    onClick={() => {
+                      setStatusFilter(new Set());
+                      setPaymentFilter(new Set());
+                      setAssignmentFilter(new Set());
+                      table.setPageIndex(0);
+                    }}
+                  >
+                    Clear filters
+                  </Button>
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Select
+            value={sortBy}
+            onValueChange={(value) => {
+              setSortBy(value as SortOption);
+              table.setPageIndex(0);
+            }}
+          >
+            <SelectTrigger size="sm" className="w-52" aria-label="Sort by">
+              <IconArrowsSort />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="end">
+              {(Object.keys(SORT_OPTIONS) as SortOption[]).map((option) => (
+                <SelectItem key={option} value={option}>
+                  {SORT_OPTIONS[option]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
@@ -496,7 +721,7 @@ export function JudgeAssignmentsDataTable({
                   >
                     {data.length === 0
                       ? "No registrations yet."
-                      : "No registrations match your search."}
+                      : "No registrations match your search or filters."}
                   </TableCell>
                 </TableRow>
               )}
