@@ -3,6 +3,9 @@ import { objectIdSchema } from "./objectId";
 
 export const paymentStatusSchema = z.enum(["PENDING", "PAID", "FAILED"]);
 
+/** Absent on records created before international pricing — those are MYR. */
+export const currencySchema = z.enum(["MYR", "USD"]);
+
 export const paymentSchema = z.object({
   _id: objectIdSchema.optional(),
   registration_id: objectIdSchema,
@@ -10,8 +13,9 @@ export const paymentSchema = z.object({
   submission_id: objectIdSchema.optional(),
   /** 0 for a free project. */
   amount: z.number().nonnegative(),
+  currency: currencySchema.optional(),
   status: paymentStatusSchema,
-  /** Omitted only when the whole submission was free. */
+  /** Added by the secretary once the participant has paid. */
   receipt_url: z.string().url().optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional(),

@@ -30,9 +30,11 @@ import {
 } from "@/schemas/registrationSchema";
 import { formatCompetitionDates } from "@/utils/competitionDates";
 import { getCurrentCompetition } from "@/utils/currentCompetition";
-import { REGISTRATION_FEE } from "@/utils/registrationFee";
+import { formatMoney, REGISTRATION_FEES } from "@/utils/registrationFee";
 import { registrationLinks } from "@/utils/registrationLinks";
 import { bannerImageSrc } from "@/utils/serializeBanner";
+
+const FEE_SUMMARY = `Fees per project: ${formatMoney(REGISTRATION_FEES.unikl.amount, "MYR")} for UniKL, ${formatMoney(REGISTRATION_FEES.malaysia.amount, "MYR")} for other Malaysian public and private universities, and ${formatMoney(REGISTRATION_FEES.international.amount, "USD")} for universities outside Malaysia.`;
 
 type LandingData = {
   hero: LandingHeroProps;
@@ -123,13 +125,13 @@ const STEPS: { icon: Icon; title: string; body: string }[] = [
   },
   {
     icon: IconReceipt,
-    title: "Pay by bank transfer",
-    body: `MYR ${REGISTRATION_FEE} per project, and every ${FREE_PROJECT_EVERY}th project from your university is free. Upload one receipt for the whole submission.`,
+    title: "Receive payment instructions",
+    body: `${FEE_SUMMARY} Every ${FREE_PROJECT_EVERY}th project from your university is free. The secretariat emails you how to pay after reviewing your submission.`,
   },
   {
     icon: IconCircleCheck,
     title: "Get verified",
-    body: "Our secretariat checks your payment and confirms your registration number.",
+    body: "Once your payment is received, the secretariat verifies it and confirms your registration.",
   },
   {
     icon: IconAward,
@@ -140,11 +142,11 @@ const STEPS: { icon: Icon; title: string; body: string }[] = [
 
 const PREPARE_ITEMS = [
   "Project title and a clear abstract",
-  "Project report (PDF or Word)",
-  "Presentation slides, demo, video or photos (optional)",
+  "Abstract document (PDF or Word)",
+  "Full paper (optional, PDF or Word)",
+  "A public Google Drive or YouTube link to your project video",
   "Team lead, team members and supervisor contact details",
   "A government ID number (national ID, passport or driving licence)",
-  "Your bank transfer receipt",
 ];
 
 const FAQS = [
@@ -158,11 +160,11 @@ const FAQS = [
   },
   {
     q: "How do I pay?",
-    a: `Payment is by manual bank transfer of MYR ${REGISTRATION_FEE} per project, minus any free projects. The form shows your total and the bank details on the last step, where you upload one receipt for the whole submission.`,
+    a: `${FEE_SUMMARY} Every ${FREE_PROJECT_EVERY}th project is free. The form shows your total on the last step, but don't pay yet — the secretariat will email you payment instructions after reviewing your submission.`,
   },
   {
     q: "What file types can I upload?",
-    a: "PDF, Word, PowerPoint, ZIP, images (JPG, PNG, WebP, GIF) and video (MP4, WebM, MOV), up to 100 MB per file.",
+    a: "The abstract and full paper can be PDF or Word, up to 100 MB each. Your project video is shared as a public Google Drive or YouTube link instead of an upload.",
   },
   {
     q: "Can I register as a team?",
@@ -272,7 +274,11 @@ export default async function Home() {
             <div className="grid divide-y overflow-hidden rounded-2xl border bg-card shadow-lg sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
               <Fact icon={IconCalendarEvent} label="Competition dates" value={competition.dates} />
               <Fact icon={IconSchool} label="Open to" value={competition.eligibility} />
-              <Fact icon={IconCash} label="Registration fee" value={`MYR ${REGISTRATION_FEE.toFixed(2)} per project`} />
+              <Fact
+                icon={IconCash}
+                label="Registration fee per project"
+                value={`${formatMoney(REGISTRATION_FEES.unikl.amount, "MYR")} UniKL · ${formatMoney(REGISTRATION_FEES.malaysia.amount, "MYR")} Malaysia · ${formatMoney(REGISTRATION_FEES.international.amount, "USD")} international`}
+              />
               <Fact
                 icon={IconCategory}
                 label="Categories"

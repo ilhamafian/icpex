@@ -16,13 +16,13 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import type { DashboardStats } from "@/utils/dashboardData"
+import { formatMoney } from "@/utils/registrationFee"
 
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: "MYR",
-    minimumFractionDigits: 2,
-  }).format(amount)
+function formatRevenue(revenue: DashboardStats["revenue"]) {
+  return [
+    formatMoney(revenue.MYR, "MYR"),
+    ...(revenue.USD > 0 ? [formatMoney(revenue.USD, "USD")] : []),
+  ].join(" + ")
 }
 
 function percentChange(current: number, previous: number) {
@@ -75,7 +75,7 @@ export function SectionCards({ stats }: { stats: DashboardStats }) {
         <CardHeader>
           <CardDescription>Verified Revenue</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            {formatCurrency(stats.revenue)}
+            {formatRevenue(stats.revenue)}
           </CardTitle>
           <CardAction>
             <Badge variant="outline">

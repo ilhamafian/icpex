@@ -10,6 +10,7 @@ import type { JudgeAssignment } from "@/schemas/judgeAssignmentsSchema";
 import { toIdString } from "@/schemas/objectId";
 import type { Payment } from "@/schemas/paymentSchema";
 import type { Registration } from "@/schemas/registrationSchema";
+import type { Currency } from "@/utils/registrationFee";
 
 const CHART_DAYS = 90;
 
@@ -17,7 +18,8 @@ export type DashboardStats = {
   totalRegistrations: number;
   registrationsThisMonth: number;
   registrationsLastMonth: number;
-  revenue: number;
+  /** Verified revenue per currency — MYR and USD are never summed together. */
+  revenue: Record<Currency, number>;
   paidCount: number;
   pendingPayments: number;
   failedPayments: number;
@@ -59,6 +61,7 @@ export type DashboardRow = {
   payment: {
     status: Payment["status"];
     amount: number;
+    currency: Currency;
     receipt_url: string;
   } | null;
   judges: DashboardJudge[];
@@ -175,6 +178,7 @@ export async function loadDashboardData(): Promise<DashboardData> {
         ? {
             status: payment.status,
             amount: payment.amount,
+            currency: payment.currency ?? "MYR",
             receipt_url: payment.receipt_url ?? "",
           }
         : null,
@@ -212,7 +216,13 @@ export async function loadDashboardData(): Promise<DashboardData> {
     totalRegistrations: registrations.length,
     registrationsThisMonth,
     registrationsLastMonth,
-    revenue: paid.reduce((sum, payment) => sum + payment.amount, 0),
+    revenue: paid.reduce(
+      (totals, payment) => {
+        totals[payment.currency ?? "MYR"] += payment.amount;
+        return totals;
+      },
+      { MYR: 0, USD: 0 }
+    ),
     paidCount: paid.length,
     pendingPayments: latestPayments.filter((p) => p.status === "PENDING")
       .length,
@@ -238,7 +248,7 @@ export function emptyDashboardData(): DashboardData {
       totalRegistrations: 0,
       registrationsThisMonth: 0,
       registrationsLastMonth: 0,
-      revenue: 0,
+      revenue: { MYR: 0, USD: 0 },
       paidCount: 0,
       pendingPayments: 0,
       failedPayments: 0,

@@ -1,6 +1,9 @@
 import { z } from "zod";
 
+import { MALAYSIA, MALAYSIA_UNIVERSITIES } from "@/utils/institutions";
+
 import { objectIdSchema } from "./objectId";
+import { currencySchema } from "./paymentSchema";
 import {
   MAX_PROJECTS_PER_SUBMISSION,
   registrationSchema,
@@ -93,15 +96,27 @@ export const submissionSchema = z.object({
   project_count: z.number().int().positive(),
   free_count: z.number().int().nonnegative(),
   amount: z.number().nonnegative(),
+  currency: currencySchema.optional(),
+  /** Only on submissions made before payment moved to after secretary review. */
   receipt_url: z.string().url().optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional(),
 });
 
-/** Public registration payload: one university, 1–6 projects, one receipt. */
+/** Malaysian universities are priced by type, so they must come from the list. */
+const institutionFormSchema = institutionSchema.refine(
+  (institution) =>
+    institution.country !== MALAYSIA ||
+    Object.values(MALAYSIA_UNIVERSITIES).some((names) =>
+      names.includes(institution.name)
+    ),
+  { path: ["name"], message: "Select your university from the list." }
+);
+
+/** Public registration payload: one university, 1–6 projects. Payment comes later. */
 export const submissionFormSchema = z.object({
   competition_id: objectIdSchema,
-  institution: institutionSchema,
+  institution: institutionFormSchema,
   projects: z
     .array(submissionProjectSchema)
     .min(1, "Add at least one project.")
@@ -109,7 +124,6 @@ export const submissionFormSchema = z.object({
       MAX_PROJECTS_PER_SUBMISSION,
       `You can submit at most ${MAX_PROJECTS_PER_SUBMISSION} projects at a time.`
     ),
-  receipt_url: z.string().url().optional(),
 });
 
 export type Institution = z.infer<typeof institutionSchema>;

@@ -50,6 +50,7 @@ import {
   FREE_PROJECT_EVERY,
   type Registration,
 } from "@/schemas/registrationSchema";
+import { formatMoney, type Currency } from "@/utils/registrationFee";
 import type { SerializedPayment } from "@/utils/serializePayment";
 import type { SerializedRegistration } from "@/utils/serializeRegistration";
 
@@ -63,6 +64,8 @@ type PaymentTab = "PENDING" | "PAID" | "FAILED" | "NONE";
 type PaymentFormState = {
   registration_id: string;
   amount: string;
+  /** Read-only — manually added payments are always MYR. */
+  currency: Currency;
   receipt_url: string;
   status: PaymentStatus;
 };
@@ -76,6 +79,7 @@ function emptyPaymentForm(
   return {
     registration_id: registrationId,
     amount,
+    currency: "MYR",
     receipt_url: "",
     status: "PENDING",
   };
@@ -133,14 +137,6 @@ function registrationStatusVariant(
     default:
       return "outline";
   }
-}
-
-function formatAmount(amount: number) {
-  return new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: "MYR",
-    minimumFractionDigits: 2,
-  }).format(amount);
 }
 
 export function PaymentVerificationManager({
@@ -238,6 +234,7 @@ export function PaymentVerificationManager({
     setForm({
       registration_id: row.registration._id,
       amount: String(row.payment.amount),
+      currency: row.payment.currency,
       receipt_url: row.payment.receipt_url,
       status: row.payment.status,
     });
@@ -261,7 +258,7 @@ export function PaymentVerificationManager({
       toast.error("Enter a valid amount.");
       return;
     }
-    if (amount > 0 && !form.receipt_url.trim()) {
+    if (!editingPaymentId && amount > 0 && !form.receipt_url.trim()) {
       toast.error("Receipt URL is required.");
       return;
     }
@@ -494,7 +491,10 @@ export function PaymentVerificationManager({
                               <p className="mt-2 text-sm">
                                 {row.payment.amount === 0
                                   ? "No charge"
-                                  : formatAmount(row.payment.amount)}
+                                  : formatMoney(
+                                      row.payment.amount,
+                                      row.payment.currency
+                                    )}
                                 {row.payment.created_at
                                   ? ` · submitted ${new Date(
                                       row.payment.created_at
@@ -678,7 +678,7 @@ export function PaymentVerificationManager({
               </Select>
             </Field>
 
-            <Field label="Amount (MYR)">
+            <Field label={`Amount (${form.currency})`}>
               <Input
                 type="number"
                 min={0}

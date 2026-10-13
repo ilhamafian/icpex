@@ -1,6 +1,5 @@
 "use client";
 
-import { upload } from "@vercel/blob/client";
 import { FormEvent, useState } from "react";
 import { IconChevronDown, IconTrash } from "@tabler/icons-react";
 
@@ -14,7 +13,6 @@ import {
 import {
   Field,
   FieldError,
-  fileInputClassName,
   inputClassName,
   linkButtonClassName,
   mutedTextClassName,
@@ -37,6 +35,7 @@ import {
   MALAYSIA_UNIVERSITIES,
   type MalaysiaInstitutionType,
 } from "@/utils/institutions";
+import { formatMoney, type Currency } from "@/utils/registrationFee";
 
 type Option = { id: string; name: string };
 
@@ -44,30 +43,25 @@ type FieldErrors = Record<string, string>;
 
 type FormStep = "university" | "projects" | "payment";
 
-type Quote = { fees: number[]; freeCount: number; total: number };
+type Quote = {
+  currency: Currency;
+  fees: number[];
+  freeCount: number;
+  total: number;
+};
 
 type SubmissionResult = {
   submission_number: string;
   total: number;
+  currency: Currency;
   projects: { registration_number: string; title: string; fee: number }[];
 };
-
-/** Manual bank transfer — placeholder details for participants. */
-const PAYMENT_BANK = {
-  bankName: "Maybank",
-  accountName: "ICPEX Competition Secretariat",
-  accountNumber: "512345678901",
-} as const;
 
 const STEPS: { id: FormStep; label: string }[] = [
   { id: "university", label: "1. University" },
   { id: "projects", label: "2. Projects" },
   { id: "payment", label: "3. Payment" },
 ];
-
-function formatMyr(amount: number) {
-  return `MYR ${amount.toFixed(2)}`;
-}
 
 function issuesToErrors(issues: { path: PropertyKey[]; message: string }[]) {
   const next: FieldErrors = {};
@@ -121,10 +115,6 @@ export function RegistrationForm({
 
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
-  const [receiptUrl, setReceiptUrl] = useState("");
-  const [receiptFileName, setReceiptFileName] = useState("");
-  const [receiptUploading, setReceiptUploading] = useState(false);
-  const [receiptUploadError, setReceiptUploadError] = useState<string>();
 
   const [errors, setErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(false);
@@ -150,7 +140,6 @@ export function RegistrationForm({
       competition_id: competitionId,
       institution,
       projects: projects.map(projectToPayload),
-      receipt_url: quote && quote.total > 0 ? receiptUrl : undefined,
     };
   }
 
@@ -203,10 +192,7 @@ export function RegistrationForm({
   }
 
   function validateProjects(): boolean {
-    const parsed = submissionFormSchema.safeParse({
-      ...buildPayload(),
-      receipt_url: undefined,
-    });
+    const parsed = submissionFormSchema.safeParse(buildPayload());
     if (!parsed.success) {
       const next = issuesToErrors(parsed.error.issues);
       setErrors(next);
@@ -233,6 +219,7 @@ export function RegistrationForm({
     try {
       const params = new URLSearchParams({
         institution: institutionName,
+        country: institutionCountry,
         count: String(projects.length),
       });
       const response = await fetch(`/api/submissions/quote?${params}`);
@@ -251,34 +238,6 @@ export function RegistrationForm({
       setErrors({ form: "Network error. Please try again." });
     } finally {
       setQuoteLoading(false);
-    }
-  }
-
-  async function handleReceiptUpload(file: File | undefined) {
-    if (!file) return;
-
-    setReceiptUploading(true);
-    setReceiptUploadError(undefined);
-    setReceiptFileName(file.name);
-    setReceiptUrl("");
-    setErrors((prev) => {
-      const next = { ...prev };
-      delete next.receipt_url;
-      return next;
-    });
-
-    try {
-      const blob = await upload(`payments/receipts/${file.name}`, file, {
-        access: "private",
-        handleUploadUrl: "/api/blob/upload",
-      });
-      setReceiptUrl(blob.url);
-    } catch (error) {
-      setReceiptUploadError(
-        error instanceof Error ? error.message : "Upload failed. Try again."
-      );
-    } finally {
-      setReceiptUploading(false);
     }
   }
 
@@ -305,14 +264,6 @@ export function RegistrationForm({
     }
 
     if (!quote) return;
-    if (receiptUploading) {
-      setErrors({ form: "Please wait for the receipt upload to finish." });
-      return;
-    }
-    if (quote.total > 0 && !receiptUrl) {
-      setErrors({ receipt_url: "Please upload your payment receipt." });
-      return;
-    }
 
     const parsed = submissionFormSchema.safeParse(buildPayload());
     if (!parsed.success) {
@@ -362,7 +313,7 @@ export function RegistrationForm({
             </span>
             .{" "}
             {result.total > 0
-              ? "Your payment receipt is pending verification."
+              ? `Your registration fee is ${formatMoney(result.total, result.currency)}. The secretariat will email you payment instructions after reviewing your submission.`
               : "No payment was required for this submission."}{" "}
             Keep these numbers for your records.
           </p>
@@ -380,7 +331,7 @@ export function RegistrationForm({
                 </p>
               </div>
               <span className="shrink-0 font-medium">
-                {project.fee === 0 ? "Free" : formatMyr(project.fee)}
+                {project.fee === 0 ? "Free" : formatMoney(project.fee, result.currency)}
               </span>
             </li>
           ))}
@@ -616,7 +567,7 @@ export function RegistrationForm({
       {step === "payment" ? (
         <Section
           title="Payment"
-          description="Review your fee, transfer it using the bank details below, then upload your receipt."
+          description={`Review your registration fee. Every ${FREE_PROJECT_EVERY}th project from the same university is free.`}
         >
           <div className="flex flex-col gap-3 rounded-lg border border-black/10 px-4 py-5 dark:border-white/10">
             <p className="text-sm font-medium">
@@ -639,14 +590,14 @@ export function RegistrationForm({
                       <span className="shrink-0 font-medium">
                         {quote.fees[index] === 0
                           ? `Free (${FREE_PROJECT_EVERY}th project)`
-                          : formatMyr(quote.fees[index])}
+                          : formatMoney(quote.fees[index], quote.currency)}
                       </span>
                     </li>
                   ))}
                 </ul>
                 <div className="flex items-center justify-between border-t border-black/10 pt-3 text-sm font-semibold dark:border-white/10">
                   <span>Total</span>
-                  <span>{formatMyr(quote.total)}</span>
+                  <span>{formatMoney(quote.total, quote.currency)}</span>
                 </div>
               </>
             ) : (
@@ -661,61 +612,10 @@ export function RegistrationForm({
           </div>
 
           {quote && quote.total > 0 ? (
-            <>
-              <div className="flex flex-col gap-4 rounded-lg border border-black/10 px-4 py-5 dark:border-white/10">
-                <p className="text-sm font-medium">Manual bank transfer</p>
-                <dl className="grid gap-3 text-sm sm:grid-cols-2">
-                  <div>
-                    <dt className={mutedTextClassName}>Bank</dt>
-                    <dd className="mt-0.5 font-medium">{PAYMENT_BANK.bankName}</dd>
-                  </div>
-                  <div>
-                    <dt className={mutedTextClassName}>Account name</dt>
-                    <dd className="mt-0.5 font-medium">{PAYMENT_BANK.accountName}</dd>
-                  </div>
-                  <div>
-                    <dt className={mutedTextClassName}>Account number</dt>
-                    <dd className="mt-0.5 font-medium tracking-wide">
-                      {PAYMENT_BANK.accountNumber}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className={mutedTextClassName}>Amount</dt>
-                    <dd className="mt-0.5 font-medium">{formatMyr(quote.total)}</dd>
-                  </div>
-                </dl>
-                <p className={mutedTextClassName}>
-                  Use your university name as the transfer reference so we can
-                  match your payment.
-                </p>
-              </div>
-
-              <Field
-                id="receipt_url"
-                label="Upload payment receipt"
-                error={receiptUploadError || errors.receipt_url}
-              >
-                <input
-                  id="receipt_url"
-                  type="file"
-                  accept=".pdf,image/jpeg,image/png,image/webp,image/gif"
-                  disabled={receiptUploading || loading}
-                  onChange={(e) => {
-                    void handleReceiptUpload(e.target.files?.[0]);
-                    e.target.value = "";
-                  }}
-                  className={fileInputClassName}
-                />
-                {receiptUploading ? (
-                  <p className={mutedTextClassName}>Uploading…</p>
-                ) : null}
-                {receiptUrl && !receiptUploading ? (
-                  <p className={`truncate ${mutedTextClassName}`}>
-                    Uploaded: {receiptFileName}
-                  </p>
-                ) : null}
-              </Field>
-            </>
+            <p className={mutedTextClassName}>
+              Don&apos;t pay yet. Once the secretariat has reviewed your
+              submission, they will email you the payment instructions.
+            </p>
           ) : quote ? (
             <p className={mutedTextClassName}>
               No payment is needed for this submission — just submit to finish.
@@ -742,7 +642,7 @@ export function RegistrationForm({
           disabled={
             loading ||
             (step === "projects" && anyUploading) ||
-            (step === "payment" && (receiptUploading || quoteLoading || !quote)) ||
+            (step === "payment" && (quoteLoading || !quote)) ||
             !competitionId ||
             categories.length === 0
           }
@@ -751,9 +651,7 @@ export function RegistrationForm({
           {loading
             ? "Submitting…"
             : step === "payment"
-              ? receiptUploading
-                ? "Uploading receipt…"
-                : "Submit registration"
+              ? "Submit registration"
               : step === "projects" && anyUploading
                 ? "Uploading documents…"
                 : "Next"}

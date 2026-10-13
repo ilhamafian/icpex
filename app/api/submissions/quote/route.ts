@@ -10,6 +10,7 @@ import { quoteSubmission } from "@/utils/pricing";
 export async function GET(req: NextRequest) {
   try {
     const institution = req.nextUrl.searchParams.get("institution") ?? "";
+    const country = req.nextUrl.searchParams.get("country") ?? "";
     const count = Number(req.nextUrl.searchParams.get("count"));
     if (
       !Number.isInteger(count) ||
@@ -30,12 +31,12 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const { fees, freeCount, total } = await quoteSubmission(
+    const { currency, fees, freeCount, total } = await quoteSubmission(
       toIdString(competition._id),
-      institution,
+      { name: institution, country },
       count
     );
-    return createResponse({ quote: { fees, freeCount, total } });
+    return createResponse({ quote: { currency, fees, freeCount, total } });
   } catch (error) {
     return handleError(error);
   }

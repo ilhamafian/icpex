@@ -18,7 +18,7 @@ export const registrationSchema = z.object({
   submission_id: objectIdSchema.optional(),
   /** Normalised university name used to count projects for the free rule. */
   institution_key: z.string().optional(),
-  /** Fee charged for this project in MYR — 0 when it was a free project. */
+  /** Fee charged for this project in the payment's currency — 0 when it was a free project. */
   fee: z.number().nonnegative().optional(),
   competition_id: objectIdSchema,
   category_id: objectIdSchema,

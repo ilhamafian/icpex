@@ -74,6 +74,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { educationLevelLabel } from "@/schemas/educationLevel"
 import type { DashboardRow } from "@/utils/dashboardData"
+import { formatMoney } from "@/utils/registrationFee"
 
 const features = tableFeatures({
   columnVisibilityFeature,
@@ -115,14 +116,6 @@ function formatDate(iso?: string) {
     month: "short",
     day: "numeric",
   })
-}
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: "MYR",
-    minimumFractionDigits: 2,
-  }).format(amount)
 }
 
 function registrationStatusVariant(
@@ -620,7 +613,7 @@ function TableCellViewer({ item }: { item: DashboardRow }) {
                   <span className="font-medium">
                     {item.payment.amount === 0
                       ? "Free"
-                      : formatCurrency(item.payment.amount)}
+                      : formatMoney(item.payment.amount, item.payment.currency)}
                   </span>
                 </div>
                 {item.payment.receipt_url ? (

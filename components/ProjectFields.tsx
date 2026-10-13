@@ -17,6 +17,7 @@ import {
   Section,
   textareaClassName,
 } from "@/components/registrationFormUi";
+import { DEFAULT_PHONE_CODE, DIAL_CODES } from "@/utils/phoneCodes";
 
 type Option = { id: string; name: string };
 type Person = { name: string; email: string };
@@ -36,6 +37,8 @@ export type ProjectState = {
   categoryId: string;
   participantName: string;
   participantEmail: string;
+  /** Dialling code that prefixes `phone`, e.g. "+60". */
+  phoneCode: string;
   phone: string;
   educationLevel: EducationLevel;
   govIdType: IdType;
@@ -66,6 +69,7 @@ export function emptyProject(
     categoryId,
     participantName: "",
     participantEmail: "",
+    phoneCode: DEFAULT_PHONE_CODE,
     phone: "",
     educationLevel,
     govIdType: "NATIONAL_ID",
@@ -106,12 +110,15 @@ function projectDocuments(project: ProjectState): SubmissionProject["documents"]
 }
 
 export function projectToPayload(project: ProjectState): SubmissionProject {
+  const phoneNumber = project.phone.trim();
   return {
     category_id: project.categoryId,
     participant: {
       name: project.participantName,
       email: project.participantEmail,
-      phone: project.phone,
+      phone: phoneNumber
+        ? `${project.phoneCode} ${phoneNumber}`
+        : "",
       education_level: project.educationLevel,
       government_id: { type: project.govIdType, number: project.govIdNumber },
     },
@@ -290,15 +297,30 @@ export function ProjectFields({
             />
           </Field>
           <Field id={id("participant.phone")} label="Phone" error={errors["participant.phone"]}>
-            <input
-              id={id("participant.phone")}
-              type="tel"
-              autoComplete="tel"
-              value={project.phone}
-              onChange={(e) => set("phone", e.target.value)}
-              className={inputClassName}
-              aria-invalid={Boolean(errors["participant.phone"])}
-            />
+            <div className="flex gap-2">
+              <select
+                aria-label="Country code"
+                value={project.phoneCode}
+                onChange={(e) => set("phoneCode", e.target.value)}
+                className={`${inputClassName} max-w-24`}
+              >
+                {DIAL_CODES.map((code) => (
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
+                ))}
+              </select>
+              <input
+                id={id("participant.phone")}
+                type="tel"
+                autoComplete="tel-national"
+                value={project.phone}
+                onChange={(e) => set("phone", e.target.value)}
+                placeholder="12 345 6789"
+                className={inputClassName}
+                aria-invalid={Boolean(errors["participant.phone"])}
+              />
+            </div>
           </Field>
           <Field
             id={id("participant.education_level")}

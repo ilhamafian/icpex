@@ -19,7 +19,7 @@ import { createResponse, handleError } from "@/utils/apiHelper";
 import { getCurrentCompetition } from "@/utils/currentCompetition";
 import { normalizeInstitution, quoteSubmission } from "@/utils/pricing";
 
-/** Public: register 1–6 projects from one university with a single receipt. */
+/** Public: register 1–6 projects from one university. Payment is requested later by email. */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) {
       return createResponse({ error: parsed.error.format() }, 400);
     }
-    const { institution, projects, receipt_url } = parsed.data;
+    const { institution, projects } = parsed.data;
 
     const competition = await getCurrentCompetition();
     const competitionId = String(parsed.data.competition_id);
@@ -68,15 +68,9 @@ export async function POST(req: NextRequest) {
 
     const quote = await quoteSubmission(
       competitionId,
-      institution.name,
+      institution,
       projects.length
     );
-    if (quote.total > 0 && !receipt_url) {
-      return createResponse(
-        { error: "Please upload your payment receipt." },
-        400
-      );
-    }
 
     const submissionModel = new SubmissionModel();
     const registrationModel = new RegistrationModel();
@@ -98,7 +92,7 @@ export async function POST(req: NextRequest) {
           project_count: projects.length,
           free_count: quote.freeCount,
           amount: quote.total,
-          receipt_url,
+          currency: quote.currency,
         })
       );
       const submissionId = toIdString(submission._id);
@@ -128,7 +122,7 @@ export async function POST(req: NextRequest) {
             registration_id: registrationId,
             submission_id: submissionId,
             amount: fee,
-            receipt_url,
+            currency: quote.currency,
             status: "PENDING",
           })
         );
@@ -154,6 +148,7 @@ export async function POST(req: NextRequest) {
             _id: submissionId,
             submission_number: submission.submission_number,
             total: quote.total,
+            currency: quote.currency,
             free_count: quote.freeCount,
             projects: results,
           },

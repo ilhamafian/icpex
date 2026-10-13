@@ -4,6 +4,7 @@ import { WithId } from "mongodb";
 
 import type { Payment } from "@/schemas/paymentSchema";
 import { toIdString } from "@/schemas/objectId";
+import type { Currency } from "@/utils/registrationFee";
 
 function toIso(value: Date | string | undefined) {
   if (!value) return undefined;
@@ -16,6 +17,7 @@ export type SerializedPayment = {
   /** Payments sharing a submission share one receipt. */
   submission_id?: string;
   amount: number;
+  currency: Currency;
   status: Payment["status"];
   receipt_url: string;
   created_at?: string;
@@ -28,6 +30,7 @@ export function serializePayment(payment: WithId<Payment>): SerializedPayment {
     registration_id: toIdString(payment.registration_id),
     submission_id: toIdString(payment.submission_id) || undefined,
     amount: payment.amount,
+    currency: payment.currency ?? "MYR",
     status: payment.status,
     receipt_url: payment.receipt_url ?? "",
     created_at: toIso(payment.created_at),
