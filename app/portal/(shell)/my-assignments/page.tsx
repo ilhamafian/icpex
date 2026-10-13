@@ -36,7 +36,7 @@ async function loadMyAssignments(
       assignments: assignments.map(serializeJudgeAssignment),
       registrations: registrations
         .filter((item) => assignedNumbers.has(item.registration_number))
-        .map(toAssignmentRegistrationOption),
+        .map((registration) => toAssignmentRegistrationOption(registration)),
     };
   } catch {
     return { assignments: [], registrations: [] };

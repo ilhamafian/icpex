@@ -56,6 +56,7 @@ import type {
   JudgeAssignmentStatus,
   JudgeAssignmentType,
 } from "@/schemas/judgeAssignmentsSchema";
+import type { PaymentStatus } from "@/schemas/paymentSchema";
 import type { SerializedUser } from "@/types/user";
 import { hasGrant } from "@/utils/roleGrants";
 import type { AssignmentRegistrationOption } from "@/utils/assignmentOptions";
@@ -110,6 +111,19 @@ function registrationStatusVariant(
       return "destructive";
     case "REVIEWING":
       return "secondary";
+    default:
+      return "outline";
+  }
+}
+
+function paymentStatusVariant(
+  status: PaymentStatus
+): "default" | "secondary" | "outline" | "destructive" {
+  switch (status) {
+    case "PAID":
+      return "default";
+    case "FAILED":
+      return "destructive";
     default:
       return "outline";
   }
@@ -231,6 +245,29 @@ export function JudgeAssignmentsDataTable({
               {row.original.registration.status}
             </Badge>
           ),
+        }),
+        columnHelper.accessor((row) => row.registration.payment_status ?? "", {
+          id: "payment",
+          header: () => <div className="w-full text-center">Payment</div>,
+          cell: ({ row }) => {
+            const status = row.original.registration.payment_status;
+            return (
+              <div className="flex justify-center">
+                {status ? (
+                  <Badge
+                    variant={paymentStatusVariant(status)}
+                    className="w-20 justify-center px-1.5"
+                  >
+                    {status}
+                  </Badge>
+                ) : (
+                  <span className="text-muted-foreground text-sm">
+                    No payment
+                  </span>
+                )}
+              </div>
+            );
+          },
         }),
         columnHelper.accessor((row) => row.registration.created_at, {
           id: "submitted",
