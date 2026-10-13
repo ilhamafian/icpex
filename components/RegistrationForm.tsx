@@ -30,6 +30,13 @@ import {
   submissionFormSchema,
   type SubmissionForm,
 } from "@/schemas/submissionSchema";
+import {
+  COUNTRIES,
+  MALAYSIA,
+  MALAYSIA_INSTITUTION_TYPES,
+  MALAYSIA_UNIVERSITIES,
+  type MalaysiaInstitutionType,
+} from "@/utils/institutions";
 
 type Option = { id: string; name: string };
 
@@ -104,6 +111,9 @@ export function RegistrationForm({
   const [step, setStep] = useState<FormStep>("university");
   const [institutionName, setInstitutionName] = useState("");
   const [institutionCountry, setInstitutionCountry] = useState("");
+  const [institutionType, setInstitutionType] = useState<
+    MalaysiaInstitutionType | ""
+  >("");
   const [projects, setProjects] = useState<ProjectState[]>(() => [newProject()]);
   const [expanded, setExpanded] = useState<Set<string>>(
     () => new Set(projects.map((p) => p.key))
@@ -122,6 +132,18 @@ export function RegistrationForm({
 
   const anyUploading = projects.some(projectIsUploading);
   const institution = { name: institutionName, country: institutionCountry };
+  const isMalaysia = institutionCountry === MALAYSIA;
+
+  function changeCountry(country: string) {
+    setInstitutionCountry(country);
+    setInstitutionType("");
+    setInstitutionName("");
+  }
+
+  function changeInstitutionType(type: MalaysiaInstitutionType | "") {
+    setInstitutionType(type);
+    setInstitutionName("");
+  }
 
   function buildPayload(): SubmissionForm {
     return {
@@ -162,14 +184,18 @@ export function RegistrationForm({
 
   function validateUniversity(): boolean {
     const parsed = institutionSchema.safeParse(institution);
-    if (!parsed.success) {
-      setErrors(
-        Object.fromEntries(
+    const next: FieldErrors = parsed.success
+      ? {}
+      : Object.fromEntries(
           Object.entries(issuesToErrors(parsed.error.issues)).map(
             ([key, message]) => [`institution.${key}`, message]
           )
-        )
-      );
+        );
+    if (isMalaysia && !institutionType) {
+      next["institution.type"] = "Institution type is required.";
+    }
+    if (Object.keys(next).length) {
+      setErrors(next);
       return false;
     }
     setErrors({});
@@ -389,35 +415,100 @@ export function RegistrationForm({
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
-              id="institution.name"
-              label="University"
-              error={errors["institution.name"]}
-            >
-              <input
-                id="institution.name"
-                type="text"
-                autoComplete="organization"
-                value={institutionName}
-                onChange={(e) => setInstitutionName(e.target.value)}
-                placeholder="e.g. Universiti Malaya"
-                className={inputClassName}
-                aria-invalid={Boolean(errors["institution.name"])}
-              />
-            </Field>
-            <Field
               id="institution.country"
               label="Country"
               error={errors["institution.country"]}
             >
-              <input
+              <select
                 id="institution.country"
-                type="text"
                 autoComplete="country-name"
                 value={institutionCountry}
-                onChange={(e) => setInstitutionCountry(e.target.value)}
+                onChange={(e) => changeCountry(e.target.value)}
                 className={inputClassName}
                 aria-invalid={Boolean(errors["institution.country"])}
-              />
+              >
+                <option value="" disabled>
+                  Select a country
+                </option>
+                {COUNTRIES.map((country) => (
+                  <option key={country} value={country}>
+                    {country}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {isMalaysia ? (
+              <Field
+                id="institution.type"
+                label="Institution type"
+                error={errors["institution.type"]}
+              >
+                <select
+                  id="institution.type"
+                  value={institutionType}
+                  onChange={(e) =>
+                    changeInstitutionType(
+                      e.target.value as MalaysiaInstitutionType | ""
+                    )
+                  }
+                  className={inputClassName}
+                  aria-invalid={Boolean(errors["institution.type"])}
+                >
+                  <option value="" disabled>
+                    Select an institution type
+                  </option>
+                  {MALAYSIA_INSTITUTION_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            ) : null}
+            <Field
+              id="institution.name"
+              label="University"
+              error={errors["institution.name"]}
+            >
+              {isMalaysia ? (
+                <select
+                  id="institution.name"
+                  value={institutionName}
+                  onChange={(e) => setInstitutionName(e.target.value)}
+                  className={inputClassName}
+                  aria-invalid={Boolean(errors["institution.name"])}
+                  disabled={!institutionType}
+                >
+                  <option value="" disabled>
+                    {institutionType
+                      ? "Select a university"
+                      : "Select an institution type first"}
+                  </option>
+                  {institutionType
+                    ? MALAYSIA_UNIVERSITIES[institutionType].map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))
+                    : null}
+                </select>
+              ) : (
+                <input
+                  id="institution.name"
+                  type="text"
+                  autoComplete="organization"
+                  value={institutionName}
+                  onChange={(e) => setInstitutionName(e.target.value)}
+                  placeholder={
+                    institutionCountry
+                      ? "Full official university name"
+                      : "Select a country first"
+                  }
+                  className={inputClassName}
+                  aria-invalid={Boolean(errors["institution.name"])}
+                  disabled={!institutionCountry}
+                />
+              )}
             </Field>
           </div>
         </Section>
