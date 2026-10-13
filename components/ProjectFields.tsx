@@ -21,15 +21,14 @@ import {
 type Option = { id: string; name: string };
 type Person = { name: string; email: string };
 type IdType = SubmissionProject["participant"]["government_id"]["type"];
-type DocumentType = SubmissionProject["documents"][number]["type"];
-
-export type DocumentRow = {
-  type: DocumentType;
+export type UploadState = {
   file_name: string;
   file_url: string;
   uploading?: boolean;
   uploadError?: string;
 };
+
+type UploadKey = "abstract" | "fullPaper";
 
 export type ProjectState = {
   /** Stable React key — projects can be removed from the middle. */
@@ -47,20 +46,15 @@ export type ProjectState = {
   leadEmail: string;
   members: Person[];
   supervisors: Person[];
-  documents: DocumentRow[];
+  abstract: UploadState;
+  fullPaper: UploadState;
+  videoLink: string;
 };
 
-const DOCUMENT_TYPES: DocumentType[] = [
-  "PROJECT_REPORT",
-  "PROJECT_PRESENTATION",
-  "PROJECT_DEMO",
-  "PROJECT_VIDEO",
-  "PROJECT_PHOTO",
-  "PROJECT_OTHER",
-];
+const DOCUMENT_ACCEPT = ".pdf,.doc,.docx";
 
-function emptyDocument(): DocumentRow {
-  return { type: "PROJECT_REPORT", file_name: "", file_url: "" };
+function emptyUpload(): UploadState {
+  return { file_name: "", file_url: "" };
 }
 
 export function emptyProject(
@@ -82,8 +76,33 @@ export function emptyProject(
     leadEmail: "",
     members: [],
     supervisors: [{ name: "", email: "" }],
-    documents: [emptyDocument()],
+    abstract: emptyUpload(),
+    fullPaper: emptyUpload(),
+    videoLink: "",
   };
+}
+
+function projectDocuments(project: ProjectState): SubmissionProject["documents"] {
+  const documents: SubmissionProject["documents"] = [];
+  if (project.abstract.file_url) {
+    documents.push({
+      type: "ABSTRACT",
+      file_name: project.abstract.file_name,
+      file_url: project.abstract.file_url,
+    });
+  }
+  if (project.fullPaper.file_url) {
+    documents.push({
+      type: "FULL_PAPER",
+      file_name: project.fullPaper.file_name,
+      file_url: project.fullPaper.file_url,
+    });
+  }
+  const videoLink = project.videoLink.trim();
+  if (videoLink) {
+    documents.push({ type: "VIDEO_LINK", file_name: "Video link", file_url: videoLink });
+  }
+  return documents;
 }
 
 export function projectToPayload(project: ProjectState): SubmissionProject {
@@ -107,22 +126,12 @@ export function projectToPayload(project: ProjectState): SubmissionProject {
     supervisors: project.supervisors.filter(
       (s) => s.name.trim() || s.email.trim()
     ),
-    documents: project.documents
-      .filter((d) => d.file_name.trim() || d.file_url.trim())
-      .map(({ type, file_name, file_url }) => ({ type, file_name, file_url })),
+    documents: projectDocuments(project),
   };
 }
 
 export function projectIsUploading(project: ProjectState) {
-  return project.documents.some((d) => d.uploading);
-}
-
-function documentTypeLabel(type: DocumentType) {
-  return type
-    .replace(/^PROJECT_/, "")
-    .replaceAll("_", " ")
-    .toLowerCase()
-    .replace(/^\w/, (c) => c.toUpperCase());
+  return Boolean(project.abstract.uploading || project.fullPaper.uploading);
 }
 
 type ProjectFieldsProps = {
@@ -158,18 +167,13 @@ export function ProjectFields({
     onChange((current) => ({ ...current, [key]: update(current[key]) }));
   }
 
-  function updateDocument(docIndex: number, patch: Partial<DocumentRow>) {
-    onChange((current) => ({
-      ...current,
-      documents: current.documents.map((d, i) =>
-        i === docIndex ? { ...d, ...patch } : d
-      ),
-    }));
+  function updateUpload(key: UploadKey, patch: Partial<UploadState>) {
+    onChange((current) => ({ ...current, [key]: { ...current[key], ...patch } }));
   }
 
-  async function handleDocumentUpload(docIndex: number, file: File | undefined) {
+  async function handleDocumentUpload(key: UploadKey, file: File | undefined) {
     if (!file) return;
-    updateDocument(docIndex, {
+    updateUpload(key, {
       uploading: true,
       uploadError: undefined,
       file_name: file.name,
@@ -181,19 +185,56 @@ export function ProjectFields({
         access: "private",
         handleUploadUrl: "/api/blob/upload",
       });
-      updateDocument(docIndex, {
+      updateUpload(key, {
         uploading: false,
         file_name: file.name,
         file_url: blob.url,
       });
     } catch (error) {
-      updateDocument(docIndex, {
+      updateUpload(key, {
         uploading: false,
         file_url: "",
         uploadError:
           error instanceof Error ? error.message : "Upload failed. Try again.",
       });
     }
+  }
+
+  function renderUpload(key: UploadKey, label: string, error?: string) {
+    const state = project[key];
+    const inputId = id(`documents.${key}`);
+    return (
+      <Field id={inputId} label={label} error={state.uploadError || error}>
+        <div className="flex items-center gap-3">
+          <input
+            id={inputId}
+            type="file"
+            accept={DOCUMENT_ACCEPT}
+            disabled={state.uploading || disabled}
+            onChange={(e) => {
+              void handleDocumentUpload(key, e.target.files?.[0]);
+              e.target.value = "";
+            }}
+            className={fileInputClassName}
+          />
+          {state.file_url && !state.uploading ? (
+            <button
+              type="button"
+              onClick={() => set(key, emptyUpload())}
+              className={`shrink-0 ${mutedTextClassName} underline-offset-4 hover:underline`}
+            >
+              Remove
+            </button>
+          ) : null}
+        </div>
+        {state.uploading ? <p className={mutedTextClassName}>Uploading…</p> : null}
+        {state.file_url && !state.uploading ? (
+          <p className={`truncate ${mutedTextClassName}`}>
+            Uploaded: {state.file_name}
+          </p>
+        ) : null}
+      </Field>
+    );
   }
 
   return (
@@ -511,81 +552,32 @@ export function ProjectFields({
 
       <Section
         title="Documents"
-        description="Upload project documents (PDF, Office, images, video, or zip — up to 100 MB each)."
+        description="Upload your abstract and, optionally, your full paper (PDF or Word, up to 100 MB each), and share a link to your project video."
       >
-        <div className="flex flex-col gap-3">
-          {project.documents.map((doc, docIndex) => (
-            <div key={docIndex} className="grid gap-3 sm:grid-cols-[1fr_2fr_auto]">
-              <select
-                aria-label={`Document ${docIndex + 1} type`}
-                value={doc.type}
-                onChange={(e) =>
-                  updateDocument(docIndex, { type: e.target.value as DocumentType })
-                }
-                className={inputClassName}
-              >
-                {DOCUMENT_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {documentTypeLabel(type)}
-                  </option>
-                ))}
-              </select>
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <input
-                  type="file"
-                  aria-label={`Document ${docIndex + 1} file`}
-                  accept=".pdf,.doc,.docx,.ppt,.pptx,.zip,image/*,video/mp4,video/webm,video/quicktime"
-                  disabled={doc.uploading || disabled}
-                  onChange={(e) => {
-                    void handleDocumentUpload(docIndex, e.target.files?.[0]);
-                    e.target.value = "";
-                  }}
-                  className={fileInputClassName}
-                />
-                {doc.uploading ? <p className={mutedTextClassName}>Uploading…</p> : null}
-                {doc.file_url && !doc.uploading ? (
-                  <p className={`truncate ${mutedTextClassName}`}>
-                    Uploaded: {doc.file_name}
-                  </p>
-                ) : null}
-                <FieldError
-                  message={
-                    doc.uploadError ||
-                    errors[`documents.${docIndex}.file_name`] ||
-                    errors[`documents.${docIndex}.file_url`]
-                  }
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() =>
-                  onChange((current) => ({
-                    ...current,
-                    documents:
-                      current.documents.length === 1
-                        ? [emptyDocument()]
-                        : current.documents.filter((_, i) => i !== docIndex),
-                  }))
-                }
-                className={`h-11 shrink-0 ${mutedTextClassName} underline-offset-4 hover:underline`}
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={() =>
-              onChange((current) => ({
-                ...current,
-                documents: [...current.documents, emptyDocument()],
-              }))
-            }
-            className={`self-start ${linkButtonClassName}`}
-          >
-            Add document
-          </button>
-        </div>
+        {renderUpload("abstract", "Abstract", errors["documents.abstract"])}
+        {renderUpload("fullPaper", "Full paper (optional)", errors["documents.full_paper"])}
+        <Field
+          id={id("documents.video_link")}
+          label="Video link"
+          error={errors["documents.video_link"]}
+        >
+          <input
+            id={id("documents.video_link")}
+            type="url"
+            inputMode="url"
+            value={project.videoLink}
+            onChange={(e) => set("videoLink", e.target.value)}
+            placeholder="https://youtube.com/… or https://drive.google.com/…"
+            className={inputClassName}
+            aria-invalid={Boolean(errors["documents.video_link"])}
+            aria-describedby={id("documents.video_link.hint")}
+          />
+          <p id={id("documents.video_link.hint")} className={mutedTextClassName}>
+            Paste a Google Drive or YouTube link. Make sure the video is set to
+            public (on Google Drive, &ldquo;Anyone with the link&rdquo;) so the
+            judges can watch it.
+          </p>
+        </Field>
       </Section>
     </div>
   );

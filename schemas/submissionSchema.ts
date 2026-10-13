@@ -11,6 +11,68 @@ export const institutionSchema = z.object({
   country: z.string().trim().min(1, "Country is required."),
 });
 
+const VIDEO_LINK_HOSTS = [
+  "youtube.com",
+  "www.youtube.com",
+  "m.youtube.com",
+  "youtu.be",
+  "drive.google.com",
+];
+
+export function isAllowedVideoLink(value: string) {
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === "https:" || url.protocol === "http:") &&
+      VIDEO_LINK_HOSTS.includes(url.hostname.toLowerCase())
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Abstract (required), full paper (optional) and video link (required). */
+const submissionDocumentsSchema = z
+  .array(
+    registrationSchema.shape.documents.element.extend({
+      type: z.enum(["ABSTRACT", "FULL_PAPER", "VIDEO_LINK"]),
+    })
+  )
+  .superRefine((documents, ctx) => {
+    const count = (type: string) =>
+      documents.filter((d) => d.type === type).length;
+
+    if (count("ABSTRACT") !== 1) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["abstract"],
+        message: "Please upload your abstract.",
+      });
+    }
+    if (count("FULL_PAPER") > 1) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["full_paper"],
+        message: "Only one full paper can be uploaded.",
+      });
+    }
+
+    const videos = documents.filter((d) => d.type === "VIDEO_LINK");
+    if (videos.length !== 1) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["video_link"],
+        message: "Video link is required.",
+      });
+    } else if (!isAllowedVideoLink(videos[0].file_url)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["video_link"],
+        message: "Enter a valid Google Drive or YouTube link.",
+      });
+    }
+  });
+
 /** One project inside a submission — the university is shared, so it is omitted. */
 export const submissionProjectSchema = z.object({
   category_id: objectIdSchema,
@@ -18,7 +80,7 @@ export const submissionProjectSchema = z.object({
   project: registrationSchema.shape.project,
   team: registrationSchema.shape.team,
   supervisors: registrationSchema.shape.supervisors,
-  documents: registrationSchema.shape.documents,
+  documents: submissionDocumentsSchema,
 });
 
 export const submissionSchema = z.object({

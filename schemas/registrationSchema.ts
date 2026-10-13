@@ -61,6 +61,9 @@ export const registrationSchema = z.object({
   documents: z.array(
     z.object({
       type: z.enum([
+        "ABSTRACT",
+        "FULL_PAPER",
+        "VIDEO_LINK",
         "PROJECT_REPORT",
         "PROJECT_PRESENTATION",
         "PROJECT_DEMO",

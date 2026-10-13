@@ -69,6 +69,9 @@ type ScoreFormRow = {
 
 const DOCUMENT_LABELS: Record<Registration["documents"][number]["type"], string> =
   {
+    ABSTRACT: "Abstract",
+    FULL_PAPER: "Full paper",
+    VIDEO_LINK: "Video link",
     PROJECT_REPORT: "Report",
     PROJECT_PRESENTATION: "Presentation",
     PROJECT_DEMO: "Demo",
