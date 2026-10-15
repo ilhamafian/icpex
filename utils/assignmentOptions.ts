@@ -10,6 +10,8 @@ export type AssignmentRegistrationOption = {
   status: Registration["status"];
   /** Latest payment's status; null when none is recorded. Omitted where not loaded. */
   payment_status?: PaymentStatus | null;
+  has_full_paper: boolean;
+  document_count: number;
   created_at?: string;
 };
 
@@ -24,6 +26,10 @@ export function toAssignmentRegistrationOption(
     project_title: registration.project.title,
     status: registration.status,
     ...(paymentStatus !== undefined ? { payment_status: paymentStatus } : {}),
+    has_full_paper: registration.documents.some(
+      (doc) => doc.type === "FULL_PAPER"
+    ),
+    document_count: registration.documents.length,
     created_at: registration.created_at
       ? new Date(registration.created_at).toISOString()
       : undefined,

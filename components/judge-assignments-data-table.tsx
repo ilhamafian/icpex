@@ -8,6 +8,7 @@ import {
   IconChevronsLeft,
   IconChevronsRight,
   IconArrowsSort,
+  IconDownload,
   IconFilter,
   IconLayoutColumns,
   IconSearch,
@@ -142,6 +143,13 @@ const ASSIGNMENT_FILTERS: { value: AssignmentFilter; label: string }[] = [
   { value: "UNASSIGNED", label: "No judges yet" },
 ];
 
+type FullPaperFilter = "UPLOADED" | "NONE";
+
+const FULL_PAPER_FILTERS: { value: FullPaperFilter; label: string }[] = [
+  { value: "UPLOADED", label: "Uploaded" },
+  { value: "NONE", label: "Not uploaded" },
+];
+
 const SORT_OPTIONS = {
   newest: "Newest first",
   oldest: "Oldest first",
@@ -203,6 +211,14 @@ function toggleIn<T>(set: Set<T>, value: T, on: boolean) {
   if (on) next.add(value);
   else next.delete(value);
   return next;
+}
+
+const DOCUMENTS_ZIP_URL = "/api/registration-documents";
+
+function documentsZipUrl(registrationNumber: string) {
+  return `${DOCUMENTS_ZIP_URL}?${new URLSearchParams({
+    registration: registrationNumber,
+  })}`;
 }
 
 function paymentStatusVariant(
@@ -271,6 +287,9 @@ export function JudgeAssignmentsDataTable({
   const [assignmentFilter, setAssignmentFilter] = React.useState<
     Set<AssignmentFilter>
   >(() => new Set());
+  const [fullPaperFilter, setFullPaperFilter] = React.useState<
+    Set<FullPaperFilter>
+  >(() => new Set());
   const [sortBy, setSortBy] = React.useState<SortOption>("newest");
   const [columnVisibility, setColumnVisibility] =
     React.useState<ColumnVisibilityState>({});
@@ -302,6 +321,12 @@ export function JudgeAssignmentsDataTable({
         ) {
           return false;
         }
+        if (
+          fullPaperFilter.size &&
+          !fullPaperFilter.has(registration.has_full_paper ? "UPLOADED" : "NONE")
+        ) {
+          return false;
+        }
         if (!needle) return true;
         return [
           registration.registration_number,
@@ -321,11 +346,15 @@ export function JudgeAssignmentsDataTable({
     statusFilter,
     paymentFilter,
     assignmentFilter,
+    fullPaperFilter,
     sortBy,
   ]);
 
   const activeFilterCount =
-    statusFilter.size + paymentFilter.size + assignmentFilter.size;
+    statusFilter.size +
+    paymentFilter.size +
+    assignmentFilter.size +
+    fullPaperFilter.size;
 
   const columns = React.useMemo(
     () =>
@@ -389,6 +418,52 @@ export function JudgeAssignmentsDataTable({
                   <span className="text-muted-foreground text-sm">
                     No payment
                   </span>
+                )}
+              </div>
+            );
+          },
+        }),
+        columnHelper.accessor((row) => row.registration.has_full_paper, {
+          id: "full paper",
+          header: () => <div className="w-full text-center">Full paper</div>,
+          cell: ({ row }) => (
+            <div className="flex justify-center">
+              <Badge
+                variant={
+                  row.original.registration.has_full_paper ? "default" : "outline"
+                }
+                className="w-20 justify-center px-1.5"
+              >
+                {row.original.registration.has_full_paper
+                  ? "UPLOADED"
+                  : "NONE"}
+              </Badge>
+            </div>
+          ),
+        }),
+        columnHelper.accessor((row) => row.registration.document_count, {
+          id: "documents",
+          header: () => <div className="w-full text-center">Documents</div>,
+          cell: ({ row }) => {
+            const { registration_number, document_count } =
+              row.original.registration;
+            const label = `Download documents for ${registration_number}`;
+            return (
+              <div className="flex justify-center">
+                {document_count ? (
+                  <Button variant="outline" size="sm" className="h-7" asChild>
+                    <a
+                      href={documentsZipUrl(registration_number)}
+                      download
+                      title={label}
+                    >
+                      <IconDownload />
+                      Zip
+                      <span className="sr-only">{label}</span>
+                    </a>
+                  </Button>
+                ) : (
+                  <span className="text-muted-foreground text-sm">None</span>
                 )}
               </div>
             );
@@ -613,6 +688,23 @@ export function JudgeAssignmentsDataTable({
                   {label}
                 </DropdownMenuCheckboxItem>
               ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Full paper</DropdownMenuLabel>
+              {FULL_PAPER_FILTERS.map(({ value, label }) => (
+                <DropdownMenuCheckboxItem
+                  key={value}
+                  checked={fullPaperFilter.has(value)}
+                  onSelect={(event) => event.preventDefault()}
+                  onCheckedChange={(checked) => {
+                    setFullPaperFilter((prev) =>
+                      toggleIn(prev, value, checked === true)
+                    );
+                    table.setPageIndex(0);
+                  }}
+                >
+                  {label}
+                </DropdownMenuCheckboxItem>
+              ))}
               {activeFilterCount ? (
                 <>
                   <DropdownMenuSeparator />
@@ -624,6 +716,7 @@ export function JudgeAssignmentsDataTable({
                       setStatusFilter(new Set());
                       setPaymentFilter(new Set());
                       setAssignmentFilter(new Set());
+                      setFullPaperFilter(new Set());
                       table.setPageIndex(0);
                     }}
                   >
@@ -729,10 +822,20 @@ export function JudgeAssignmentsDataTable({
           </Table>
         </div>
 
-        <div className="flex items-center justify-between px-4">
-          <div className="text-muted-foreground hidden flex-1 text-sm lg:flex">
-            {data.length} registration{data.length === 1 ? "" : "s"} ·{" "}
-            {unassignedCount} unassigned
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4">
+          <div className="flex flex-1 items-center gap-3">
+            {data.length > 0 ? (
+              <Button variant="outline" size="sm" asChild>
+                <a href={DOCUMENTS_ZIP_URL} download>
+                  <IconDownload />
+                  Download all documents
+                </a>
+              </Button>
+            ) : null}
+            <span className="text-muted-foreground hidden text-sm lg:inline">
+              {data.length} registration{data.length === 1 ? "" : "s"} ·{" "}
+              {unassignedCount} unassigned
+            </span>
           </div>
           <div className="flex w-full items-center gap-8 lg:w-fit">
             <div className="hidden items-center gap-2 lg:flex">
