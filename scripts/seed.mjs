@@ -1,5 +1,6 @@
 // Seeds realistic sample data for local development.
 // Usage: npm run seed   (reads MONGODB_URI / DB_NAME from .env)
+//        npm run seed -- criteria   (judge criteria only)
 // Idempotent: existing records (matched by slug, email, or project title) are left untouched.
 
 import { randomBytes, scrypt } from "crypto";
@@ -130,6 +131,41 @@ const JUDGE_CRITERIA = [
       "Effective use of embedded audio, video, quizzes, or links to enhance engagement.",
     weight: 10,
     type: "EBOOK",
+  },
+  {
+    name: "Innovation & Creativity",
+    description:
+      "How new and inventive the technology or engineering solution is, and how creatively it tackles the problem.",
+    weight: 25,
+    type: "JTEC",
+  },
+  {
+    name: "Technical Feasibility",
+    description:
+      "Soundness of the engineering design, choice of technology, and evidence that the solution works as intended.",
+    weight: 25,
+    type: "JTEC",
+  },
+  {
+    name: "Practical Application",
+    description:
+      "How well the solution addresses a real-world need, including usability, scalability, and readiness for deployment.",
+    weight: 20,
+    type: "JTEC",
+  },
+  {
+    name: "Commercial & Social Value",
+    description:
+      "Market potential, cost-effectiveness, and benefit to industry or the community, including sustainability considerations.",
+    weight: 15,
+    type: "JTEC",
+  },
+  {
+    name: "Demonstration & Communication",
+    description:
+      "Clarity of the prototype demonstration, video, and supporting documents in explaining how the solution works.",
+    weight: 15,
+    type: "JTEC",
   },
 ];
 
@@ -1020,6 +1056,10 @@ async function seedPayments(db) {
 }
 
 async function main() {
+  const only = process.argv[2];
+  if (only && only !== "criteria") {
+    throw new Error(`Unknown seed step "${only}". Use "criteria" or no argument.`);
+  }
   const uri = process.env.MONGODB_URI;
   if (!uri) throw new Error("MONGODB_URI is not set");
   const dbName = process.env.MONGODB_DATABASE ?? process.env.DB_NAME ?? "test";
@@ -1028,6 +1068,11 @@ async function main() {
   try {
     const db = client.db(dbName);
     console.log(`Seeding database "${dbName}"...`);
+    if (only === "criteria") {
+      await seedJudgeCriteria(db);
+      console.log("Done.");
+      return;
+    }
     const categoryIdBySlug = await seedCategories(db);
     await seedJudgeCriteria(db);
     await seedUsers(db);
