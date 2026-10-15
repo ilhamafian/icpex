@@ -96,7 +96,10 @@ async function readError(res: Response): Promise<string> {
 const TYPE_LABELS: Record<JudgeCriteriaType, string> = {
   THESIS: "Thesis",
   EBOOK: "E-Book",
+  JTEC: "JTEC",
 };
+
+const CRITERIA_TYPES: JudgeCriteriaType[] = ["THESIS", "EBOOK", "JTEC"];
 
 export function JudgingCriteriaManager({
   initialCriteria,
@@ -112,16 +115,25 @@ export function JudgingCriteriaManager({
   const [deleteTarget, setDeleteTarget] =
     useState<SerializedJudgeCriteria | null>(null);
 
-  const byType = useMemo(() => {
-    const thesis = criteria.filter((item) => item.type === "THESIS");
-    const ebook = criteria.filter((item) => item.type === "EBOOK");
-    return {
-      THESIS: thesis,
-      EBOOK: ebook,
-      THESIS_WEIGHT: thesis.reduce((sum, item) => sum + item.weight, 0),
-      EBOOK_WEIGHT: ebook.reduce((sum, item) => sum + item.weight, 0),
-    };
-  }, [criteria]);
+  const byType = useMemo(
+    () =>
+      Object.fromEntries(
+        CRITERIA_TYPES.map((type) => {
+          const items = criteria.filter((item) => item.type === type);
+          return [
+            type,
+            {
+              items,
+              weight: items.reduce((sum, item) => sum + item.weight, 0),
+            },
+          ];
+        })
+      ) as Record<
+        JudgeCriteriaType,
+        { items: SerializedJudgeCriteria[]; weight: number }
+      >,
+    [criteria]
+  );
 
   function openCreate() {
     setEditingId(null);
@@ -222,7 +234,7 @@ export function JudgingCriteriaManager({
         <div>
           <h2 className="text-lg font-semibold">Judging Criteria</h2>
           <p className="text-sm text-muted-foreground">
-            Define weighted scoring criteria for thesis and e-book judges.
+            Define weighted scoring criteria for thesis, e-book and JTEC judges.
           </p>
         </div>
         <Button size="icon" onClick={openCreate} aria-label="Add criteria">
@@ -235,20 +247,17 @@ export function JudgingCriteriaManager({
         onValueChange={(value) => setTab(value as JudgeCriteriaType)}
         className="gap-4"
       >
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="THESIS">Thesis</TabsTrigger>
-          <TabsTrigger value="EBOOK">E-Book</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3">
+          {CRITERIA_TYPES.map((type) => (
+            <TabsTrigger key={type} value={type}>
+              {TYPE_LABELS[type]}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
-        {(
-          [
-            ["THESIS", "Thesis"],
-            ["EBOOK", "E-Book"],
-          ] as const
-        ).map(([type, label]) => {
-          const items = byType[type];
-          const weight =
-            type === "THESIS" ? byType.THESIS_WEIGHT : byType.EBOOK_WEIGHT;
+        {CRITERIA_TYPES.map((type) => {
+          const { items, weight } = byType[type];
+          const label = TYPE_LABELS[type];
 
           return (
           <TabsContent key={type} value={type} className="mt-0">
@@ -375,10 +384,11 @@ export function JudgingCriteriaManager({
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="THESIS">
-                    {TYPE_LABELS.THESIS}
-                  </SelectItem>
-                  <SelectItem value="EBOOK">{TYPE_LABELS.EBOOK}</SelectItem>
+                  {CRITERIA_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {TYPE_LABELS[type]}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </Field>

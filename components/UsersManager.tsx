@@ -43,6 +43,7 @@ const ROLE_OPTIONS: UserRole[] = [
   "SECRETARY",
   "THESIS_JUDGE",
   "EBOOK_JUDGE",
+  "JTEC_JUDGE",
 ];
 
 export type UserCompetitionOption = {

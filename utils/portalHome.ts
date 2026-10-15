@@ -9,6 +9,7 @@ export function getHomePathForRole(role: UserRole): string {
       return "/portal/registrations";
     case "THESIS_JUDGE":
     case "EBOOK_JUDGE":
+    case "JTEC_JUDGE":
       return "/portal/my-assignments";
     default:
       return "/portal/login";

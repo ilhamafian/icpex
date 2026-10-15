@@ -19,6 +19,7 @@ import { serializeJudgeAssignment } from "@/utils/serializeJudgeAssignment";
 const ROLE_FOR_TYPE: Record<JudgeAssignmentType, UserRole> = {
   THESIS: "THESIS_JUDGE",
   EBOOK: "EBOOK_JUDGE",
+  JTEC: "JTEC_JUDGE",
 };
 
 async function validateAssignmentRefs(input: {

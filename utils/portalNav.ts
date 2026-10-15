@@ -76,7 +76,7 @@ export const portalNavMain: PortalNavItem[] = [
     url: "/portal/my-assignments",
     icon: IconClipboardList,
     section: "my-assignments",
-    roles: ["THESIS_JUDGE", "EBOOK_JUDGE"],
+    roles: ["THESIS_JUDGE", "EBOOK_JUDGE", "JTEC_JUDGE"],
   },
 ];
 

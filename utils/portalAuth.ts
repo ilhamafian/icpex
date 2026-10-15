@@ -1,7 +1,11 @@
 import { getSession, type SessionPayload } from "@/lib/session";
 import type { UserRole } from "@/schemas/userRole";
 
-export const JUDGE_ROLES: UserRole[] = ["THESIS_JUDGE", "EBOOK_JUDGE"];
+export const JUDGE_ROLES: UserRole[] = [
+  "THESIS_JUDGE",
+  "EBOOK_JUDGE",
+  "JTEC_JUDGE",
+];
 
 export async function requireSession(
   allowedRoles?: UserRole[]
@@ -19,7 +23,7 @@ export async function requireAdminSession(): Promise<SessionPayload | null> {
   return requireSession(["ADMIN"]);
 }
 
-/** Thesis / e-book judge session check. */
+/** Thesis / e-book / JTEC judge session check. */
 export async function requireJudgeSession(): Promise<SessionPayload | null> {
   return requireSession(JUDGE_ROLES);
 }

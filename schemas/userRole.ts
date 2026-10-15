@@ -5,6 +5,7 @@ export const userRoleSchema = z.enum([
   "SECRETARY",
   "THESIS_JUDGE",
   "EBOOK_JUDGE",
+  "JTEC_JUDGE",
 ]);
 
 export type UserRole = z.infer<typeof userRoleSchema>;
@@ -14,6 +15,7 @@ export const USER_ROLE_LABELS: Record<UserRole, string> = {
   SECRETARY: "Secretary",
   THESIS_JUDGE: "Thesis Judge",
   EBOOK_JUDGE: "E-book Judge",
+  JTEC_JUDGE: "JTEC Judge",
 };
 
 /** Roles in display / default-selection priority order. */

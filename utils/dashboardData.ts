@@ -10,6 +10,7 @@ import type { JudgeAssignment } from "@/schemas/judgeAssignmentsSchema";
 import { toIdString } from "@/schemas/objectId";
 import type { Payment } from "@/schemas/paymentSchema";
 import type { Registration } from "@/schemas/registrationSchema";
+import { JUDGE_ROLES } from "@/utils/portalAuth";
 import type { Currency } from "@/utils/registrationFee";
 
 const CHART_DAYS = 90;
@@ -120,7 +121,7 @@ export async function loadDashboardData(): Promise<DashboardData> {
       new PaymentModel().find({}, { sort: { created_at: -1 } }),
       new JudgeAssignmentModel().find({}),
       new UserModel().find({
-        "roles.role": { $in: ["THESIS_JUDGE", "EBOOK_JUDGE"] },
+        "roles.role": { $in: JUDGE_ROLES },
       }),
       new CompetitionModel().find({}),
       new CategoryModel().find({}),

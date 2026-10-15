@@ -60,6 +60,7 @@ import type {
   JudgeAssignmentType,
 } from "@/schemas/judgeAssignmentsSchema";
 import type { PaymentStatus } from "@/schemas/paymentSchema";
+import type { UserRole } from "@/schemas/userRole";
 import type { SerializedUser } from "@/types/user";
 import { hasGrant } from "@/utils/roleGrants";
 import type { AssignmentRegistrationOption } from "@/utils/assignmentOptions";
@@ -83,11 +84,13 @@ const columnHelper = createColumnHelper<typeof features, JudgeAssignmentRow>();
 const TYPE_LABELS: Record<JudgeAssignmentType, string> = {
   THESIS: "Thesis",
   EBOOK: "E-book",
+  JTEC: "JTEC",
 };
 
-const TYPE_ROLE: Record<JudgeAssignmentType, "THESIS_JUDGE" | "EBOOK_JUDGE"> = {
+const TYPE_ROLE: Record<JudgeAssignmentType, UserRole> = {
   THESIS: "THESIS_JUDGE",
   EBOOK: "EBOOK_JUDGE",
+  JTEC: "JTEC_JUDGE",
 };
 
 function assignmentStatusVariant(
@@ -514,7 +517,7 @@ export function JudgeAssignmentsDataTable({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-64">
-                    {(["THESIS", "EBOOK"] as const).map((type, index) => {
+                    {(["THESIS", "EBOOK", "JTEC"] as const).map((type, index) => {
                       const role = TYPE_ROLE[type];
                       const assignedIds = new Set(
                         assignments
@@ -611,7 +614,7 @@ export function JudgeAssignmentsDataTable({
         <div>
           <h2 className="text-lg font-medium">Judge Assignments</h2>
           <p className="text-muted-foreground text-sm">
-            Choose which thesis and e-book judges review each registration.
+            Choose which thesis, e-book and JTEC judges review each registration.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
