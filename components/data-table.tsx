@@ -74,6 +74,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { educationLevelLabel } from "@/schemas/educationLevel"
 import type { DashboardRow } from "@/utils/dashboardData"
+import { PAYMENT_STATUS_LABELS } from "@/utils/paymentStatusLabel"
 import { formatMoney } from "@/utils/registrationFee"
 
 const features = tableFeatures({
@@ -149,10 +150,10 @@ function PaymentBadge({ payment }: { payment: DashboardRow["payment"] }) {
     >
       {payment.status === "PAID" ? (
         <IconCircleCheckFilled className="fill-green-500 dark:fill-green-400" />
-      ) : payment.status === "PENDING" ? (
+      ) : payment.status === "FAILED" ? null : (
         <IconLoader />
-      ) : null}
-      {payment.status}
+      )}
+      {PAYMENT_STATUS_LABELS[payment.status]}
     </Badge>
   )
 }

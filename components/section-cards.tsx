@@ -115,7 +115,8 @@ export function SectionCards({ stats }: { stats: DashboardStats }) {
             <IconClock className="size-4" />
           </div>
           <div className="text-muted-foreground">
-            Pending payments for the secretary to review
+            {stats.reviewPayments} to price · {stats.awaitingPayments} awaiting
+            payment
           </div>
         </CardFooter>
       </Card>

@@ -22,7 +22,12 @@ export type DashboardStats = {
   /** Verified revenue per currency — MYR and USD are never summed together. */
   revenue: Record<Currency, number>;
   paidCount: number;
+  /** Receipt uploaded, waiting for the secretary to verify. */
   pendingPayments: number;
+  /** Quoted, payment email not sent yet. */
+  reviewPayments: number;
+  /** Payment email sent, receipt not uploaded yet. */
+  awaitingPayments: number;
   failedPayments: number;
   withoutPayment: number;
   totalAssignments: number;
@@ -227,6 +232,9 @@ export async function loadDashboardData(): Promise<DashboardData> {
     paidCount: paid.length,
     pendingPayments: latestPayments.filter((p) => p.status === "PENDING")
       .length,
+    reviewPayments: latestPayments.filter((p) => p.status === "REVIEW").length,
+    awaitingPayments: latestPayments.filter((p) => p.status === "AWAITING")
+      .length,
     failedPayments: latestPayments.filter((p) => p.status === "FAILED").length,
     withoutPayment: rows.filter((row) => !row.payment).length,
     totalAssignments: assignments.length,
@@ -252,6 +260,8 @@ export function emptyDashboardData(): DashboardData {
       revenue: { MYR: 0, USD: 0 },
       paidCount: 0,
       pendingPayments: 0,
+      reviewPayments: 0,
+      awaitingPayments: 0,
       failedPayments: 0,
       withoutPayment: 0,
       totalAssignments: 0,

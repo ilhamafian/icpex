@@ -15,9 +15,11 @@ import {
   submissionFormSchema,
   submissionSchema,
 } from "@/schemas/submissionSchema";
+import { sendRegistrationSubmittedEmail } from "@/lib/email";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { getCurrentCompetition } from "@/utils/currentCompetition";
 import { normalizeInstitution, quoteSubmission } from "@/utils/pricing";
+import { advanceRegistrationIfPaid } from "@/utils/submissionPayments";
 
 /** Public: register 1–6 projects from one university. Payment is requested later by email. */
 export async function POST(req: NextRequest) {
@@ -123,10 +125,13 @@ export async function POST(req: NextRequest) {
             submission_id: submissionId,
             amount: fee,
             currency: quote.currency,
-            status: "PENDING",
+            status: quote.total === 0 ? "PAID" : "REVIEW",
           })
         );
         created.paymentIds.push(toIdString(payment._id));
+        if (quote.total === 0) {
+          await advanceRegistrationIfPaid(registrationId, "PAID");
+        }
 
         results.push({
           _id: registrationId,
@@ -141,6 +146,27 @@ export async function POST(req: NextRequest) {
         { registration_ids: created.registrationIds },
         submissionSchema.pick({ registration_ids: true })
       );
+
+      const recipients = [
+        ...new Set(
+          projects.map((project) => project.participant.email.trim().toLowerCase())
+        ),
+      ];
+      try {
+        await Promise.all(
+          recipients.map((to) =>
+            sendRegistrationSubmittedEmail({
+              to,
+              submissionNumber: submission.submission_number,
+              institutionName: institution.name,
+              projectCount: projects.length,
+              paymentDue: quote.total > 0,
+            })
+          )
+        );
+      } catch (emailError) {
+        console.error("Registration acknowledgement failed:", emailError);
+      }
 
       return createResponse(
         {

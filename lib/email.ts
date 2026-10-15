@@ -4,12 +4,20 @@ import nodemailer, { type Transporter } from "nodemailer";
 import { Resend } from "resend";
 
 import type { UserRole } from "@/schemas/userSchema";
+import { formatMoney, type Currency } from "@/utils/registrationFee";
+
+type MailAttachment = {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+};
 
 type MailMessage = {
   to: string;
   subject: string;
   html: string;
   text: string;
+  attachments?: MailAttachment[];
 };
 
 function requireEnv(name: string) {
@@ -28,9 +36,15 @@ function isDebugMode() {
 
 async function sendViaResend(message: MailMessage) {
   const resend = new Resend(requireEnv("RESEND_API_KEY"));
+  const { attachments, ...rest } = message;
   const { error } = await resend.emails.send({
     from: requireEnv("FROM_EMAIL"),
-    ...message,
+    ...rest,
+    attachments: attachments?.map((attachment) => ({
+      filename: attachment.filename,
+      content: attachment.content,
+      contentType: attachment.contentType,
+    })),
   });
   if (error) {
     throw new Error(error.message || "Failed to send email");
@@ -112,5 +126,166 @@ export async function sendUserInviteEmail(options: {
       <p>If you did not expect this invitation, you can ignore this email.</p>
     `,
     text: `You have been invited to join ICPEX as a ${roleLabel}.\n\nAccept your invitation (expires in 7 days):\n${options.inviteUrl}\n\nIf you did not expect this invitation, you can ignore this email.`,
+  });
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+export async function sendRegistrationSubmittedEmail(options: {
+  to: string;
+  submissionNumber: string;
+  institutionName: string;
+  projectCount: number;
+  /** When false, the submission is free and no payment email will follow. */
+  paymentDue: boolean;
+}) {
+  const projects =
+    options.projectCount === 1 ? "1 project" : `${options.projectCount} projects`;
+  const followUp = options.paymentDue
+    ? "The secretariat will review the fee and send a separate email with payment instructions. You do not need to pay yet."
+    : "No payment is due for this submission.";
+
+  await sendMail({
+    to: options.to,
+    subject: "ICPEX registration submitted",
+    html: `
+      <p>Your registration <strong>${escapeHtml(options.submissionNumber)}</strong> for ${escapeHtml(options.institutionName)} has been submitted (${escapeHtml(projects)}).</p>
+      <p>${escapeHtml(followUp)}</p>
+    `,
+    text: `Your registration ${options.submissionNumber} for ${options.institutionName} has been submitted (${projects}).\n\n${followUp}`,
+  });
+}
+
+export async function sendPaymentRequestEmail(options: {
+  to: string;
+  submissionNumber: string;
+  amount: number;
+  currency: Currency;
+  payUrl: string;
+  projects: { title: string; amount: number }[];
+}) {
+  const total = formatMoney(options.amount, options.currency);
+  const lines = options.projects
+    .map(
+      (project) =>
+        `${project.title}: ${formatMoney(project.amount, options.currency)}`
+    )
+    .join("\n");
+  const htmlLines = options.projects
+    .map(
+      (project) =>
+        `<li>${escapeHtml(project.title)} — ${escapeHtml(formatMoney(project.amount, options.currency))}</li>`
+    )
+    .join("");
+
+  await sendMail({
+    to: options.to,
+    subject: `ICPEX payment request (${options.submissionNumber})`,
+    html: `
+      <p>Your registration <strong>${escapeHtml(options.submissionNumber)}</strong> has been reviewed. Please pay <strong>${escapeHtml(total)}</strong> by bank transfer.</p>
+      <ul>${htmlLines}</ul>
+      <p>Use <strong>${escapeHtml(options.submissionNumber)}</strong> as the payment reference, then open the link below to upload your receipt.</p>
+      <p><a href="${escapeHtml(options.payUrl)}">Complete payment</a></p>
+    `,
+    text: `Your registration ${options.submissionNumber} has been reviewed. Please pay ${total} by bank transfer.\n\n${lines}\n\nUse ${options.submissionNumber} as the payment reference, then upload your receipt:\n${options.payUrl}`,
+  });
+}
+
+export async function sendNoPaymentDueEmail(options: {
+  to: string;
+  submissionNumber: string;
+}) {
+  await sendMail({
+    to: options.to,
+    subject: `ICPEX registration ${options.submissionNumber} — no payment due`,
+    html: `
+      <p>Your registration <strong>${escapeHtml(options.submissionNumber)}</strong> has been reviewed. No payment is due.</p>
+    `,
+    text: `Your registration ${options.submissionNumber} has been reviewed. No payment is due.`,
+  });
+}
+
+export async function sendPaymentReceivedEmail(options: {
+  to: string;
+  submissionNumber: string;
+  invoiceNumber: string;
+  amount: number;
+  currency: Currency;
+  invoicePdf: Buffer;
+  /** Extra amount the participant transferred, refunded outside the app. */
+  overpaid?: { amount: number; currency: Currency };
+}) {
+  const total = formatMoney(options.amount, options.currency);
+  const refund = options.overpaid
+    ? `You transferred ${formatMoney(options.overpaid.amount, options.overpaid.currency)} more than the amount due. The secretariat will refund the difference.`
+    : "";
+
+  await sendMail({
+    to: options.to,
+    subject: `ICPEX payment received (${options.submissionNumber})`,
+    html: `
+      <p>We have received your payment of <strong>${escapeHtml(total)}</strong> for registration <strong>${escapeHtml(options.submissionNumber)}</strong>.</p>
+      ${refund ? `<p>${escapeHtml(refund)}</p>` : ""}
+      <p>Your invoice ${escapeHtml(options.invoiceNumber)} is attached.</p>
+    `,
+    text: `We have received your payment of ${total} for registration ${options.submissionNumber}.\n\n${refund ? `${refund}\n\n` : ""}Your invoice ${options.invoiceNumber} is attached.`,
+    attachments: [
+      {
+        filename: `${options.invoiceNumber}.pdf`,
+        content: options.invoicePdf,
+        contentType: "application/pdf",
+      },
+    ],
+  });
+}
+
+export async function sendUnderpaidEmail(options: {
+  to: string;
+  submissionNumber: string;
+  balance: number;
+  currency: Currency;
+  payUrl: string;
+}) {
+  const balance = formatMoney(options.balance, options.currency);
+
+  await sendMail({
+    to: options.to,
+    subject: `ICPEX payment incomplete (${options.submissionNumber})`,
+    html: `
+      <p>We checked your transfer for registration <strong>${escapeHtml(options.submissionNumber)}</strong>. It was <strong>${escapeHtml(balance)}</strong> short of the amount due.</p>
+      <p>Please transfer the balance using <strong>${escapeHtml(options.submissionNumber)}</strong> as the reference, then upload the new receipt.</p>
+      <p><a href="${escapeHtml(options.payUrl)}">Pay the balance</a></p>
+    `,
+    text: `We checked your transfer for registration ${options.submissionNumber}. It was ${balance} short of the amount due.\n\nPlease transfer the balance using ${options.submissionNumber} as the reference, then upload the new receipt:\n${options.payUrl}`,
+  });
+}
+
+export async function sendPaymentReminderEmail(options: {
+  to: string;
+  submissionNumber: string;
+  amount: number;
+  currency: Currency;
+  payUrl: string;
+  /** True when only an underpaid balance is outstanding. */
+  isBalance: boolean;
+}) {
+  const due = formatMoney(options.amount, options.currency);
+  const what = options.isBalance ? "the remaining balance of" : "";
+
+  await sendMail({
+    to: options.to,
+    subject: `Reminder: ICPEX payment due (${options.submissionNumber})`,
+    html: `
+      <p>This is a reminder that ${what ? `${escapeHtml(what)} ` : ""}<strong>${escapeHtml(due)}</strong> is still due for registration <strong>${escapeHtml(options.submissionNumber)}</strong>.</p>
+      <p>Transfer it using <strong>${escapeHtml(options.submissionNumber)}</strong> as the reference, then upload your receipt.</p>
+      <p><a href="${escapeHtml(options.payUrl)}">Complete payment</a></p>
+    `,
+    text: `This is a reminder that ${what ? `${what} ` : ""}${due} is still due for registration ${options.submissionNumber}.\n\nTransfer it using ${options.submissionNumber} as the reference, then upload your receipt:\n${options.payUrl}`,
   });
 }

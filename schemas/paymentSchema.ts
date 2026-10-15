@@ -1,7 +1,16 @@
 import z from "zod";
 import { objectIdSchema } from "./objectId";
 
-export const paymentStatusSchema = z.enum(["PENDING", "PAID", "FAILED"]);
+export const paymentStatusSchema = z.enum([
+  /** Quoted, waiting for the secretary to request payment. */
+  "REVIEW",
+  /** Payment-request email sent. The participant has not uploaded a receipt. */
+  "AWAITING",
+  /** Receipt uploaded. The secretary verifies it. */
+  "PENDING",
+  "PAID",
+  "FAILED",
+]);
 
 /** Absent on records created before international pricing — those are MYR. */
 export const currencySchema = z.enum(["MYR", "USD"]);

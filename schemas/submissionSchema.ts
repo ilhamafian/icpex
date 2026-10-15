@@ -86,6 +86,16 @@ export const submissionProjectSchema = z.object({
   documents: submissionDocumentsSchema,
 });
 
+/** A secretary note that a receipt did not match the amount due. */
+export const paymentAdjustmentSchema = z.object({
+  type: z.enum(["UNDERPAID", "OVERPAID"]),
+  amount: z.number().positive(),
+  currency: currencySchema,
+  /** The receipt that was checked when the adjustment was made. */
+  receipt_url: z.string().url().optional(),
+  created_at: z.coerce.date(),
+});
+
 export const submissionSchema = z.object({
   _id: objectIdSchema.optional(),
   submission_number: z.string(),
@@ -97,6 +107,20 @@ export const submissionSchema = z.object({
   free_count: z.number().int().nonnegative(),
   amount: z.number().nonnegative(),
   currency: currencySchema.optional(),
+  /**
+   * Raw payment-link token, kept so a resend uses the same URL.
+   * Lookup uses the hash. The link does not expire.
+   */
+  payment_token: z.string().min(1).optional(),
+  payment_token_hash: z.string().min(1).optional(),
+  payment_requested_at: z.coerce.date().optional(),
+  payment_reminded_at: z.coerce.date().optional(),
+  /** Set when a receipt was underpaid. Null once the submission is paid. */
+  balance_due: z.number().positive().nullable().optional(),
+  balance_currency: currencySchema.optional(),
+  payment_adjustments: z.array(paymentAdjustmentSchema).optional(),
+  paid_at: z.coerce.date().optional(),
+  invoice_number: z.string().min(1).optional(),
   /** Only on submissions made before payment moved to after secretary review. */
   receipt_url: z.string().url().optional(),
   created_at: z.coerce.date().optional(),
@@ -124,6 +148,56 @@ export const submissionFormSchema = z.object({
       MAX_PROJECTS_PER_SUBMISSION,
       `You can submit at most ${MAX_PROJECTS_PER_SUBMISSION} projects at a time.`
     ),
+});
+
+/** Secretary price check — one amount per project, before the payment email is sent. */
+export const submissionFeesSchema = z.object({
+  fees: z
+    .array(
+      z.object({
+        registration_id: objectIdSchema,
+        amount: z.number().nonnegative(),
+      })
+    )
+    .min(1),
+});
+
+/** Fields written when the payment link is created or the request email goes out. */
+export const submissionPaymentLinkSchema = z.object({
+  payment_token: z.string().min(1).optional(),
+  payment_token_hash: z.string().min(1).optional(),
+  payment_requested_at: z.coerce.date().optional(),
+});
+
+/** Fields written when the secretary verifies, adjusts, or reminds about a payment. */
+export const submissionSettlementSchema = z.object({
+  payment_reminded_at: z.coerce.date().optional(),
+  balance_due: z.number().positive().nullable().optional(),
+  balance_currency: currencySchema.optional(),
+  payment_adjustments: z.array(paymentAdjustmentSchema).optional(),
+  paid_at: z.coerce.date().optional(),
+  invoice_number: z.string().min(1).optional(),
+});
+
+/** Secretary decision on an uploaded receipt. */
+const adjustmentDecision = {
+  amount: z.number().positive("Enter an amount above zero."),
+  currency: currencySchema,
+};
+
+export const paymentVerificationSchema = z.discriminatedUnion("outcome", [
+  z.object({ outcome: z.literal("PAID") }),
+  z.object({ outcome: z.literal("FAILED") }),
+  z.object({ outcome: z.literal("UNDERPAID"), ...adjustmentDecision }),
+  z.object({ outcome: z.literal("OVERPAID"), ...adjustmentDecision }),
+]);
+
+export type PaymentAdjustment = z.infer<typeof paymentAdjustmentSchema>;
+export type PaymentVerification = z.infer<typeof paymentVerificationSchema>;
+
+export const submissionAmountSchema = z.object({
+  amount: z.number().nonnegative(),
+  free_count: z.number().int().nonnegative(),
 });
 
 export type Institution = z.infer<typeof institutionSchema>;

@@ -60,6 +60,7 @@ import type {
   JudgeAssignmentType,
 } from "@/schemas/judgeAssignmentsSchema";
 import type { PaymentStatus } from "@/schemas/paymentSchema";
+import { PAYMENT_STATUS_LABELS } from "@/utils/paymentStatusLabel";
 import type { UserRole } from "@/schemas/userRole";
 import type { SerializedUser } from "@/types/user";
 import { hasGrant } from "@/utils/roleGrants";
@@ -135,7 +136,9 @@ const REGISTRATION_STATUSES: RegistrationStatus[] = [
 ];
 
 const PAYMENT_FILTERS: { value: PaymentFilter; label: string }[] = [
-  { value: "PENDING", label: "Pending" },
+  { value: "REVIEW", label: "To review" },
+  { value: "AWAITING", label: "Awaiting payment" },
+  { value: "PENDING", label: "To verify" },
   { value: "PAID", label: "Paid" },
   { value: "FAILED", label: "Failed" },
   { value: "NONE", label: "No payment" },
@@ -167,10 +170,12 @@ const SORT_OPTIONS = {
 type SortOption = keyof typeof SORT_OPTIONS;
 
 const PAYMENT_ORDER: Record<PaymentFilter, number> = {
-  PAID: 0,
-  PENDING: 1,
-  FAILED: 2,
-  NONE: 3,
+  REVIEW: 0,
+  AWAITING: 1,
+  PENDING: 2,
+  PAID: 3,
+  FAILED: 4,
+  NONE: 5,
 };
 
 function paymentFilterValue(row: JudgeAssignmentRow): PaymentFilter {
@@ -413,9 +418,9 @@ export function JudgeAssignmentsDataTable({
                 {status ? (
                   <Badge
                     variant={paymentStatusVariant(status)}
-                    className="w-20 justify-center px-1.5"
+                    className="justify-center px-1.5"
                   >
-                    {status}
+                    {PAYMENT_STATUS_LABELS[status]}
                   </Badge>
                 ) : (
                   <span className="text-muted-foreground text-sm">
