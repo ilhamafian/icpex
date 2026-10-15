@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Keep the MongoDB Node driver out of client/edge bundles.
-  serverExternalPackages: ["mongodb"],
+  // Keep Node-only drivers (MongoDB, SMTP) out of client/edge bundles.
+  serverExternalPackages: ["mongodb", "nodemailer"],
 };
 
 export default nextConfig;
