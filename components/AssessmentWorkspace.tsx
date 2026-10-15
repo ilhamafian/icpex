@@ -36,6 +36,10 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { educationLevelLabel } from "@/schemas/educationLevel";
 import {
+  isJudgingClosed,
+  judgeScoringDeadlineMessage,
+} from "@/utils/competitionDates";
+import {
   assignmentStatusVariant,
   TYPE_LABELS,
 } from "@/components/my-assignments-data-table";
@@ -138,10 +142,12 @@ export function AssessmentWorkspace({
   initialAssignment,
   registration,
   criteria,
+  judgingDueDate = null,
 }: {
   initialAssignment: SerializedJudgeAssignment;
   registration: AssessmentRegistration;
   criteria: SerializedJudgeCriteria[];
+  judgingDueDate?: string | null;
 }) {
   const router = useRouter();
   const [assignment, setAssignment] = useState(initialAssignment);
@@ -150,6 +156,8 @@ export function AssessmentWorkspace({
   );
   const [saving, setSaving] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const scoringClosed = isJudgingClosed(judgingDueDate);
+  const deadlineMessage = judgeScoringDeadlineMessage(judgingDueDate);
 
   const weightedTotal = scoreForm.reduce((sum, row, index) => {
     const score = Number(row.score);
@@ -188,7 +196,9 @@ export function AssessmentWorkspace({
       if (updated) {
         toast.success(
           status === "ACCEPTED"
-            ? "Assignment accepted. You can now score it."
+            ? scoringClosed
+              ? "Assignment accepted."
+              : "Assignment accepted. You can now score it."
             : "Assignment rejected."
         );
       }
@@ -200,6 +210,10 @@ export function AssessmentWorkspace({
   }
 
   async function handleSubmitScores() {
+    if (scoringClosed) {
+      toast.error(deadlineMessage);
+      return;
+    }
     const scores: { criteria_id: string; score: number; comments: string }[] =
       [];
     for (const row of scoreForm) {
@@ -234,6 +248,10 @@ export function AssessmentWorkspace({
   }
 
   async function handleClearScores() {
+    if (scoringClosed) {
+      toast.error(deadlineMessage);
+      return;
+    }
     setConfirmClear(false);
     setSaving(true);
     try {
@@ -276,6 +294,7 @@ export function AssessmentWorkspace({
               {registration.registration_number} · {registration.competition}
             </p>
             <h2 className="text-xl font-semibold">{project.title}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{deadlineMessage}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Badge variant="outline">{TYPE_LABELS[assignment.type]}</Badge>
@@ -396,7 +415,9 @@ export function AssessmentWorkspace({
             <CardTitle>Assessment</CardTitle>
             <CardDescription>
               {assignment.status === "ACCEPTED"
-                ? "Score each criterion from 0 to 100."
+                ? scoringClosed
+                  ? deadlineMessage
+                  : "Score each criterion from 0 to 100."
                 : assignment.status === "PENDING"
                   ? "Read the submission, then accept to start scoring."
                   : "You rejected this assignment."}
@@ -430,7 +451,7 @@ export function AssessmentWorkspace({
                   <p className="text-sm text-muted-foreground">
                     No criteria are configured for{" "}
                     {TYPE_LABELS[assignment.type].toLowerCase()} judging yet.
-                    Ask an admin to add judging criteria.
+                    Ask a judge leader to add judging criteria.
                   </p>
                 ) : (
                   criteria.map((criterion, index) => {
@@ -466,6 +487,7 @@ export function AssessmentWorkspace({
                             max={100}
                             step="any"
                             value={row.score}
+                            disabled={scoringClosed}
                             onChange={(event) =>
                               updateRow(index, { score: event.target.value })
                             }
@@ -479,7 +501,8 @@ export function AssessmentWorkspace({
                             id={`comments-${criterion._id}`}
                             value={row.comments}
                             rows={3}
-                            className="min-h-16 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                            disabled={scoringClosed}
+                            className="min-h-16 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
                             onChange={(event) =>
                               updateRow(index, { comments: event.target.value })
                             }
@@ -506,7 +529,7 @@ export function AssessmentWorkspace({
                       {assignment.submitted_at ? (
                         <Button
                           variant="ghost"
-                          disabled={saving}
+                          disabled={saving || scoringClosed}
                           onClick={() => setConfirmClear(true)}
                         >
                           <IconTrash />
@@ -515,7 +538,7 @@ export function AssessmentWorkspace({
                       ) : null}
                       <Button
                         className="flex-1"
-                        disabled={saving}
+                        disabled={saving || scoringClosed}
                         onClick={() => void handleSubmitScores()}
                       >
                         {saving

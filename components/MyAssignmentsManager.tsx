@@ -25,10 +25,12 @@ export function MyAssignmentsManager({
   initialAssignments,
   registrations,
   allowedTypes,
+  judgingDueDate = null,
 }: {
   initialAssignments: SerializedJudgeAssignment[];
   registrations: AssignmentRegistrationOption[];
   allowedTypes: JudgeAssignmentType[];
+  judgingDueDate?: string | null;
 }) {
   const [assignments, setAssignments] = useState(initialAssignments);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -86,6 +88,7 @@ export function MyAssignmentsManager({
       data={rows}
       showType={allowedTypes.length > 1}
       busyId={busyId}
+      judgingDueDate={judgingDueDate}
       onRespond={handleRespond}
     />
   );

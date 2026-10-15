@@ -104,6 +104,11 @@ export default async function AssessmentPage({
       initialAssignment={serializeJudgeAssignment(assignment)}
       registration={assessmentRegistration}
       criteria={criteria.map(serializeJudgeCriteria)}
+      judgingDueDate={
+        competition?.judging_due_date
+          ? new Date(competition.judging_due_date).toISOString()
+          : null
+      }
     />
   );
 }

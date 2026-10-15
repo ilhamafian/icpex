@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 
 import { JudgeAssignmentModel } from "@/models/JudgeAssignment";
 import { JudgeCriteriaModel } from "@/models/JudgeCriteria";
+import { CompetitionModel } from "@/models/Competition";
 import {
   judgeAssignmentJudgeStatusSchema,
   judgeAssignmentScoreSubmitSchema,
@@ -11,6 +12,10 @@ import { toIdString } from "@/schemas/objectId";
 import { RegistrationModel } from "@/models/Registration";
 import { requireJudgeSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
+import {
+  formatJudgingDueDate,
+  isJudgingClosed,
+} from "@/utils/competitionDates";
 import { registrationCompetitionId } from "@/utils/competitionScope";
 import { judgeTypesForRoles } from "@/utils/judgeTypes";
 import {
@@ -56,7 +61,19 @@ async function loadOwnedAssignment(
     };
   }
 
-  return { model, existing };
+  return {
+    model,
+    existing,
+    competitionId: registrationCompetitionId(registration),
+  };
+}
+
+async function scoringClosedMessage(competitionId: string | null) {
+  if (!competitionId) return null;
+  const competition = await new CompetitionModel().findById(competitionId);
+  const due = competition?.judging_due_date;
+  if (!due || !isJudgingClosed(due)) return null;
+  return `Scoring closed on ${formatJudgingDueDate(due)}.`;
 }
 
 export async function PATCH(
@@ -102,6 +119,11 @@ export async function PATCH(
         judgeAssignmentJudgeStatusSchema
       );
     } else if (body.action === "scores") {
+      const closed = await scoringClosedMessage(owned.competitionId);
+      if (closed) {
+        return createResponse({ error: closed }, 400);
+      }
+
       const parsed = judgeAssignmentScoreSubmitSchema.safeParse(body);
       if (!parsed.success) {
         return createResponse({ error: parsed.error.format() }, 400);
@@ -171,6 +193,11 @@ export async function PATCH(
 
       await model.update(id, scoresPayload, scoresUpdateSchema);
     } else if (body.action === "clear_scores") {
+      const closed = await scoringClosedMessage(owned.competitionId);
+      if (closed) {
+        return createResponse({ error: closed }, 400);
+      }
+
       if (existing.status !== "ACCEPTED") {
         return createResponse(
           { error: "Only accepted assignments can have scores cleared." },
@@ -219,12 +246,17 @@ export async function DELETE(
       return createResponse({ error: owned.error }, owned.status);
     }
 
-    const { model, existing } = owned;
+    const { model, existing, competitionId } = owned;
     if (existing.status !== "ACCEPTED") {
       return createResponse(
         { error: "Only accepted assignments can have scores cleared." },
         400
       );
+    }
+
+    const closed = await scoringClosedMessage(competitionId);
+    if (closed) {
+      return createResponse({ error: closed }, 400);
     }
 
     if (!existing.scores?.length && !existing.submitted_at) {

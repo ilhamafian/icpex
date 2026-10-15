@@ -60,6 +60,7 @@ import type {
   JudgeAssignmentType,
 } from "@/schemas/judgeAssignmentsSchema";
 import type { AssignmentRegistrationOption } from "@/utils/assignmentOptions";
+import { judgeScoringDeadlineMessage } from "@/utils/competitionDates";
 import type { SerializedJudgeAssignment } from "@/utils/serializeJudgeAssignment";
 
 export type MyAssignmentRow = {
@@ -135,6 +136,7 @@ type MyAssignmentsDataTableProps = {
   data: MyAssignmentRow[];
   showType: boolean;
   busyId?: string | null;
+  judgingDueDate?: string | null;
   onRespond: (
     assignment: SerializedJudgeAssignment,
     status: "ACCEPTED" | "REJECTED"
@@ -145,6 +147,7 @@ export function MyAssignmentsDataTable({
   data,
   showType,
   busyId,
+  judgingDueDate = null,
   onRespond,
 }: MyAssignmentsDataTableProps) {
   const [view, setView] = React.useState<View>("all");
@@ -371,6 +374,9 @@ export function MyAssignmentsDataTable({
         <p className="text-sm text-muted-foreground">
           Accept or reject assigned registrations, then open each one to read
           the submission and score it.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          {judgeScoringDeadlineMessage(judgingDueDate)}
         </p>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 lg:px-6">

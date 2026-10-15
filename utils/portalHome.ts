@@ -7,6 +7,8 @@ export function getHomePathForRole(role: UserRole): string {
       return "/portal/dashboard";
     case "SECRETARY":
       return "/portal/registrations";
+    case "JUDGE_LEADER":
+      return "/portal/judging-criteria";
     case "THESIS_JUDGE":
     case "EBOOK_JUDGE":
     case "JTEC_JUDGE":

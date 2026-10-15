@@ -41,6 +41,7 @@ import type { SerializedUser } from "@/types/user";
 const ROLE_OPTIONS: UserRole[] = [
   "ADMIN",
   "SECRETARY",
+  "JUDGE_LEADER",
   "THESIS_JUDGE",
   "EBOOK_JUDGE",
   "JTEC_JUDGE",

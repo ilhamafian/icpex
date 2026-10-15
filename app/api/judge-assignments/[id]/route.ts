@@ -10,7 +10,7 @@ import {
 } from "@/schemas/judgeAssignmentsSchema";
 import { toIdString } from "@/schemas/objectId";
 import type { UserRole } from "@/schemas/userRole";
-import { requireAdminSession } from "@/utils/portalAuth";
+import { requireJudgeLeaderSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { registrationCompetitionId } from "@/utils/competitionScope";
 import { hasGrant } from "@/utils/roleGrants";
@@ -27,7 +27,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await requireAdminSession();
+    const session = await requireJudgeLeaderSession();
     if (!session) {
       return createResponse({ error: "Unauthorized" }, 401);
     }
@@ -142,7 +142,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await requireAdminSession();
+    const session = await requireJudgeLeaderSession();
     if (!session) {
       return createResponse({ error: "Unauthorized" }, 401);
     }

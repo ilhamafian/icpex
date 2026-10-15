@@ -65,6 +65,7 @@ import type { UserRole } from "@/schemas/userRole";
 import type { SerializedUser } from "@/types/user";
 import { hasGrant } from "@/utils/roleGrants";
 import type { AssignmentRegistrationOption } from "@/utils/assignmentOptions";
+import { leaderScoringDeadlineMessage } from "@/utils/competitionDates";
 import type { SerializedJudgeAssignment } from "@/utils/serializeJudgeAssignment";
 
 export type JudgeAssignmentRow = {
@@ -261,6 +262,7 @@ type JudgeAssignmentsDataTableProps = {
   judges: SerializedUser[];
   /** Judges are offered only for roles held in this competition. */
   competitionId: string | null;
+  judgingDueDate?: string | null;
   busyKey?: string | null;
   onToggleJudge: (
     row: JudgeAssignmentRow,
@@ -282,6 +284,7 @@ export function JudgeAssignmentsDataTable({
   data,
   judges,
   competitionId,
+  judgingDueDate = null,
   busyKey,
   onToggleJudge,
 }: JudgeAssignmentsDataTableProps) {
@@ -620,6 +623,9 @@ export function JudgeAssignmentsDataTable({
           <h2 className="text-lg font-medium">Judge Assignments</h2>
           <p className="text-muted-foreground text-sm">
             Choose which thesis, e-book and JTEC judges review each registration.
+          </p>
+          <p className="text-muted-foreground text-sm">
+            {leaderScoringDeadlineMessage(judgingDueDate)}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

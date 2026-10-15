@@ -72,6 +72,7 @@ const columnHelper = createColumnHelper<typeof features, SerializedUser>();
 const ROLE_LABELS: Record<UserRole, string> = {
   ADMIN: "Admin",
   SECRETARY: "Secretary",
+  JUDGE_LEADER: "Judge Leader",
   THESIS_JUDGE: "Thesis Judge",
   EBOOK_JUDGE: "E-book Judge",
   JTEC_JUDGE: "JTEC Judge",

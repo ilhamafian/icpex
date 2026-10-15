@@ -6,7 +6,7 @@ import { toIdString } from "@/schemas/objectId";
 import type { PaymentStatus } from "@/schemas/paymentSchema";
 import { toAssignmentRegistrationOption } from "@/utils/assignmentOptions";
 import { findRegistrationsForCompetition } from "@/utils/competitionScope";
-import { getCurrentCompetitionId } from "@/utils/currentCompetition";
+import { getCurrentCompetition } from "@/utils/currentCompetition";
 import { JUDGE_ROLES } from "@/utils/portalAuth";
 import { usersWithRolesFilter } from "@/utils/roleGrants";
 import { serializeJudgeAssignment } from "@/utils/serializeJudgeAssignment";
@@ -62,7 +62,8 @@ async function loadAssignmentData(competitionId: string | null) {
 
 export default async function JudgeAssignmentsPage() {
   await requirePortalSection("judge-assignments");
-  const competitionId = await getCurrentCompetitionId();
+  const competition = await getCurrentCompetition();
+  const competitionId = competition ? toIdString(competition._id) : null;
   const { assignments, judges, registrations } =
     await loadAssignmentData(competitionId);
 
@@ -72,6 +73,11 @@ export default async function JudgeAssignmentsPage() {
       judges={judges}
       competitionId={competitionId}
       registrations={registrations}
+      judgingDueDate={
+        competition?.judging_due_date
+          ? new Date(competition.judging_due_date).toISOString()
+          : null
+      }
     />
   );
 }

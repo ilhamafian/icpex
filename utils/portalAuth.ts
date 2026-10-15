@@ -28,6 +28,11 @@ export async function requireJudgeSession(): Promise<SessionPayload | null> {
   return requireSession(JUDGE_ROLES);
 }
 
+/** Judge leader — judging criteria and assignments for the current competition. */
+export async function requireJudgeLeaderSession(): Promise<SessionPayload | null> {
+  return requireSession(["JUDGE_LEADER"]);
+}
+
 /** Secretary (and admin) — payment / registration review. */
 export async function requireSecretarySession(): Promise<SessionPayload | null> {
   return requireSession(["SECRETARY", "ADMIN"]);

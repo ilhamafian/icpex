@@ -3,6 +3,7 @@ import { JudgeAssignmentModel } from "@/models/JudgeAssignment";
 import { toIdString } from "@/schemas/objectId";
 import { toAssignmentRegistrationOption } from "@/utils/assignmentOptions";
 import { findRegistrationsForCompetition } from "@/utils/competitionScope";
+import { getCurrentCompetition } from "@/utils/currentCompetition";
 import { judgeTypesForRoles } from "@/utils/judgeTypes";
 import { requirePortalSection } from "@/utils/requirePortalAccess";
 import { resolveJudgeUser } from "@/utils/resolveJudgeUser";
@@ -59,12 +60,18 @@ export default async function MyAssignmentsPage() {
     toIdString(judge._id),
     session.competition_id
   );
+  const competition = await getCurrentCompetition();
 
   return (
     <MyAssignmentsManager
       initialAssignments={assignments}
       registrations={registrations}
       allowedTypes={allowedTypes}
+      judgingDueDate={
+        competition?.judging_due_date
+          ? new Date(competition.judging_due_date).toISOString()
+          : null
+      }
     />
   );
 }

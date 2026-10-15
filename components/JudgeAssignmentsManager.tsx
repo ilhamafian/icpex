@@ -39,11 +39,13 @@ export function JudgeAssignmentsManager({
   judges,
   competitionId,
   registrations,
+  judgingDueDate = null,
 }: {
   initialAssignments: SerializedJudgeAssignment[];
   judges: SerializedUser[];
   competitionId: string | null;
   registrations: AssignmentRegistrationOption[];
+  judgingDueDate?: string | null;
 }) {
   const [assignments, setAssignments] = useState(initialAssignments);
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -155,6 +157,7 @@ export function JudgeAssignmentsManager({
         data={rows}
         judges={judges}
         competitionId={competitionId}
+        judgingDueDate={judgingDueDate}
         busyKey={busyKey}
         onToggleJudge={handleToggleJudge}
       />

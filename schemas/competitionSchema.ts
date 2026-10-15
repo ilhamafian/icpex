@@ -14,6 +14,8 @@ export const competitionSchema = z.object({
   name: z.string().min(1),
   start_date: z.coerce.date(),
   end_date: z.coerce.date(),
+  /** Calendar date judges must submit scores by. Optional so older competitions still load. */
+  judging_due_date: z.coerce.date().optional(),
   status: competitionStatusSchema,
   eligibility: competitionEligibilitySchema,
   created_at: z.coerce.date().optional(),
@@ -21,12 +23,16 @@ export const competitionSchema = z.object({
 });
 
 /** Create payload — `competition_id` is generated server-side from the name. */
-export const competitionInputSchema = competitionSchema.omit({
-  _id: true,
-  competition_id: true,
-  created_at: true,
-  updated_at: true,
-});
+export const competitionInputSchema = competitionSchema
+  .omit({
+    _id: true,
+    competition_id: true,
+    created_at: true,
+    updated_at: true,
+  })
+  .extend({
+    judging_due_date: z.coerce.date(),
+  });
 
 /** Updates never change `competition_id` once assigned. */
 export const competitionUpdateSchema = competitionInputSchema.partial();

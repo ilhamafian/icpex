@@ -57,6 +57,7 @@ type CompetitionFormState = {
   name: string;
   start_date: string;
   end_date: string;
+  judging_due_date: string;
   status: CompetitionStatus;
   eligibility: CompetitionEligibility;
 };
@@ -81,6 +82,7 @@ function emptyCompetitionForm(): CompetitionFormState {
     name: "",
     start_date: "",
     end_date: "",
+    judging_due_date: "",
     status: "DRAFT",
     eligibility: "BOTH",
   };
@@ -93,6 +95,7 @@ function competitionToForm(
     name: competition.name,
     start_date: toDateInputValue(competition.start_date),
     end_date: toDateInputValue(competition.end_date),
+    judging_due_date: toDateInputValue(competition.judging_due_date ?? ""),
     status: competition.status,
     eligibility: competition.eligibility,
   };
@@ -236,11 +239,16 @@ export function CompetitionsCategoriesManager({
       setError("Start and end dates are required.");
       return;
     }
+    if (!competitionForm.judging_due_date) {
+      setError("Scoring due date is required.");
+      return;
+    }
 
     const payload = {
       name: competitionForm.name.trim(),
       start_date: competitionForm.start_date,
       end_date: competitionForm.end_date,
+      judging_due_date: competitionForm.judging_due_date,
       status: competitionForm.status,
       eligibility: competitionForm.eligibility,
     };
@@ -414,6 +422,11 @@ export function CompetitionsCategoriesManager({
                             ]
                           }
                         </CardDescription>
+                        <CardDescription>
+                          {competition.judging_due_date
+                            ? `Scores due ${new Date(competition.judging_due_date).toLocaleDateString()}`
+                            : "No scoring due date"}
+                        </CardDescription>
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
                         {competition._id === currentCompetitionId ? (
@@ -574,6 +587,18 @@ export function CompetitionsCategoriesManager({
                     setCompetitionForm((current) => ({
                       ...current,
                       end_date: event.target.value,
+                    }))
+                  }
+                />
+              </Field>
+              <Field label="Scoring due date">
+                <Input
+                  type="date"
+                  value={competitionForm.judging_due_date}
+                  onChange={(event) =>
+                    setCompetitionForm((current) => ({
+                      ...current,
+                      judging_due_date: event.target.value,
                     }))
                   }
                 />

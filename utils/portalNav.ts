@@ -48,14 +48,14 @@ export const portalNavMain: PortalNavItem[] = [
     url: "/portal/judging-criteria",
     icon: IconScale,
     section: "judging-criteria",
-    roles: ["ADMIN"],
+    roles: ["JUDGE_LEADER"],
   },
   {
     title: "Judge Assignments",
     url: "/portal/judge-assignments",
     icon: IconUserCheck,
     section: "judge-assignments",
-    roles: ["ADMIN"],
+    roles: ["JUDGE_LEADER"],
   },
   {
     title: "Users",

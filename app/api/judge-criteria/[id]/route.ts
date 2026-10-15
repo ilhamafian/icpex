@@ -5,7 +5,7 @@ import {
   judgeCriteriaUpdateSchema,
   type JudgeCriteria,
 } from "@/schemas/judgeCriteriaSchema";
-import { requireAdminSession } from "@/utils/portalAuth";
+import { requireJudgeLeaderSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { serializeJudgeCriteria } from "@/utils/serializeJudgeCriteria";
 
@@ -14,7 +14,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await requireAdminSession();
+    const session = await requireJudgeLeaderSession();
     if (!session) {
       return createResponse({ error: "Unauthorized" }, 401);
     }
@@ -54,7 +54,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await requireAdminSession();
+    const session = await requireJudgeLeaderSession();
     if (!session) {
       return createResponse({ error: "Unauthorized" }, 401);
     }

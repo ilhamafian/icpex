@@ -18,6 +18,7 @@ export type SerializedCompetition = {
   name: string;
   start_date: string;
   end_date: string;
+  judging_due_date?: string;
   status: Competition["status"];
   eligibility: Competition["eligibility"];
   created_at?: string;
@@ -39,6 +40,7 @@ export function serializeCompetition(
     name: competition.name,
     start_date: toIso(competition.start_date)!,
     end_date: toIso(competition.end_date)!,
+    judging_due_date: toIso(competition.judging_due_date),
     status: competition.status,
     eligibility: competition.eligibility ?? DEFAULT_COMPETITION_ELIGIBILITY,
     created_at: toIso(competition.created_at),
