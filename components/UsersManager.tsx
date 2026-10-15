@@ -37,6 +37,7 @@ import {
 import type { CompetitionStatus } from "@/schemas/competitionSchema";
 import type { UserRole } from "@/schemas/userSchema";
 import type { SerializedUser } from "@/types/user";
+import { hasGrant } from "@/utils/roleGrants";
 
 const ROLE_OPTIONS: UserRole[] = [
   "ADMIN",
@@ -61,6 +62,16 @@ type InviteFormState = {
 
 function emptyInviteForm(competitionId: string): InviteFormState {
   return { email: "", role: "SECRETARY", competitionId };
+}
+
+function availableRoles(user: SerializedUser, competitionId: string): UserRole[] {
+  return ROLE_OPTIONS.filter(
+    (role) => !hasGrant(user.roles, role, competitionId)
+  );
+}
+
+function grantKey(role: UserRole, competitionId?: string) {
+  return `${role}:${competitionId ?? ""}`;
 }
 
 function competitionLabel(
@@ -106,6 +117,17 @@ export function UsersManager({
   const [deleteTarget, setDeleteTarget] = useState<SerializedUser | null>(
     null
   );
+  const [roleTarget, setRoleTarget] = useState<SerializedUser | null>(null);
+  const [roleForm, setRoleForm] = useState<Omit<InviteFormState, "email">>({
+    role: "SECRETARY",
+    competitionId,
+  });
+  const [roleSubmitting, setRoleSubmitting] = useState(false);
+  const [removingRoleKey, setRemovingRoleKey] = useState<string | null>(null);
+  const roleNeedsCompetition = roleForm.role !== "ADMIN";
+  const rolesAvailable = roleTarget
+    ? availableRoles(roleTarget, roleForm.competitionId)
+    : ROLE_OPTIONS;
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
@@ -147,6 +169,110 @@ export function UsersManager({
       toast.error("Failed to send invite.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  function openAddRole(user: SerializedUser) {
+    const nextCompetitionId = competitionId;
+    const openRoles = availableRoles(user, nextCompetitionId);
+    setRoleForm({
+      role: openRoles[0] ?? "SECRETARY",
+      competitionId: nextCompetitionId,
+    });
+    setRoleTarget(user);
+  }
+
+  async function handleAddRole(e: React.FormEvent) {
+    e.preventDefault();
+    if (!roleTarget) return;
+    setRoleSubmitting(true);
+    try {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: roleTarget.email,
+          role: roleForm.role,
+          ...(roleNeedsCompetition
+            ? { competition_id: roleForm.competitionId }
+            : {}),
+        }),
+      });
+
+      if (!res.ok) {
+        toast.error(await readError(res));
+        return;
+      }
+
+      const data = (await res.json()) as { user: SerializedUser };
+      const openRoles = availableRoles(data.user, roleForm.competitionId);
+      setUsers((prev) =>
+        prev.map((user) => (user._id === data.user._id ? data.user : user))
+      );
+      setRoleTarget(data.user);
+      setRoleForm((prev) => ({
+        ...prev,
+        role: openRoles.includes(prev.role)
+          ? prev.role
+          : (openRoles[0] ?? prev.role),
+      }));
+      toast.success(
+        roleTarget.status === "INVITED"
+          ? `Added ${ROLE_LABELS[roleForm.role]} and resent the invite to ${roleTarget.email}`
+          : `Added ${ROLE_LABELS[roleForm.role]} to ${roleTarget.email}`
+      );
+    } catch {
+      toast.error("Failed to add role.");
+    } finally {
+      setRoleSubmitting(false);
+    }
+  }
+
+  async function handleRemoveRole(role: UserRole, grantCompetitionId?: string) {
+    if (!roleTarget) return;
+    const key = grantKey(role, grantCompetitionId);
+    setRemovingRoleKey(key);
+    try {
+      const res = await fetch(`/api/users/${roleTarget._id}/roles`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          role,
+          ...(grantCompetitionId ? { competition_id: grantCompetitionId } : {}),
+        }),
+      });
+
+      if (!res.ok) {
+        toast.error(await readError(res));
+        return;
+      }
+
+      const data = (await res.json()) as { user: SerializedUser };
+      const openRoles = availableRoles(
+        data.user,
+        roleForm.competitionId
+      );
+      setUsers((prev) =>
+        prev.map((user) => (user._id === data.user._id ? data.user : user))
+      );
+      setRoleTarget(data.user);
+      setRoleForm((prev) => ({
+        ...prev,
+        role: openRoles.includes(prev.role)
+          ? prev.role
+          : (openRoles[0] ?? prev.role),
+      }));
+      const competition = competitions.find(
+        (item) => item.id === grantCompetitionId
+      );
+      const label = competition
+        ? `${ROLE_LABELS[role]} for ${competition.name}`
+        : ROLE_LABELS[role];
+      toast.success(`Removed ${label} from ${roleTarget.email}`);
+    } catch {
+      toast.error("Failed to remove role.");
+    } finally {
+      setRemovingRoleKey(null);
     }
   }
 
@@ -224,6 +350,7 @@ export function UsersManager({
           setForm(emptyInviteForm(competitionId));
           setSheetOpen(true);
         }}
+        onAddRole={openAddRole}
         onResendInvite={handleResendInvite}
         onDeleteUser={setDeleteTarget}
       />
@@ -330,6 +457,168 @@ export function UsersManager({
               }
             >
               {submitting ? "Sending…" : "Send invite"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet
+        open={roleTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setRoleTarget(null);
+        }}
+      >
+        <SheetContent className="flex flex-col sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Roles</SheetTitle>
+          </SheetHeader>
+          <form
+            id="add-role-form"
+            onSubmit={handleAddRole}
+            className="flex flex-1 flex-col gap-4 overflow-y-auto px-4"
+          >
+            <p className="text-sm">
+              <span className="font-medium">{roleTarget?.email}</span>
+              {roleTarget?.name ? (
+                <span className="text-muted-foreground">
+                  {" "}
+                  · {roleTarget.name}
+                </span>
+              ) : null}
+            </p>
+            <div className="flex flex-col gap-2">
+              <p className="text-sm font-medium">Current roles</p>
+              <ul className="flex flex-col gap-2">
+                {roleTarget?.roles.map((grant) => {
+                  const key = grantKey(grant.role, grant.competition_id);
+                  const competition = competitions.find(
+                    (item) => item.id === grant.competition_id
+                  );
+                  const onlyRole = roleTarget.roles.length <= 1;
+                  return (
+                    <li
+                      key={key}
+                      className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2"
+                    >
+                      <span className="text-sm">
+                        {ROLE_LABELS[grant.role]}
+                        {grant.competition_id ? (
+                          <span className="text-muted-foreground">
+                            {" "}
+                            · {competition?.name ?? "Unknown competition"}
+                          </span>
+                        ) : null}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={onlyRole || removingRoleKey !== null || roleSubmitting}
+                        onClick={() =>
+                          void handleRemoveRole(grant.role, grant.competition_id)
+                        }
+                      >
+                        {removingRoleKey === key ? "Removing…" : "Remove"}
+                      </Button>
+                    </li>
+                  );
+                })}
+              </ul>
+              {roleTarget && roleTarget.roles.length <= 1 ? (
+                <p className="text-muted-foreground text-sm">
+                  A user must keep at least one role. Delete the user to remove
+                  the last one.
+                </p>
+              ) : null}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="add-role">Add a role</Label>
+              <Select
+                value={roleForm.role}
+                onValueChange={(value) =>
+                  setRoleForm((prev) => ({
+                    ...prev,
+                    role: value as UserRole,
+                  }))
+                }
+              >
+                <SelectTrigger id="add-role" className="w-full">
+                  <SelectValue placeholder="Select a role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLE_OPTIONS.map((role) => (
+                    <SelectItem
+                      key={role}
+                      value={role}
+                      disabled={
+                        roleTarget
+                          ? hasGrant(roleTarget.roles, role, roleForm.competitionId)
+                          : false
+                      }
+                    >
+                      {ROLE_LABELS[role]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {roleNeedsCompetition ? (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="add-role-competition">Competition</Label>
+                <Select
+                  value={roleForm.competitionId}
+                  onValueChange={(value) => {
+                    if (!roleTarget) return;
+                    const openRoles = availableRoles(roleTarget, value);
+                    setRoleForm((prev) => ({
+                      role: openRoles.includes(prev.role)
+                        ? prev.role
+                        : (openRoles[0] ?? prev.role),
+                      competitionId: value,
+                    }));
+                  }}
+                  disabled={competitions.length === 0}
+                >
+                  <SelectTrigger id="add-role-competition" className="w-full">
+                    <SelectValue placeholder="Select a competition" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {competitions.map((competition) => (
+                      <SelectItem key={competition.id} value={competition.id}>
+                        {competitionLabel(competition, currentCompetitionId)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+            <p className="text-muted-foreground text-sm">
+              {rolesAvailable.length === 0
+                ? "This user already has every role for the selected competition."
+                : roleTarget?.status === "INVITED"
+                  ? "Adding a role resends their invite email."
+                  : "The role is available the next time they sign in."}
+            </p>
+          </form>
+          <SheetFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRoleTarget(null)}
+              disabled={roleSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="add-role-form"
+              disabled={
+                roleSubmitting ||
+                !rolesAvailable.includes(roleForm.role) ||
+                (roleNeedsCompetition && !roleForm.competitionId)
+              }
+            >
+              {roleSubmitting ? "Adding…" : "Add role"}
             </Button>
           </SheetFooter>
         </SheetContent>

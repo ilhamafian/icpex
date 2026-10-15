@@ -13,7 +13,9 @@ import {
   IconLoader,
   IconMailForward,
   IconPlus,
+  IconSearch,
   IconTrash,
+  IconUserPlus,
 } from "@tabler/icons-react";
 import {
   columnVisibilityFeature,
@@ -39,6 +41,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -106,6 +109,7 @@ type UsersDataTableProps = {
   competitionId: string | null;
   toolbar?: React.ReactNode;
   onAddUser: () => void;
+  onAddRole: (user: SerializedUser) => void;
   onResendInvite: (user: SerializedUser) => void;
   onDeleteUser: (user: SerializedUser) => void;
   busyId?: string | null;
@@ -116,6 +120,7 @@ export function UsersDataTable({
   competitionId,
   toolbar,
   onAddUser,
+  onAddRole,
   onResendInvite,
   onDeleteUser,
   busyId,
@@ -127,6 +132,17 @@ export function UsersDataTable({
     pageIndex: 0,
     pageSize: 10,
   });
+  const [query, setQuery] = React.useState("");
+
+  const filtered = React.useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return data;
+    return data.filter((user) => {
+      const email = user.email.toLowerCase();
+      const name = user.name?.toLowerCase() ?? "";
+      return email.includes(needle) || name.includes(needle);
+    });
+  }, [data, query]);
 
   const columns = React.useMemo(
     () =>
@@ -220,6 +236,13 @@ export function UsersDataTable({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-44">
+                  <DropdownMenuItem
+                    onClick={() => onAddRole(user)}
+                    disabled={isBusy}
+                  >
+                    <IconUserPlus className="size-4" />
+                    Roles
+                  </DropdownMenuItem>
                   {user.status === "INVITED" ? (
                     <DropdownMenuItem
                       onClick={() => onResendInvite(user)}
@@ -244,12 +267,12 @@ export function UsersDataTable({
           },
         }),
       ]),
-    [busyId, competitionId, onDeleteUser, onResendInvite]
+    [busyId, competitionId, onAddRole, onDeleteUser, onResendInvite]
   );
 
   const table = useTable({
     features,
-    data,
+    data: filtered,
     columns,
     state: {
       sorting,
@@ -264,14 +287,27 @@ export function UsersDataTable({
 
   return (
     <div className="flex w-full flex-col justify-start gap-6">
-      <div className="flex items-center justify-between px-4 lg:px-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 lg:px-6">
         <div>
           <h2 className="text-lg font-medium">Users</h2>
           <p className="text-muted-foreground text-sm">
             Invite internal users and manage their roles per competition.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <IconSearch className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                table.setPageIndex(0);
+              }}
+              placeholder="Search name or email…"
+              aria-label="Search users by name or email"
+              className="h-8 w-48 pl-8 lg:w-64"
+            />
+          </div>
           {toolbar}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -345,7 +381,9 @@ export function UsersDataTable({
                     colSpan={columns.length}
                     className="h-24 text-center"
                   >
-                    No users yet. Invite someone to get started.
+                    {query.trim()
+                      ? "No users match that search."
+                      : "No users yet. Invite someone to get started."}
                   </TableCell>
                 </TableRow>
               )}
@@ -355,7 +393,7 @@ export function UsersDataTable({
 
         <div className="flex items-center justify-between px-4">
           <div className="text-muted-foreground hidden flex-1 text-sm lg:flex">
-            {data.length} user{data.length === 1 ? "" : "s"}
+            {filtered.length} user{filtered.length === 1 ? "" : "s"}
           </div>
           <div className="flex w-full items-center gap-8 lg:w-fit">
             <div className="hidden items-center gap-2 lg:flex">
