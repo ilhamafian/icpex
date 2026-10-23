@@ -1,7 +1,24 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { IconExternalLink, IconMail } from "@tabler/icons-react";
+import {
+  IconArrowsSort,
+  IconExternalLink,
+  IconMail,
+  IconSearch,
+  IconSortAscending,
+  IconSortDescending,
+} from "@tabler/icons-react";
+import {
+  columnVisibilityFeature,
+  createColumnHelper,
+  createSortedRowModel,
+  FlexRender,
+  rowSortingFeature,
+  tableFeatures,
+  useTable,
+  type SortingState,
+} from "@tanstack/react-table";
 import { toast } from "sonner";
 
 import {
@@ -15,13 +32,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -31,7 +41,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  EDUCATION_LEVEL_LABELS,
+  type EducationLevel,
+} from "@/schemas/educationLevel";
 import type { PaymentStatus } from "@/schemas/paymentSchema";
 import type { Registration } from "@/schemas/registrationSchema";
 import { CURRENCIES, formatMoney, type Currency } from "@/utils/registrationFee";
@@ -49,6 +71,17 @@ type AdjustmentDraft = {
   currency: Currency;
 };
 
+type PaymentRow = {
+  id: string;
+  group: SubmissionPaymentGroup;
+  registration: SubmissionPaymentGroup["projects"][number]["registration"];
+  payment: SubmissionPaymentGroup["projects"][number]["payment"];
+  institution: string;
+  education_level: EducationLevel;
+  created_at: string;
+  paymentTab: PaymentTab;
+};
+
 const TAB_LABELS: Record<PaymentTab, string> = {
   REVIEW: "To review",
   AWAITING: "Awaiting payment",
@@ -56,6 +89,16 @@ const TAB_LABELS: Record<PaymentTab, string> = {
   PAID: "Paid",
   FAILED: "Failed",
 };
+
+const EDUCATION_TABS: EducationLevel[] = ["UNDERGRADUATE", "POSTGRADUATE"];
+
+const features = tableFeatures({
+  columnVisibilityFeature,
+  rowSortingFeature,
+  sortedRowModel: createSortedRowModel(),
+});
+
+const columnHelper = createColumnHelper<typeof features, PaymentRow>();
 
 function groupTab(group: SubmissionPaymentGroup): PaymentTab {
   const statuses = group.projects.map(
@@ -123,20 +166,83 @@ function projectAmount(
   return Number.isFinite(amount) ? amount : null;
 }
 
+function groupDraftTotal(
+  group: SubmissionPaymentGroup,
+  drafts: Record<string, string>
+) {
+  return group.projects.reduce<number | null>((sum, project) => {
+    if (sum === null) return null;
+    const amount = projectAmount(project, drafts);
+    if (amount === null) return null;
+    return sum + amount;
+  }, 0);
+}
+
 function formatDay(iso: string) {
   const [year, month, day] = iso.slice(0, 10).split("-");
   if (!year || !month || !day) return iso;
   return `${day}/${month}/${year}`;
 }
 
-function recipientEmails(group: SubmissionPaymentGroup) {
-  return [
-    ...new Set(
-      group.projects.map((project) =>
-        project.registration.participant.email.trim().toLowerCase()
-      )
-    ),
-  ];
+function formatCreated(iso?: string) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function flattenGroups(groups: SubmissionPaymentGroup[]): PaymentRow[] {
+  const rows: PaymentRow[] = [];
+  for (const group of groups) {
+    const paymentTab = groupTab(group);
+    for (const project of group.projects) {
+      rows.push({
+        id: project.registration._id,
+        group,
+        registration: project.registration,
+        payment: project.payment,
+        institution:
+          group.submission?.institution_name ??
+          project.registration.participant.institution.name,
+        education_level: project.registration.participant.education_level,
+        created_at: project.registration.created_at ?? "",
+        paymentTab,
+      });
+    }
+  }
+  return rows;
+}
+
+function SortableHeader({
+  canSort,
+  isSorted,
+  onSort,
+  title,
+}: {
+  canSort: boolean;
+  isSorted: false | "asc" | "desc";
+  onSort?: ((event: unknown) => void) | undefined;
+  title: string;
+}) {
+  if (!canSort) return <span>{title}</span>;
+  return (
+    <button
+      type="button"
+      className="-ml-2 inline-flex items-center gap-1 rounded-md px-2 py-1 hover:bg-muted"
+      onClick={onSort}
+    >
+      <span>{title}</span>
+      {isSorted === "asc" ? (
+        <IconSortAscending className="size-3.5" />
+      ) : isSorted === "desc" ? (
+        <IconSortDescending className="size-3.5" />
+      ) : (
+        <IconArrowsSort className="size-3.5 text-muted-foreground" />
+      )}
+    </button>
+  );
 }
 
 export function PaymentVerificationManager({
@@ -145,22 +251,51 @@ export function PaymentVerificationManager({
   initialGroups?: SubmissionPaymentGroup[];
 }) {
   const [groups, setGroups] = useState(initialGroups);
+  const [educationLevel, setEducationLevel] =
+    useState<EducationLevel>("UNDERGRADUATE");
   const [tab, setTab] = useState<PaymentTab>("REVIEW");
+  const [query, setQuery] = useState("");
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "university", desc: false },
+  ]);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [adjustment, setAdjustment] = useState<AdjustmentDraft | null>(null);
 
-  const byTab = useMemo(() => {
-    const buckets: Record<PaymentTab, SubmissionPaymentGroup[]> = {
-      REVIEW: [],
-      AWAITING: [],
-      PENDING: [],
-      PAID: [],
-      FAILED: [],
+  const allRows = useMemo(() => flattenGroups(groups), [groups]);
+
+  const eduRows = useMemo(
+    () => allRows.filter((row) => row.education_level === educationLevel),
+    [allRows, educationLevel]
+  );
+
+  const paymentCounts = useMemo(() => {
+    const counts: Record<PaymentTab, number> = {
+      REVIEW: 0,
+      AWAITING: 0,
+      PENDING: 0,
+      PAID: 0,
+      FAILED: 0,
     };
-    for (const group of groups) buckets[groupTab(group)].push(group);
-    return buckets;
-  }, [groups]);
+    for (const row of eduRows) counts[row.paymentTab] += 1;
+    return counts;
+  }, [eduRows]);
+
+  const filteredRows = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return eduRows.filter((row) => {
+      if (row.paymentTab !== tab) return false;
+      if (!needle) return true;
+      return [
+        row.registration.registration_number,
+        row.registration.project.title,
+        row.registration.participant.name,
+        row.registration.participant.email,
+        row.institution,
+        row.group.submission?.submission_number ?? "",
+      ].some((value) => value.toLowerCase().includes(needle));
+    });
+  }, [eduRows, tab, query]);
 
   function replaceGroup(next: SubmissionPaymentGroup) {
     setGroups((prev) => prev.map((group) => (group.id === next.id ? next : group)));
@@ -259,7 +394,9 @@ export function PaymentVerificationManager({
       } | null;
       if (!res.ok) {
         toast.error(
-          typeof data?.error === "string" ? data.error : "Failed to send the payment request."
+          typeof data?.error === "string"
+            ? data.error
+            : "Failed to send the payment request."
         );
         return;
       }
@@ -284,7 +421,11 @@ export function PaymentVerificationManager({
     try {
       const res = await fetch(
         `/api/submissions/${group.submission._id}/payment-request`,
-        { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        }
       );
       const data = (await res.json().catch(() => null)) as {
         error?: unknown;
@@ -293,7 +434,9 @@ export function PaymentVerificationManager({
       } | null;
       if (!res.ok) {
         toast.error(
-          typeof data?.error === "string" ? data.error : "Failed to resend the payment request."
+          typeof data?.error === "string"
+            ? data.error
+            : "Failed to resend the payment request."
         );
         return;
       }
@@ -441,6 +584,433 @@ export function PaymentVerificationManager({
     }
   }
 
+  const columns = useMemo(
+    () =>
+      columnHelper.columns([
+        columnHelper.display({
+          id: "index",
+          header: "#",
+          enableSorting: false,
+          cell: ({ row }) => (
+            <span className="tabular-nums text-muted-foreground">
+              {row.index + 1}
+            </span>
+          ),
+        }),
+        columnHelper.accessor((row) => row.registration.registration_number, {
+          id: "registration",
+          header: ({ column }) => (
+            <SortableHeader
+              title="Registration"
+              canSort={column.getCanSort()}
+              isSorted={column.getIsSorted()}
+              onSort={column.getToggleSortingHandler()}
+            />
+          ),
+          cell: ({ row }) => {
+            const item = row.original;
+            const submissionNumber = item.group.submission?.submission_number;
+            return (
+              <div className="flex min-w-40 max-w-56 flex-col gap-0.5">
+                <span className="font-medium">
+                  {item.registration.registration_number}
+                </span>
+                <span
+                  className="truncate text-xs text-muted-foreground"
+                  title={item.registration.project.title}
+                >
+                  {item.registration.project.title}
+                </span>
+                {submissionNumber ? (
+                  <span className="truncate text-xs text-muted-foreground">
+                    {submissionNumber}
+                  </span>
+                ) : null}
+              </div>
+            );
+          },
+        }),
+        columnHelper.accessor("institution", {
+          id: "university",
+          header: ({ column }) => (
+            <SortableHeader
+              title="University"
+              canSort={column.getCanSort()}
+              isSorted={column.getIsSorted()}
+              onSort={column.getToggleSortingHandler()}
+            />
+          ),
+          cell: ({ row }) => (
+            <span
+              className="block max-w-48 truncate"
+              title={row.original.institution}
+            >
+              {row.original.institution || "—"}
+            </span>
+          ),
+          sortFn: (a, b) => {
+            const byUniversity = a.original.institution.localeCompare(
+              b.original.institution,
+              undefined,
+              { sensitivity: "base" }
+            );
+            if (byUniversity !== 0) return byUniversity;
+            return a.original.registration.registration_number.localeCompare(
+              b.original.registration.registration_number,
+              undefined,
+              { numeric: true }
+            );
+          },
+        }),
+        columnHelper.accessor((row) => row.registration.participant.name, {
+          id: "participant",
+          header: ({ column }) => (
+            <SortableHeader
+              title="Participant"
+              canSort={column.getCanSort()}
+              isSorted={column.getIsSorted()}
+              onSort={column.getToggleSortingHandler()}
+            />
+          ),
+          cell: ({ row }) => (
+            <div className="flex max-w-48 flex-col gap-0.5">
+              <span
+                className="truncate"
+                title={row.original.registration.participant.name}
+              >
+                {row.original.registration.participant.name}
+              </span>
+              <span
+                className="truncate text-xs text-muted-foreground"
+                title={row.original.registration.participant.email}
+              >
+                {row.original.registration.participant.email}
+              </span>
+            </div>
+          ),
+        }),
+        columnHelper.accessor("created_at", {
+          id: "created",
+          header: ({ column }) => (
+            <SortableHeader
+              title="Created"
+              canSort={column.getCanSort()}
+              isSorted={column.getIsSorted()}
+              onSort={column.getToggleSortingHandler()}
+            />
+          ),
+          cell: ({ row }) => (
+            <span className="whitespace-nowrap text-sm text-muted-foreground">
+              {formatCreated(row.original.created_at || undefined)}
+            </span>
+          ),
+          sortFn: (a, b) => {
+            const left = a.original.created_at || "";
+            const right = b.original.created_at || "";
+            if (!left && !right) return 0;
+            if (!left) return 1;
+            if (!right) return -1;
+            return left.localeCompare(right);
+          },
+        }),
+        columnHelper.display({
+          id: "fee",
+          header: "Fee / Payment",
+          enableSorting: false,
+          cell: ({ row }) => {
+            const item = row.original;
+            const { group } = item;
+            const currency =
+              group.submission?.currency ?? item.payment?.currency ?? "MYR";
+            const canEdit = Boolean(group.submission) && tab === "REVIEW";
+            const amount =
+              drafts[item.registration._id] ??
+              String(item.payment?.amount ?? item.registration.fee ?? 0);
+            const busy = busyId === group.id;
+            const paymentStatus = item.payment?.status;
+
+            return (
+              <div className="flex min-w-36 flex-col gap-1.5">
+                {canEdit ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm text-muted-foreground">
+                      {currency === "MYR" ? "RM" : "USD"}
+                    </span>
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      aria-label={`Fee for ${item.registration.registration_number}`}
+                      className="h-8 w-28"
+                      value={amount}
+                      disabled={busy}
+                      onChange={(event) =>
+                        setDrafts((current) => ({
+                          ...current,
+                          [item.registration._id]: event.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                ) : (
+                  <span className="text-sm tabular-nums">
+                    {(item.payment?.amount ?? 0) === 0
+                      ? "Free"
+                      : formatMoney(item.payment?.amount ?? 0, currency)}
+                  </span>
+                )}
+                {paymentStatus ? (
+                  <Badge
+                    variant={paymentStatusVariant(paymentStatus)}
+                    className="w-fit"
+                  >
+                    {PAYMENT_STATUS_LABELS[paymentStatus]}
+                  </Badge>
+                ) : null}
+                {group.submission?.payment_requested_at ? (
+                  <span className="text-xs text-muted-foreground">
+                    Requested {formatDay(group.submission.payment_requested_at)}
+                  </span>
+                ) : null}
+              </div>
+            );
+          },
+        }),
+        columnHelper.display({
+          id: "status",
+          header: "Reg. status",
+          enableSorting: false,
+          cell: ({ row }) => {
+            const item = row.original;
+            const busy = busyId === item.group.id;
+            return (
+              <div className="flex flex-col gap-1.5">
+                <Badge
+                  variant={registrationStatusVariant(item.registration.status)}
+                  className="w-fit"
+                >
+                  {item.registration.status}
+                </Badge>
+                <Select
+                  value={item.registration.status}
+                  onValueChange={(value) =>
+                    void setRegistrationStatus(
+                      item.group,
+                      item.registration._id,
+                      value as RegistrationStatus
+                    )
+                  }
+                  disabled={busy}
+                >
+                  <SelectTrigger className="h-8 w-35">
+                    <SelectValue placeholder="Reg. status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SUBMITTED">SUBMITTED</SelectItem>
+                    <SelectItem value="REVIEWING">REVIEWING</SelectItem>
+                    <SelectItem value="ACCEPTED">ACCEPTED</SelectItem>
+                    <SelectItem value="REJECTED">REJECTED</SelectItem>
+                    <SelectItem value="COMPLETED">COMPLETED</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            );
+          },
+        }),
+        columnHelper.display({
+          id: "actions",
+          header: "Actions",
+          enableSorting: false,
+          cell: ({ row }) => {
+            const item = row.original;
+            const { group } = item;
+            const busy = busyId === group.id;
+            const canEdit = Boolean(group.submission) && tab === "REVIEW";
+            const draftTotal = groupDraftTotal(group, drafts);
+            const receiptUrl = group.projects.find(
+              (project) => project.payment?.receipt_url
+            )?.payment?.receipt_url;
+
+            return (
+              <div className="flex max-w-72 flex-wrap gap-1.5">
+                {canEdit ? (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => {
+                        setBusyId(group.id);
+                        void saveFees(group)
+                          .then((saved) => {
+                            if (saved) toast.success("Prices saved.");
+                          })
+                          .finally(() => setBusyId(null));
+                      }}
+                    >
+                      Save prices
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={busy || draftTotal === null}
+                      onClick={() => void sendPaymentRequest(group)}
+                    >
+                      <IconMail />
+                      {draftTotal === 0
+                        ? "Mark as no charge"
+                        : "Send payment request"}
+                    </Button>
+                  </>
+                ) : null}
+                {tab === "AWAITING" && group.submission ? (
+                  <>
+                    {receiptUrl ? (
+                      <Button size="sm" variant="outline" asChild>
+                        <a href={receiptUrl} target="_blank" rel="noreferrer">
+                          <IconExternalLink />
+                          Receipt
+                        </a>
+                      </Button>
+                    ) : null}
+                    {group.submission.balance_due ? null : (
+                      <Button
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => void resendPaymentRequest(group)}
+                      >
+                        <IconMail />
+                        Resend
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() =>
+                        void submissionAction(
+                          group,
+                          "payment-reminder",
+                          {},
+                          "Payment reminder sent."
+                        )
+                      }
+                    >
+                      <IconMail />
+                      Remind
+                    </Button>
+                  </>
+                ) : null}
+                {tab === "PENDING" ? (
+                  <>
+                    {receiptUrl ? (
+                      <Button size="sm" variant="outline" asChild>
+                        <a href={receiptUrl} target="_blank" rel="noreferrer">
+                          <IconExternalLink />
+                          Receipt
+                        </a>
+                      </Button>
+                    ) : null}
+                    <Button
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => verify(group, "PAID")}
+                    >
+                      Mark paid
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy || !group.submission}
+                      onClick={() =>
+                        setAdjustment({
+                          groupId: group.id,
+                          submissionNumber:
+                            group.submission?.submission_number ??
+                            "this submission",
+                          type: "UNDERPAID",
+                          amount: "",
+                          currency: group.submission?.currency ?? "MYR",
+                        })
+                      }
+                    >
+                      Underpaid
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy || !group.submission}
+                      onClick={() =>
+                        setAdjustment({
+                          groupId: group.id,
+                          submissionNumber:
+                            group.submission?.submission_number ??
+                            "this submission",
+                          type: "OVERPAID",
+                          amount: "",
+                          currency: group.submission?.currency ?? "MYR",
+                        })
+                      }
+                    >
+                      Overpaid
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => verify(group, "FAILED")}
+                    >
+                      Mark failed
+                    </Button>
+                  </>
+                ) : null}
+                {tab === "PAID" || tab === "FAILED" ? (
+                  <>
+                    {receiptUrl ? (
+                      <Button size="sm" variant="outline" asChild>
+                        <a href={receiptUrl} target="_blank" rel="noreferrer">
+                          <IconExternalLink />
+                          Receipt
+                        </a>
+                      </Button>
+                    ) : null}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() =>
+                        void setPaymentStatus(
+                          group,
+                          receiptUrl
+                            ? "PENDING"
+                            : group.submission?.payment_requested_at
+                              ? "AWAITING"
+                              : "REVIEW"
+                        )
+                      }
+                    >
+                      Reopen
+                    </Button>
+                  </>
+                ) : null}
+              </div>
+            );
+          },
+        }),
+      ]),
+    // Handlers close over latest drafts/busy/tab; recreate columns when they change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional deps for interactive cells
+    [tab, drafts, busyId]
+  );
+
+  const table = useTable({
+    features,
+    data: filteredRows,
+    columns,
+    state: { sorting },
+    getRowId: (row) => row.id,
+    onSortingChange: setSorting,
+  });
+
   return (
     <div className="flex flex-col gap-4 px-4 lg:px-6">
       <div>
@@ -452,77 +1022,109 @@ export function PaymentVerificationManager({
       </div>
 
       <Tabs
-        value={tab}
-        onValueChange={(value) => setTab(value as PaymentTab)}
+        value={educationLevel}
+        onValueChange={(value) => {
+          setEducationLevel(value as EducationLevel);
+          setTab("REVIEW");
+          setQuery("");
+        }}
         className="gap-4"
       >
-        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-5">
-          {(Object.keys(TAB_LABELS) as PaymentTab[]).map((key) => (
-            <TabsTrigger key={key} value={key} className="h-8 whitespace-normal">
-              {TAB_LABELS[key]} ({byTab[key].length})
-            </TabsTrigger>
-          ))}
+        <TabsList>
+          {EDUCATION_TABS.map((level) => {
+            const count = allRows.filter(
+              (row) => row.education_level === level
+            ).length;
+            return (
+              <TabsTrigger key={level} value={level}>
+                {EDUCATION_LEVEL_LABELS[level]} ({count})
+              </TabsTrigger>
+            );
+          })}
         </TabsList>
 
-        {(Object.keys(TAB_LABELS) as PaymentTab[]).map((key) => (
-          <TabsContent key={key} value={key} className="mt-0">
-            {byTab[key].length === 0 ? (
-              <Card>
-                <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                  No submissions in this group.
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {byTab[key].map((group) => (
-                  <SubmissionCard
-                    key={group.id}
-                    group={group}
-                    drafts={drafts}
-                    busy={busyId === group.id}
-                    onDraft={(registrationId, value) =>
-                      setDrafts((current) => ({
-                        ...current,
-                        [registrationId]: value,
-                      }))
-                    }
-                    onSave={() => {
-                      setBusyId(group.id);
-                      void saveFees(group)
-                        .then((saved) => {
-                          if (saved) toast.success("Prices saved.");
-                        })
-                        .finally(() => setBusyId(null));
-                    }}
-                    onSend={() => void sendPaymentRequest(group)}
-                    onResend={() => void resendPaymentRequest(group)}
-                    onRemind={() =>
-                      void submissionAction(
-                        group,
-                        "payment-reminder",
-                        {},
-                        "Payment reminder sent."
-                      )
-                    }
-                    onVerify={(outcome) => verify(group, outcome)}
-                    onAdjust={(type) =>
-                      setAdjustment({
-                        groupId: group.id,
-                        submissionNumber:
-                          group.submission?.submission_number ?? "this submission",
-                        type,
-                        amount: "",
-                        currency: group.submission?.currency ?? "MYR",
-                      })
-                    }
-                    onPaymentStatus={(status) => void setPaymentStatus(group, status)}
-                    onRegistrationStatus={(registrationId, status) =>
-                      void setRegistrationStatus(group, registrationId, status)
-                    }
-                  />
+        {EDUCATION_TABS.map((level) => (
+          <TabsContent key={level} value={level} className="mt-0">
+            <Tabs
+              value={tab}
+              onValueChange={(value) => {
+                setTab(value as PaymentTab);
+                setQuery("");
+              }}
+              className="gap-4"
+            >
+              <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-5">
+                {(Object.keys(TAB_LABELS) as PaymentTab[]).map((key) => (
+                  <TabsTrigger
+                    key={key}
+                    value={key}
+                    className="h-8 whitespace-normal"
+                  >
+                    {TAB_LABELS[key]} ({paymentCounts[key]})
+                  </TabsTrigger>
                 ))}
-              </div>
-            )}
+              </TabsList>
+
+              {(Object.keys(TAB_LABELS) as PaymentTab[]).map((key) => (
+                <TabsContent key={key} value={key} className="mt-0">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <div className="relative">
+                      <IconSearch className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={query}
+                        onChange={(event) => setQuery(event.target.value)}
+                        placeholder="Search registrations…"
+                        className="h-8 w-56 pl-8 lg:w-72"
+                      />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {filteredRows.length} registration
+                      {filteredRows.length === 1 ? "" : "s"}
+                    </p>
+                  </div>
+
+                  <div className="overflow-hidden rounded-lg border">
+                    <Table>
+                      <TableHeader className="sticky top-0 z-10 bg-muted">
+                        {table.getHeaderGroups().map((headerGroup) => (
+                          <TableRow key={headerGroup.id}>
+                            {headerGroup.headers.map((header) => (
+                              <TableHead key={header.id} colSpan={header.colSpan}>
+                                {header.isPlaceholder ? null : (
+                                  <FlexRender header={header} />
+                                )}
+                              </TableHead>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </TableHeader>
+                      <TableBody>
+                        {table.getRowModel().rows.length ? (
+                          table.getRowModel().rows.map((row) => (
+                            <TableRow key={row.id}>
+                              {row.getVisibleCells().map((cell) => (
+                                <TableCell key={cell.id}>
+                                  <FlexRender cell={cell} />
+                                </TableCell>
+                              ))}
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell
+                              colSpan={columns.length}
+                              className="h-24 text-center text-muted-foreground"
+                            >
+                              No registrations in this group.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </TabsContent>
+              ))}
+            </Tabs>
           </TabsContent>
         ))}
       </Tabs>
@@ -536,7 +1138,9 @@ export function PaymentVerificationManager({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {adjustment?.type === "OVERPAID" ? "Mark as overpaid" : "Mark as underpaid"}
+              {adjustment?.type === "OVERPAID"
+                ? "Mark as overpaid"
+                : "Mark as underpaid"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {adjustment?.type === "OVERPAID"
@@ -555,7 +1159,9 @@ export function PaymentVerificationManager({
                 value={adjustment?.amount ?? ""}
                 onChange={(event) =>
                   setAdjustment((current) =>
-                    current ? { ...current, amount: event.target.value } : current
+                    current
+                      ? { ...current, amount: event.target.value }
+                      : current
                   )
                 }
               />
@@ -597,301 +1203,5 @@ export function PaymentVerificationManager({
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  );
-}
-
-function SubmissionCard({
-  group,
-  drafts,
-  busy,
-  onDraft,
-  onSave,
-  onSend,
-  onResend,
-  onRemind,
-  onVerify,
-  onAdjust,
-  onPaymentStatus,
-  onRegistrationStatus,
-}: {
-  group: SubmissionPaymentGroup;
-  drafts: Record<string, string>;
-  busy: boolean;
-  onDraft: (registrationId: string, value: string) => void;
-  onSave: () => void;
-  onSend: () => void;
-  onResend: () => void;
-  onRemind: () => void;
-  onVerify: (outcome: "PAID" | "FAILED") => void;
-  onAdjust: (type: AdjustmentType) => void;
-  onPaymentStatus: (status: PaymentStatus) => void;
-  onRegistrationStatus: (registrationId: string, status: RegistrationStatus) => void;
-}) {
-  const tab = groupTab(group);
-  const currency =
-    group.submission?.currency ?? group.projects[0]?.payment?.currency ?? "MYR";
-  const canEdit = Boolean(group.submission) && tab === "REVIEW";
-  const amounts = group.projects.map((project) => projectAmount(project, drafts));
-  const draftTotal = amounts.reduce<number | null>((sum, amount) => {
-    if (sum === null || amount === null) return null;
-    return sum + amount;
-  }, 0);
-  const total =
-    canEdit && draftTotal !== null
-      ? draftTotal
-      : (group.submission?.amount ??
-        group.projects.reduce(
-          (sum, project) => sum + (project.payment?.amount ?? 0),
-          0
-        ));
-  const receiptUrl = group.projects.find((project) => project.payment?.receipt_url)
-    ?.payment?.receipt_url;
-  const title =
-    group.submission?.submission_number ??
-    group.projects[0]?.registration.registration_number ??
-    "Registration";
-  const institution =
-    group.submission?.institution_name ??
-    group.projects[0]?.registration.participant.institution.name ??
-    "";
-  const status = group.projects.find((project) => project.payment)?.payment?.status;
-  const emails = recipientEmails(group);
-
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <CardTitle className="text-base">{title}</CardTitle>
-            <CardDescription className="mt-1">
-              {institution}
-              {group.submission?.institution_country
-                ? ` · ${group.submission.institution_country}`
-                : ""}
-            </CardDescription>
-            <p className="mt-2 text-sm">
-              {total === 0 ? "No charge" : formatMoney(total, currency)}
-              {group.submission?.balance_due
-                ? ` · balance due ${formatMoney(
-                    group.submission.balance_due,
-                    group.submission.balance_currency
-                  )}`
-                : ""}
-              {group.submission?.payment_requested_at
-                ? ` · request sent ${formatDay(group.submission.payment_requested_at)}`
-                : ""}
-              {group.submission?.payment_reminded_at
-                ? ` · reminded ${formatDay(group.submission.payment_reminded_at)}`
-                : ""}
-            </p>
-            {group.submission?.adjustments
-              .filter((adjustment) => adjustment.type === "OVERPAID")
-              .slice(-1)
-              .map((adjustment) => (
-                <p key={adjustment.created_at} className="mt-1 text-sm text-muted-foreground">
-                  Overpaid by {formatMoney(adjustment.amount, adjustment.currency)} — refund
-                  noted on the invoice.
-                </p>
-              ))}
-            {emails.length > 0 ? (
-              <p className="mt-1 text-sm text-muted-foreground">
-                {(group.submission?.payment_requested_at
-                  ? "Emailed to: "
-                  : "Participants: ") + emails.join(", ")}
-              </p>
-            ) : null}
-          </div>
-          {status ? (
-            <Badge variant={paymentStatusVariant(status)} className="shrink-0">
-              {PAYMENT_STATUS_LABELS[status]}
-            </Badge>
-          ) : null}
-        </div>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4 pt-0">
-        <ul className="flex flex-col gap-3">
-          {group.projects.map((project) => {
-            const amount =
-              drafts[project.registration._id] ??
-              String(project.payment?.amount ?? project.registration.fee ?? 0);
-            return (
-              <li
-                key={project.registration._id}
-                className="flex flex-col gap-2 border-t pt-3 sm:flex-row sm:items-start sm:justify-between"
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">
-                    {project.registration.registration_number}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {project.registration.project.title} ·{" "}
-                    {project.registration.participant.name}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {project.registration.participant.email}
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {canEdit ? (
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm text-muted-foreground">
-                        {currency === "MYR" ? "RM" : "USD"}
-                      </span>
-                      <Input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        aria-label={`Fee for ${project.registration.registration_number} in ${currency}`}
-                        className="h-8 w-28"
-                        value={amount}
-                        disabled={busy}
-                        onChange={(event) =>
-                          onDraft(project.registration._id, event.target.value)
-                        }
-                      />
-                    </div>
-                  ) : (
-                    <span className="text-sm tabular-nums">
-                      {(project.payment?.amount ?? 0) === 0
-                        ? "Free"
-                        : formatMoney(project.payment?.amount ?? 0, currency)}
-                    </span>
-                  )}
-                  <Badge
-                    variant={registrationStatusVariant(project.registration.status)}
-                  >
-                    {project.registration.status}
-                  </Badge>
-                  <Select
-                    value={project.registration.status}
-                    onValueChange={(value) =>
-                      onRegistrationStatus(
-                        project.registration._id,
-                        value as RegistrationStatus
-                      )
-                    }
-                    disabled={busy}
-                  >
-                    <SelectTrigger className="h-8 w-35">
-                      <SelectValue placeholder="Reg. status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="SUBMITTED">SUBMITTED</SelectItem>
-                      <SelectItem value="REVIEWING">REVIEWING</SelectItem>
-                      <SelectItem value="ACCEPTED">ACCEPTED</SelectItem>
-                      <SelectItem value="REJECTED">REJECTED</SelectItem>
-                      <SelectItem value="COMPLETED">COMPLETED</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-
-        <div className="flex flex-wrap gap-2">
-          {canEdit ? (
-            <>
-              <Button size="sm" variant="outline" disabled={busy} onClick={onSave}>
-                Save prices
-              </Button>
-              <Button size="sm" disabled={busy || draftTotal === null} onClick={onSend}>
-                <IconMail />
-                {draftTotal === 0 ? "Mark as no charge" : "Send payment request"}
-              </Button>
-            </>
-          ) : null}
-          {tab === "AWAITING" && group.submission ? (
-            <>
-              {receiptUrl ? (
-                <Button size="sm" variant="outline" asChild>
-                  <a href={receiptUrl} target="_blank" rel="noreferrer">
-                    <IconExternalLink />
-                    Receipt
-                  </a>
-                </Button>
-              ) : null}
-              {group.submission.balance_due ? null : (
-                <Button size="sm" disabled={busy} onClick={onResend}>
-                  <IconMail />
-                  Resend payment request
-                </Button>
-              )}
-              <Button size="sm" variant="outline" disabled={busy} onClick={onRemind}>
-                <IconMail />
-                Remind payment
-              </Button>
-            </>
-          ) : null}
-          {tab === "PENDING" ? (
-            <>
-              {receiptUrl ? (
-                <Button size="sm" variant="outline" asChild>
-                  <a href={receiptUrl} target="_blank" rel="noreferrer">
-                    <IconExternalLink />
-                    Receipt
-                  </a>
-                </Button>
-              ) : null}
-              <Button size="sm" disabled={busy} onClick={() => onVerify("PAID")}>
-                Mark paid
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={busy || !group.submission}
-                onClick={() => onAdjust("UNDERPAID")}
-              >
-                Underpaid
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={busy || !group.submission}
-                onClick={() => onAdjust("OVERPAID")}
-              >
-                Overpaid
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={busy}
-                onClick={() => onVerify("FAILED")}
-              >
-                Mark failed
-              </Button>
-            </>
-          ) : null}
-          {tab === "PAID" || tab === "FAILED" ? (
-            <>
-              {receiptUrl ? (
-                <Button size="sm" variant="outline" asChild>
-                  <a href={receiptUrl} target="_blank" rel="noreferrer">
-                    <IconExternalLink />
-                    Receipt
-                  </a>
-                </Button>
-              ) : null}
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={busy}
-                onClick={() =>
-                  onPaymentStatus(
-                    receiptUrl
-                      ? "PENDING"
-                      : group.submission?.payment_requested_at
-                        ? "AWAITING"
-                        : "REVIEW"
-                  )
-                }
-              >
-                Reopen
-              </Button>
-            </>
-          ) : null}
-        </div>
-      </CardContent>
-    </Card>
   );
 }
