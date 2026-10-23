@@ -5,6 +5,7 @@ import { IconInnerShadowTop } from "@tabler/icons-react"
 
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
+import { Badge } from "@/components/ui/badge"
 import {
   Sidebar,
   SidebarContent,
@@ -14,7 +15,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import type { UserRole } from "@/schemas/userRole"
+import { USER_ROLE_LABELS, type UserRole } from "@/schemas/userRole"
 import { getNavForRole } from "@/utils/portalNav"
 
 export function AppSidebar({
@@ -40,11 +41,14 @@ export function AppSidebar({
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
-              className="data-[slot=sidebar-menu-button]:p-1.5!"
+              className="data-[slot=sidebar-menu-button]:h-auto! data-[slot=sidebar-menu-button]:p-1.5!"
             >
-              <a href={homeHref}>
+              <a href={homeHref} className="gap-2">
                 <IconInnerShadowTop className="size-5!" />
                 <span className="text-base font-semibold">ICPEX</span>
+                <Badge variant="secondary" className="rounded-full">
+                  {USER_ROLE_LABELS[role]}
+                </Badge>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
