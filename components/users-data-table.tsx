@@ -147,6 +147,17 @@ export function UsersDataTable({
   const columns = React.useMemo(
     () =>
       columnHelper.columns([
+        columnHelper.display({
+          id: "index",
+          header: "#",
+          enableSorting: false,
+          enableHiding: false,
+          cell: ({ row }) => (
+            <span className="tabular-nums text-muted-foreground">
+              {pagination.pageIndex * pagination.pageSize + row.index + 1}
+            </span>
+          ),
+        }),
         columnHelper.accessor("email", {
           header: "Email",
           cell: ({ row }) => (
@@ -267,7 +278,15 @@ export function UsersDataTable({
           },
         }),
       ]),
-    [busyId, competitionId, onAddRole, onDeleteUser, onResendInvite]
+    [
+      busyId,
+      competitionId,
+      onAddRole,
+      onDeleteUser,
+      onResendInvite,
+      pagination.pageIndex,
+      pagination.pageSize,
+    ]
   );
 
   const table = useTable({

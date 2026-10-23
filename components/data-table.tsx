@@ -158,7 +158,19 @@ function PaymentBadge({ payment }: { payment: DashboardRow["payment"] }) {
   )
 }
 
-const columns = columnHelper.columns([
+function createColumns(pageIndex: number, pageSize: number) {
+  return columnHelper.columns([
+  columnHelper.display({
+    id: "index",
+    header: "#",
+    enableSorting: false,
+    enableHiding: false,
+    cell: ({ row }) => (
+      <span className="tabular-nums text-muted-foreground">
+        {pageIndex * pageSize + row.index + 1}
+      </span>
+    ),
+  }),
   columnHelper.accessor("registration_number", {
     header: "Registration",
     cell: ({ row }) => <TableCellViewer item={row.original} />,
@@ -247,6 +259,7 @@ const columns = columnHelper.columns([
     ),
   }),
 ])
+}
 
 export function DataTable({ data }: { data: DashboardRow[] }) {
   const [view, setView] = React.useState<View>("all")
@@ -283,6 +296,11 @@ export function DataTable({ data }: { data: DashboardRow[] }) {
           ].some((value) => value.toLowerCase().includes(needle)))
     )
   }, [data, view, query])
+
+  const columns = React.useMemo(
+    () => createColumns(pagination.pageIndex, pagination.pageSize),
+    [pagination.pageIndex, pagination.pageSize]
+  )
 
   const table = useTable({
     features,

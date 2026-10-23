@@ -370,6 +370,17 @@ export function JudgeAssignmentsDataTable({
   const columns = React.useMemo(
     () =>
       columnHelper.columns([
+        columnHelper.display({
+          id: "index",
+          header: "#",
+          enableSorting: false,
+          enableHiding: false,
+          cell: ({ row }) => (
+            <span className="tabular-nums text-muted-foreground">
+              {pagination.pageIndex * pagination.pageSize + row.index + 1}
+            </span>
+          ),
+        }),
         columnHelper.accessor((row) => row.registration.registration_number, {
           id: "registration",
           header: "Registration",
@@ -594,7 +605,15 @@ export function JudgeAssignmentsDataTable({
           },
         }),
       ]),
-    [busyKey, competitionId, judges, judgesById, onToggleJudge]
+    [
+      busyKey,
+      competitionId,
+      judges,
+      judgesById,
+      onToggleJudge,
+      pagination.pageIndex,
+      pagination.pageSize,
+    ]
   );
 
   const table = useTable({

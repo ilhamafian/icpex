@@ -187,6 +187,17 @@ export function MyAssignmentsDataTable({
   const columns = React.useMemo(
     () =>
       columnHelper.columns([
+        columnHelper.display({
+          id: "index",
+          header: "#",
+          enableSorting: false,
+          enableHiding: false,
+          cell: ({ row }) => (
+            <span className="tabular-nums text-muted-foreground">
+              {pagination.pageIndex * pagination.pageSize + row.index + 1}
+            </span>
+          ),
+        }),
         columnHelper.accessor((row) => row.assignment.registration_number, {
           id: "registration",
           header: "Registration",
@@ -340,7 +351,7 @@ export function MyAssignmentsDataTable({
           },
         }),
       ]),
-    [busyId, onRespond, showType]
+    [busyId, onRespond, pagination.pageIndex, pagination.pageSize, showType]
   );
 
   const table = useTable({
