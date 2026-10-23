@@ -25,7 +25,6 @@ import {
 import { toIdString } from "@/schemas/objectId";
 import {
   FREE_PROJECT_EVERY,
-  MAX_PROJECTS_PER_SUBMISSION,
   MAX_TEAM_MEMBERS,
 } from "@/schemas/registrationSchema";
 import { formatCompetitionDates } from "@/utils/competitionDates";
@@ -120,8 +119,8 @@ const NAV_LINKS = [
 const STEPS: { icon: Icon; title: string; body: string }[] = [
   {
     icon: IconFileText,
-    title: "Submit your projects",
-    body: `Enter up to ${MAX_PROJECTS_PER_SUBMISSION} projects from your university at once, each with its own team, supervisors and documents.`,
+    title: "Submit your project",
+    body: "Enter one project with your team, supervisors and documents. Submit again for each additional project from your university.",
   },
   {
     icon: IconReceipt,
@@ -156,7 +155,7 @@ const FAQS = [
   },
   {
     q: "Can my university submit several projects?",
-    a: `Yes. One submission can include up to ${MAX_PROJECTS_PER_SUBMISSION} projects, and every ${FREE_PROJECT_EVERY}th project from the same university in this competition is free — including across separate submissions. Use your university's full official name each time so your projects are counted together.`,
+    a: `Yes. Each registration covers one project — submit again for each additional project. Every ${FREE_PROJECT_EVERY}th project from the same university in this competition is free across separate submissions. Use your university's full official name each time so your projects are counted together.`,
   },
   {
     q: "How do I pay?",

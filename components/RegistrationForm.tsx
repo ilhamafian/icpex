@@ -1,7 +1,6 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { IconChevronDown, IconTrash } from "@tabler/icons-react";
 
 import {
   emptyProject,
@@ -19,10 +18,7 @@ import {
   Section,
 } from "@/components/registrationFormUi";
 import type { EducationLevel } from "@/schemas/educationLevel";
-import {
-  FREE_PROJECT_EVERY,
-  MAX_PROJECTS_PER_SUBMISSION,
-} from "@/schemas/registrationSchema";
+import { FREE_PROJECT_EVERY } from "@/schemas/registrationSchema";
 import {
   institutionSchema,
   submissionFormSchema,
@@ -59,7 +55,7 @@ type SubmissionResult = {
 
 const STEPS: { id: FormStep; label: string }[] = [
   { id: "university", label: "1. University" },
-  { id: "projects", label: "2. Projects" },
+  { id: "projects", label: "2. Project" },
   { id: "payment", label: "3. Payment" },
 ];
 
@@ -89,6 +85,8 @@ type RegistrationFormProps = {
   educationLevels: EducationLevel[];
   /** Preselected from the landing page's level-specific registration link. */
   initialEducationLevel?: EducationLevel;
+  /** When set from ?level=, education level cannot be changed on the form. */
+  educationLevelLocked?: boolean;
   categories: Option[];
 };
 
@@ -96,6 +94,7 @@ export function RegistrationForm({
   competitionId,
   educationLevels,
   initialEducationLevel,
+  educationLevelLocked = false,
   categories = [],
 }: RegistrationFormProps) {
   const defaultLevel =
@@ -109,9 +108,6 @@ export function RegistrationForm({
     MalaysiaInstitutionType | ""
   >("");
   const [projects, setProjects] = useState<ProjectState[]>(() => [newProject()]);
-  const [expanded, setExpanded] = useState<Set<string>>(
-    () => new Set(projects.map((p) => p.key))
-  );
 
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
@@ -120,6 +116,7 @@ export function RegistrationForm({
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SubmissionResult | null>(null);
 
+  const project = projects[0];
   const anyUploading = projects.some(projectIsUploading);
   const institution = { name: institutionName, country: institutionCountry };
   const isMalaysia = institutionCountry === MALAYSIA;
@@ -143,32 +140,8 @@ export function RegistrationForm({
     };
   }
 
-  function updateProject(
-    key: string,
-    update: (project: ProjectState) => ProjectState
-  ) {
-    setProjects((prev) => prev.map((p) => (p.key === key ? update(p) : p)));
-  }
-
-  function toggleProject(key: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
-
-  function addProject() {
-    if (projects.length >= MAX_PROJECTS_PER_SUBMISSION) return;
-    const project = newProject();
-    setProjects((prev) => [...prev, project]);
-    setExpanded((prev) => new Set(prev).add(project.key));
-  }
-
-  function removeProject(key: string) {
-    setProjects((prev) => prev.filter((p) => p.key !== key));
-    setErrors({});
+  function updateProject(update: (project: ProjectState) => ProjectState) {
+    setProjects((prev) => prev.map((p, i) => (i === 0 ? update(p) : p)));
   }
 
   function validateUniversity(): boolean {
@@ -194,15 +167,7 @@ export function RegistrationForm({
   function validateProjects(): boolean {
     const parsed = submissionFormSchema.safeParse(buildPayload());
     if (!parsed.success) {
-      const next = issuesToErrors(parsed.error.issues);
-      setErrors(next);
-      setExpanded((prev) => {
-        const open = new Set(prev);
-        projects.forEach((p, index) => {
-          if (Object.keys(projectErrors(next, index)).length) open.add(p.key);
-        });
-        return open;
-      });
+      setErrors(issuesToErrors(parsed.error.issues));
       return false;
     }
     if (anyUploading) {
@@ -311,28 +276,15 @@ export function RegistrationForm({
             <span className="font-medium text-foreground">
               {result.submission_number}
             </span>
-            .{" "}
-            {result.total > 0
-              ? `Your registration fee is ${formatMoney(result.total, result.currency)}. The secretariat will email you payment instructions after reviewing your submission.`
-              : "No payment was required for this submission."}{" "}
+            . The secretariat will follow up after reviewing your submission.
             Keep these numbers for your records.
           </p>
         </div>
         <ul className="flex flex-col divide-y divide-black/10 text-sm dark:divide-white/10">
-          {result.projects.map((project) => (
-            <li
-              key={project.registration_number}
-              className="flex items-center justify-between gap-4 py-2.5"
-            >
-              <div className="min-w-0">
-                <p className="truncate font-medium">{project.title}</p>
-                <p className={mutedTextClassName}>
-                  {project.registration_number}
-                </p>
-              </div>
-              <span className="shrink-0 font-medium">
-                {project.fee === 0 ? "Free" : formatMoney(project.fee, result.currency)}
-              </span>
+          {result.projects.map((item) => (
+            <li key={item.registration_number} className="py-2.5">
+              <p className="truncate font-medium">{item.title}</p>
+              <p className={mutedTextClassName}>{item.registration_number}</p>
             </li>
           ))}
         </ul>
@@ -362,7 +314,7 @@ export function RegistrationForm({
       {step === "university" ? (
         <Section
           title="University"
-          description={`All projects in this submission are entered under one university. Every ${FREE_PROJECT_EVERY}th project from the same university is free, so use your university's full official name to have your projects counted together.`}
+          description={`Enter your university details. Every ${FREE_PROJECT_EVERY}th project from the same university is free across separate submissions, so use your university's full official name each time.`}
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
@@ -465,102 +417,29 @@ export function RegistrationForm({
         </Section>
       ) : null}
 
-      {step === "projects" ? (
+      {step === "projects" && project ? (
         <div className="flex flex-col gap-4">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-semibold tracking-tight">
-                Projects{" "}
-                <span className={`font-normal ${mutedTextClassName}`}>
-                  ({projects.length}/{MAX_PROJECTS_PER_SUBMISSION})
-                </span>
-              </h2>
-              <p className={`mt-1 ${mutedTextClassName}`}>
-                Add up to {MAX_PROJECTS_PER_SUBMISSION} projects from{" "}
-                <span className="font-medium text-foreground">
-                  {institutionName}
-                </span>
-                . Each project has its own participant, team, supervisors and
-                documents.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={addProject}
-              disabled={projects.length >= MAX_PROJECTS_PER_SUBMISSION}
-              className={`shrink-0 ${linkButtonClassName}`}
-            >
-              Add project
-            </button>
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">Project</h2>
+            <p className={`mt-1 ${mutedTextClassName}`}>
+              Enter your project details for{" "}
+              <span className="font-medium text-foreground">
+                {institutionName}
+              </span>
+              , including participant, team, supervisors and documents.
+            </p>
           </div>
           <FieldError message={errors.projects} />
-
-          {projects.map((project, index) => {
-            const isOpen = expanded.has(project.key);
-            const scopedErrors = projectErrors(errors, index);
-            const hasErrors = Object.keys(scopedErrors).length > 0;
-            const category = categories.find((c) => c.id === project.categoryId);
-            return (
-              <div
-                key={project.key}
-                className={`rounded-lg border ${
-                  hasErrors
-                    ? "border-red-600/50 dark:border-red-400/50"
-                    : "border-black/10 dark:border-white/10"
-                }`}
-              >
-                <div className="flex items-center gap-3 px-4 py-3">
-                  <button
-                    type="button"
-                    onClick={() => toggleProject(project.key)}
-                    aria-expanded={isOpen}
-                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                  >
-                    <IconChevronDown
-                      className={`size-4 shrink-0 transition-transform ${
-                        isOpen ? "rotate-180" : ""
-                      }`}
-                    />
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium">
-                        Project {index + 1}
-                        {project.projectTitle ? ` — ${project.projectTitle}` : ""}
-                      </span>
-                      <span className={`block truncate ${mutedTextClassName}`}>
-                        {[category?.name, project.participantName]
-                          .filter(Boolean)
-                          .join(" · ") || "Not started"}
-                        {hasErrors ? " · needs attention" : ""}
-                      </span>
-                    </span>
-                  </button>
-                  {projects.length > 1 ? (
-                    <button
-                      type="button"
-                      onClick={() => removeProject(project.key)}
-                      aria-label={`Remove project ${index + 1}`}
-                      className={`shrink-0 p-1 ${mutedTextClassName} hover:text-foreground`}
-                    >
-                      <IconTrash className="size-4" />
-                    </button>
-                  ) : null}
-                </div>
-                {isOpen ? (
-                  <div className="border-t border-black/10 px-4 py-6 dark:border-white/10">
-                    <ProjectFields
-                      index={index}
-                      project={project}
-                      onChange={(update) => updateProject(project.key, update)}
-                      errors={scopedErrors}
-                      categories={categories}
-                      educationLevels={educationLevels}
-                      disabled={loading}
-                    />
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
+          <ProjectFields
+            index={0}
+            project={project}
+            onChange={updateProject}
+            errors={projectErrors(errors, 0)}
+            categories={categories}
+            educationLevels={educationLevels}
+            educationLevelLocked={educationLevelLocked}
+            disabled={loading}
+          />
         </div>
       ) : null}
 
@@ -571,30 +450,20 @@ export function RegistrationForm({
         >
           <div className="flex flex-col gap-3 rounded-lg border border-black/10 px-4 py-5 dark:border-white/10">
             <p className="text-sm font-medium">
-              {institutionName} · {projects.length} project
-              {projects.length === 1 ? "" : "s"}
+              {institutionName} · {project?.projectTitle || "Your project"}
             </p>
             {quoteLoading ? (
               <p className={mutedTextClassName}>Calculating fee…</p>
             ) : quote ? (
               <>
-                <ul className="flex flex-col divide-y divide-black/10 text-sm dark:divide-white/10">
-                  {projects.map((project, index) => (
-                    <li
-                      key={project.key}
-                      className="flex items-center justify-between gap-4 py-2"
-                    >
-                      <span className="min-w-0 truncate">
-                        Project {index + 1}: {project.projectTitle}
-                      </span>
-                      <span className="shrink-0 font-medium">
-                        {quote.fees[index] === 0
-                          ? `Free (${FREE_PROJECT_EVERY}th project)`
-                          : formatMoney(quote.fees[index], quote.currency)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Registration fee</span>
+                  <span className="font-medium">
+                    {quote.fees[0] === 0
+                      ? `Free (${FREE_PROJECT_EVERY}th project)`
+                      : formatMoney(quote.fees[0], quote.currency)}
+                  </span>
+                </div>
                 <div className="flex items-center justify-between border-t border-black/10 pt-3 text-sm font-semibold dark:border-white/10">
                   <span>Total</span>
                   <span>{formatMoney(quote.total, quote.currency)}</span>

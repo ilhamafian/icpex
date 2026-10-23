@@ -6,7 +6,7 @@ import { objectIdSchema } from "./objectId";
 export const MAX_TEAM_MEMBERS = 6;
 
 /** Projects one university can enter in a single submission. */
-export const MAX_PROJECTS_PER_SUBMISSION = 6;
+export const MAX_PROJECTS_PER_SUBMISSION = 1;
 
 /** Every Nth project from the same university (per competition) is free. */
 export const FREE_PROJECT_EVERY = 6;

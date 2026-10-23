@@ -21,7 +21,7 @@ import { getCurrentCompetition } from "@/utils/currentCompetition";
 import { normalizeInstitution, quoteSubmission } from "@/utils/pricing";
 import { advanceRegistrationIfPaid } from "@/utils/submissionPayments";
 
-/** Public: register 1–6 projects from one university. Payment is requested later by email. */
+/** Public: register one project from one university. Payment is requested later by email. */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();

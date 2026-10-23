@@ -137,7 +137,7 @@ const institutionFormSchema = institutionSchema.refine(
   { path: ["name"], message: "Select your university from the list." }
 );
 
-/** Public registration payload: one university, 1–6 projects. Payment comes later. */
+/** Public registration payload: one university, one project. Payment comes later. */
 export const submissionFormSchema = z.object({
   competition_id: objectIdSchema,
   institution: institutionFormSchema,

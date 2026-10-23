@@ -149,6 +149,8 @@ type ProjectFieldsProps = {
   errors: Record<string, string>;
   categories: Option[];
   educationLevels: EducationLevel[];
+  /** When true (e.g. landed via ?level=), the education select cannot be changed. */
+  educationLevelLocked?: boolean;
   disabled?: boolean;
 };
 
@@ -159,6 +161,7 @@ export function ProjectFields({
   errors,
   categories,
   educationLevels,
+  educationLevelLocked,
   disabled,
 }: ProjectFieldsProps) {
   const id = (path: string) => `projects.${index}.${path}`;
@@ -334,7 +337,9 @@ export function ProjectFields({
                 set("educationLevel", e.target.value as EducationLevel)
               }
               className={inputClassName}
-              disabled={educationLevels.length < 2}
+              disabled={
+                educationLevelLocked || educationLevels.length < 2
+              }
             >
               {educationLevels.map((level) => (
                 <option key={level} value={level}>
