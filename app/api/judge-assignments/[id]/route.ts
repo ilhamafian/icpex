@@ -2,25 +2,15 @@ import { NextRequest } from "next/server";
 
 import { JudgeAssignmentModel } from "@/models/JudgeAssignment";
 import { RegistrationModel } from "@/models/Registration";
-import { UserModel } from "@/models/User";
 import {
   judgeAssignmentUpdateSchema,
   type JudgeAssignment,
-  type JudgeAssignmentType,
 } from "@/schemas/judgeAssignmentsSchema";
 import { toIdString } from "@/schemas/objectId";
-import type { UserRole } from "@/schemas/userRole";
 import { requireJudgeLeaderSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
-import { registrationCompetitionId } from "@/utils/competitionScope";
-import { hasGrant } from "@/utils/roleGrants";
 import { serializeJudgeAssignment } from "@/utils/serializeJudgeAssignment";
-
-const ROLE_FOR_TYPE: Record<JudgeAssignmentType, UserRole> = {
-  THESIS: "THESIS_JUDGE",
-  EBOOK: "EBOOK_JUDGE",
-  JTEC: "JTEC_JUDGE",
-};
+import { validateAssignmentRefs } from "@/utils/validateJudgeAssignment";
 
 export async function PATCH(
   req: NextRequest,
@@ -59,44 +49,21 @@ export async function PATCH(
       return createResponse({ error: "Registration not found." }, 400);
     }
 
-    if (
-      parsed.data.judge_id ||
-      parsed.data.type ||
-      parsed.data.registration_number
-    ) {
-      const judge = await new UserModel().findById(nextJudgeId);
-      if (!judge) {
-        return createResponse({ error: "Judge not found." }, 400);
-      }
-      const requiredRole = ROLE_FOR_TYPE[nextType];
-      if (
-        !hasGrant(
-          judge.roles,
-          requiredRole,
-          registrationCompetitionId(registration)
-        )
-      ) {
-        return createResponse(
-          {
-            error: `Judge must have the ${requiredRole} role in this registration's competition for ${nextType} assignments.`,
-          },
-          400
-        );
-      }
-      if (judge.status === "DISABLED") {
-        return createResponse(
-          { error: "Cannot assign a disabled judge." },
-          400
-        );
-      }
-    }
-
     const changedIdentity =
       nextJudgeId !== toIdString(existing.judge_id) ||
       nextRegistration !== existing.registration_number ||
       nextType !== existing.type;
 
     if (changedIdentity) {
+      const refs = await validateAssignmentRefs({
+        judge_id: nextJudgeId,
+        registration_number: nextRegistration,
+        type: nextType,
+      });
+      if ("error" in refs) {
+        return createResponse({ error: refs.error }, refs.status);
+      }
+
       const duplicate = await model.findOne({
         judge_id: nextJudgeId,
         registration_number: nextRegistration,

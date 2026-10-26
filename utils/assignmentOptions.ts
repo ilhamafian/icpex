@@ -1,3 +1,5 @@
+import type { EducationLevel } from "@/schemas/educationLevel";
+import { toIdString } from "@/schemas/objectId";
 import type { PaymentStatus } from "@/schemas/paymentSchema";
 import type { Registration } from "@/schemas/registrationSchema";
 
@@ -6,6 +8,9 @@ export type AssignmentRegistrationOption = {
   registration_number: string;
   participant_name: string;
   institution_name: string;
+  institution_key?: string;
+  category_id: string;
+  education_level: EducationLevel;
   project_title: string;
   status: Registration["status"];
   /** Latest payment's status; null when none is recorded. Omitted where not loaded. */
@@ -23,6 +28,9 @@ export function toAssignmentRegistrationOption(
     registration_number: registration.registration_number,
     participant_name: registration.participant.name,
     institution_name: registration.participant.institution.name,
+    institution_key: registration.institution_key,
+    category_id: toIdString(registration.category_id),
+    education_level: registration.participant.education_level,
     project_title: registration.project.title,
     status: registration.status,
     ...(paymentStatus !== undefined ? { payment_status: paymentStatus } : {}),

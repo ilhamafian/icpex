@@ -5,6 +5,7 @@ type AuthFormLayoutProps = {
   subtitle: string;
   children: React.ReactNode;
   footer: React.ReactNode;
+  wide?: boolean;
 };
 
 export function AuthFormLayout({
@@ -12,6 +13,7 @@ export function AuthFormLayout({
   subtitle,
   children,
   footer,
+  wide = false,
 }: AuthFormLayoutProps) {
   return (
     <div className="flex min-h-full flex-1 flex-col">
@@ -24,7 +26,7 @@ export function AuthFormLayout({
         </Link>
       </header>
       <main className="flex flex-1 items-center justify-center px-6 py-16">
-        <div className="w-full max-w-sm">
+        <div className={wide ? "w-full max-w-md" : "w-full max-w-sm"}>
           <div className="mb-8">
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">
               {title}

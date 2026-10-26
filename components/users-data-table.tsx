@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import {
+  IconArrowsSort,
   IconChevronDown,
   IconChevronLeft,
   IconChevronRight,
@@ -9,6 +10,7 @@ import {
   IconChevronsRight,
   IconCircleCheckFilled,
   IconDotsVertical,
+  IconFilter,
   IconLayoutColumns,
   IconLoader,
   IconMailForward,
@@ -38,6 +40,7 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -58,6 +61,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { COMPETITION_ELIGIBILITY_LABELS } from "@/schemas/educationLevel";
 import type { UserRole, UserStatus } from "@/schemas/userSchema";
 import type { SerializedUser } from "@/types/user";
 import { rolesForCompetition } from "@/utils/roleGrants";
@@ -81,6 +85,40 @@ const ROLE_LABELS: Record<UserRole, string> = {
   JTEC_JUDGE: "JTEC Judge",
 };
 
+const USER_STATUSES: UserStatus[] = ["ACTIVE", "INVITED", "DISABLED"];
+
+const ROLE_OPTIONS: UserRole[] = [
+  "ADMIN",
+  "SECRETARY",
+  "JUDGE_LEADER",
+  "THESIS_JUDGE",
+  "EBOOK_JUDGE",
+  "JTEC_JUDGE",
+];
+
+type VerifiedFilter = "yes" | "no";
+
+const VERIFIED_FILTERS: { value: VerifiedFilter; label: string }[] = [
+  { value: "yes", label: "Verified" },
+  { value: "no", label: "Not verified" },
+];
+
+const SORT_OPTIONS = {
+  newest: "Newest first",
+  oldest: "Oldest first",
+  email: "Email (A–Z)",
+  name: "Name (A–Z)",
+  status: "Status",
+} as const;
+
+type SortOption = keyof typeof SORT_OPTIONS;
+
+const STATUS_ORDER: Record<UserStatus, number> = {
+  ACTIVE: 0,
+  INVITED: 1,
+  DISABLED: 2,
+};
+
 function statusVariant(
   status: UserStatus
 ): "default" | "secondary" | "outline" {
@@ -101,6 +139,28 @@ function formatDate(iso?: string) {
     month: "short",
     day: "numeric",
   });
+}
+
+function toggleIn<T>(set: Set<T>, value: T, on: boolean) {
+  const next = new Set(set);
+  if (on) next.add(value);
+  else next.delete(value);
+  return next;
+}
+
+function compareUsers(a: SerializedUser, b: SerializedUser, sortBy: SortOption) {
+  switch (sortBy) {
+    case "newest":
+      return (b.created_at ?? "").localeCompare(a.created_at ?? "");
+    case "oldest":
+      return (a.created_at ?? "").localeCompare(b.created_at ?? "");
+    case "email":
+      return a.email.localeCompare(b.email);
+    case "name":
+      return (a.name ?? a.email).localeCompare(b.name ?? b.email);
+    case "status":
+      return STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
+  }
 }
 
 type UsersDataTableProps = {
@@ -133,16 +193,54 @@ export function UsersDataTable({
     pageSize: 10,
   });
   const [query, setQuery] = React.useState("");
+  const [statusFilter, setStatusFilter] = React.useState<Set<UserStatus>>(
+    () => new Set()
+  );
+  const [roleFilter, setRoleFilter] = React.useState<Set<UserRole>>(
+    () => new Set()
+  );
+  const [verifiedFilter, setVerifiedFilter] = React.useState<
+    Set<VerifiedFilter>
+  >(() => new Set());
+  const [sortBy, setSortBy] = React.useState<SortOption>("newest");
 
   const filtered = React.useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return data;
-    return data.filter((user) => {
-      const email = user.email.toLowerCase();
-      const name = user.name?.toLowerCase() ?? "";
-      return email.includes(needle) || name.includes(needle);
-    });
-  }, [data, query]);
+    return data
+      .filter((user) => {
+        if (statusFilter.size && !statusFilter.has(user.status)) {
+          return false;
+        }
+        if (roleFilter.size) {
+          const roles = rolesForCompetition(user.roles, competitionId);
+          if (![...roleFilter].some((role) => roles.includes(role))) {
+            return false;
+          }
+        }
+        if (verifiedFilter.size) {
+          const key: VerifiedFilter = user.email_verified ? "yes" : "no";
+          if (!verifiedFilter.has(key)) return false;
+        }
+        if (!needle) return true;
+        const email = user.email.toLowerCase();
+        const name = user.name?.toLowerCase() ?? "";
+        return email.includes(needle) || name.includes(needle);
+      })
+      .sort((a, b) => compareUsers(a, b, sortBy));
+  }, [
+    data,
+    query,
+    statusFilter,
+    roleFilter,
+    verifiedFilter,
+    sortBy,
+    competitionId,
+  ]);
+
+  const activeFilterCount =
+    statusFilter.size + roleFilter.size + verifiedFilter.size;
+
+  const hasActiveFilters = activeFilterCount > 0 || Boolean(query.trim());
 
   const columns = React.useMemo(
     () =>
@@ -166,6 +264,17 @@ export function UsersDataTable({
               {row.original.name ? (
                 <span className="text-muted-foreground text-xs">
                   {row.original.name}
+                </span>
+              ) : null}
+              {row.original.judge_profile ? (
+                <span className="text-muted-foreground text-xs">
+                  {row.original.judge_profile.institution.name}
+                  {" · "}
+                  {
+                    COMPETITION_ELIGIBILITY_LABELS[
+                      row.original.judge_profile.education_eligibility
+                    ]
+                  }
                 </span>
               ) : null}
             </div>
@@ -327,6 +436,109 @@ export function UsersDataTable({
               className="h-8 w-48 pl-8 lg:w-64"
             />
           </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <IconFilter />
+                Filter
+                {activeFilterCount ? (
+                  <Badge variant="secondary" className="px-1.5">
+                    {activeFilterCount}
+                  </Badge>
+                ) : null}
+                <IconChevronDown />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Status</DropdownMenuLabel>
+              {USER_STATUSES.map((status) => (
+                <DropdownMenuCheckboxItem
+                  key={status}
+                  checked={statusFilter.has(status)}
+                  onSelect={(event) => event.preventDefault()}
+                  onCheckedChange={(checked) => {
+                    setStatusFilter((prev) =>
+                      toggleIn(prev, status, checked === true)
+                    );
+                    table.setPageIndex(0);
+                  }}
+                >
+                  {status.charAt(0) + status.slice(1).toLowerCase()}
+                </DropdownMenuCheckboxItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Role</DropdownMenuLabel>
+              {ROLE_OPTIONS.map((role) => (
+                <DropdownMenuCheckboxItem
+                  key={role}
+                  checked={roleFilter.has(role)}
+                  onSelect={(event) => event.preventDefault()}
+                  onCheckedChange={(checked) => {
+                    setRoleFilter((prev) =>
+                      toggleIn(prev, role, checked === true)
+                    );
+                    table.setPageIndex(0);
+                  }}
+                >
+                  {ROLE_LABELS[role]}
+                </DropdownMenuCheckboxItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Email verified</DropdownMenuLabel>
+              {VERIFIED_FILTERS.map(({ value, label }) => (
+                <DropdownMenuCheckboxItem
+                  key={value}
+                  checked={verifiedFilter.has(value)}
+                  onSelect={(event) => event.preventDefault()}
+                  onCheckedChange={(checked) => {
+                    setVerifiedFilter((prev) =>
+                      toggleIn(prev, value, checked === true)
+                    );
+                    table.setPageIndex(0);
+                  }}
+                >
+                  {label}
+                </DropdownMenuCheckboxItem>
+              ))}
+              {activeFilterCount ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-start"
+                    onClick={() => {
+                      setStatusFilter(new Set());
+                      setRoleFilter(new Set());
+                      setVerifiedFilter(new Set());
+                      table.setPageIndex(0);
+                    }}
+                  >
+                    Clear filters
+                  </Button>
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Select
+            value={sortBy}
+            onValueChange={(value) => {
+              setSortBy(value as SortOption);
+              table.setPageIndex(0);
+            }}
+          >
+            <SelectTrigger size="sm" className="w-44" aria-label="Sort by">
+              <IconArrowsSort />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="end">
+              {(Object.keys(SORT_OPTIONS) as SortOption[]).map((option) => (
+                <SelectItem key={option} value={option}>
+                  {SORT_OPTIONS[option]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {toolbar}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -400,8 +612,8 @@ export function UsersDataTable({
                     colSpan={columns.length}
                     className="h-24 text-center"
                   >
-                    {query.trim()
-                      ? "No users match that search."
+                    {hasActiveFilters
+                      ? "No users match the current search or filters."
                       : "No users yet. Invite someone to get started."}
                   </TableCell>
                 </TableRow>
@@ -412,7 +624,9 @@ export function UsersDataTable({
 
         <div className="flex items-center justify-between px-4">
           <div className="text-muted-foreground hidden flex-1 text-sm lg:flex">
-            {filtered.length} user{filtered.length === 1 ? "" : "s"}
+            {hasActiveFilters
+              ? `Showing ${filtered.length} of ${data.length} user${data.length === 1 ? "" : "s"}`
+              : `${filtered.length} user${filtered.length === 1 ? "" : "s"}`}
           </div>
           <div className="flex w-full items-center gap-8 lg:w-fit">
             <div className="hidden items-center gap-2 lg:flex">

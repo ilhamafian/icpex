@@ -2,11 +2,14 @@ import "server-only";
 
 import { RegistrationModel } from "@/models/Registration";
 import { FREE_PROJECT_EVERY } from "@/schemas/registrationSchema";
+import { normalizeInstitution } from "@/utils/institutionKey";
 import {
   feeForInstitution,
   type Currency,
   type ProjectFee,
 } from "@/utils/registrationFee";
+
+export { normalizeInstitution };
 
 export type SubmissionQuote = {
   /** Projects this university already has in the competition. */
@@ -17,20 +20,6 @@ export type SubmissionQuote = {
   freeCount: number;
   total: number;
 };
-
-/**
- * Matching key for free-text university names: lowercase, punctuation
- * removed, whitespace collapsed. "Universiti Malaya." → "universiti malaya".
- */
-export function normalizeInstitution(name: string): string {
-  return name
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 /** Pure pricing: the Nth project overall (1-based) is free when N % FREE_PROJECT_EVERY === 0. */
 export function priceProjects(

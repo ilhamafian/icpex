@@ -1,6 +1,7 @@
 import type { UpdateFilter } from "mongodb";
 import { ZodSchema } from "zod";
 import { ModelBase } from "@/models/ModelBase";
+import type { JudgeProfile } from "@/schemas/judgeProfileSchema";
 import {
   roleGrantSchema,
   userSchema,
@@ -60,18 +61,20 @@ export class UserModel extends ModelBase<User> {
     id: string,
     data: {
       password_hash: string;
-      name?: string;
+      name: string;
+      judge_profile?: JudgeProfile;
     }
   ) {
     const collection = await this.getCollection();
     const $set: Record<string, unknown> = {
       password_hash: data.password_hash,
+      name: data.name,
       status: "ACTIVE",
       email_verified: true,
       updated_at: new Date(),
     };
-    if (data.name) {
-      $set.name = data.name;
+    if (data.judge_profile) {
+      $set.judge_profile = data.judge_profile;
     }
 
     return collection.updateOne(this.buildIdFilter(id), {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { judgeProfileInputSchema, judgeProfileSchema } from "./judgeProfileSchema";
 import { objectIdSchema } from "./objectId";
 import { userRoleSchema } from "./userRole";
 
@@ -35,6 +36,8 @@ export const userSchema = z.object({
   email_verified: z.boolean().default(false),
   invite_token_hash: z.string().min(1).optional(),
   invite_expires_at: z.coerce.date().optional(),
+  /** Set when a thesis, e-book, or JTEC judge accepts an invitation. */
+  judge_profile: judgeProfileSchema.optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional(),
 });
@@ -49,7 +52,9 @@ export const inviteUserSchema = z.object({
 export const acceptInviteSchema = z.object({
   token: z.string().min(1),
   password: z.string().min(8, "Password must be at least 8 characters"),
-  name: z.string().min(1).optional(),
+  name: z.string().trim().min(1, "Name is required."),
+  /** Required by the accept route when the invite includes a scoring judge role. */
+  judge_profile: judgeProfileInputSchema.optional(),
 });
 
 export const updateUserSchema = userSchema

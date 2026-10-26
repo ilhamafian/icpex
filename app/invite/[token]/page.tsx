@@ -1,8 +1,11 @@
 import { AuthFormLayout } from "@/components/AuthFormLayout";
 import { InviteAcceptForm } from "@/components/InviteAcceptForm";
 import { hashInviteToken } from "@/lib/inviteToken";
+import { CategoryModel } from "@/models/Category";
 import { UserModel } from "@/models/User";
+import { toIdString } from "@/schemas/objectId";
 import { sortRoles } from "@/schemas/userRole";
+import { isScoringJudgeRole } from "@/utils/judgeTypes";
 
 type InvitePageProps = {
   params: Promise<{ token: string }>;
@@ -52,17 +55,25 @@ export default async function InviteAcceptPage({ params }: InvitePageProps) {
     );
   }
 
+  let categories: { id: string; name: string }[] = [];
+  if (invite.roles.some((role) => isScoringJudgeRole(role))) {
+    try {
+      const rows = await new CategoryModel().find({}, { sort: { name: 1 } });
+      categories = rows.flatMap((category) => {
+        const id = toIdString(category._id);
+        return id ? [{ id, name: category.name }] : [];
+      });
+    } catch {
+      categories = [];
+    }
+  }
+
   return (
-    <AuthFormLayout
-      title="Accept invitation"
-      subtitle="Verify your email and create a password to activate your account."
-      footer="ICPEX"
-    >
-      <InviteAcceptForm
-        token={token}
-        email={invite.email}
-        roles={invite.roles}
-      />
-    </AuthFormLayout>
+    <InviteAcceptForm
+      token={token}
+      email={invite.email}
+      roles={invite.roles}
+      categories={categories}
+    />
   );
 }

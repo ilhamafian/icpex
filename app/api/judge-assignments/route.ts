@@ -1,60 +1,15 @@
 import { NextRequest } from "next/server";
 
 import { JudgeAssignmentModel } from "@/models/JudgeAssignment";
-import { RegistrationModel } from "@/models/Registration";
-import { UserModel } from "@/models/User";
 import {
   judgeAssignmentInputSchema,
   judgeAssignmentsSchema,
-  type JudgeAssignmentType,
 } from "@/schemas/judgeAssignmentsSchema";
 import { toIdString } from "@/schemas/objectId";
-import type { UserRole } from "@/schemas/userRole";
 import { requireJudgeLeaderSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
-import { registrationCompetitionId } from "@/utils/competitionScope";
-import { hasGrant } from "@/utils/roleGrants";
 import { serializeJudgeAssignment } from "@/utils/serializeJudgeAssignment";
-
-const ROLE_FOR_TYPE: Record<JudgeAssignmentType, UserRole> = {
-  THESIS: "THESIS_JUDGE",
-  EBOOK: "EBOOK_JUDGE",
-  JTEC: "JTEC_JUDGE",
-};
-
-async function validateAssignmentRefs(input: {
-  judge_id: string;
-  registration_number: string;
-  type: JudgeAssignmentType;
-}) {
-  const registration = await new RegistrationModel().findOne({
-    registration_number: input.registration_number,
-  });
-  if (!registration) {
-    return { error: "Registration not found.", status: 400 as const };
-  }
-
-  const judge = await new UserModel().findById(input.judge_id);
-  if (!judge) {
-    return { error: "Judge not found.", status: 400 as const };
-  }
-
-  const requiredRole = ROLE_FOR_TYPE[input.type];
-  if (
-    !hasGrant(judge.roles, requiredRole, registrationCompetitionId(registration))
-  ) {
-    return {
-      error: `Judge must have the ${requiredRole} role in this registration's competition for ${input.type} assignments.`,
-      status: 400 as const,
-    };
-  }
-
-  if (judge.status === "DISABLED") {
-    return { error: "Cannot assign a disabled judge.", status: 400 as const };
-  }
-
-  return { registration, judge };
-}
+import { validateAssignmentRefs } from "@/utils/validateJudgeAssignment";
 
 export async function GET() {
   try {

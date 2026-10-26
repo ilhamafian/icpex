@@ -63,6 +63,7 @@ import type { PaymentStatus } from "@/schemas/paymentSchema";
 import { PAYMENT_STATUS_LABELS } from "@/utils/paymentStatusLabel";
 import type { UserRole } from "@/schemas/userRole";
 import type { SerializedUser } from "@/types/user";
+import { judgeProfileBlockReason } from "@/utils/judgeEligibility";
 import { hasGrant } from "@/utils/roleGrants";
 import type { AssignmentRegistrationOption } from "@/utils/assignmentOptions";
 import { leaderScoringDeadlineMessage } from "@/utils/competitionDates";
@@ -535,7 +536,7 @@ export function JudgeAssignmentsDataTable({
                       </span>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuContent align="end" className="w-72">
                     {(["THESIS", "EBOOK", "JTEC"] as const).map((type, index) => {
                       const role = TYPE_ROLE[type];
                       const assignedIds = new Set(
@@ -546,7 +547,7 @@ export function JudgeAssignmentsDataTable({
                       const options = judges.filter(
                         (judge) =>
                           hasGrant(judge.roles, role, competitionId) &&
-                          (judge.status !== "DISABLED" ||
+                          (judge.status === "ACTIVE" ||
                             assignedIds.has(judge._id))
                       );
                       return (
@@ -566,11 +567,21 @@ export function JudgeAssignmentsDataTable({
                                 judge._id,
                                 type
                               );
+                              const assigned = assignedIds.has(judge._id);
+                              const reason = assigned
+                                ? null
+                                : judgeProfileBlockReason(judge.judge_profile, {
+                                    category_id: registration.category_id,
+                                    education_level: registration.education_level,
+                                    institution_key: registration.institution_key,
+                                    institution_name:
+                                      registration.institution_name,
+                                  });
                               return (
                                 <DropdownMenuCheckboxItem
                                   key={key}
-                                  checked={assignedIds.has(judge._id)}
-                                  disabled={busyKey === key}
+                                  checked={assigned}
+                                  disabled={busyKey === key || reason !== null}
                                   onSelect={(event) => event.preventDefault()}
                                   onCheckedChange={(checked) =>
                                     onToggleJudge(
@@ -585,7 +596,11 @@ export function JudgeAssignmentsDataTable({
                                     <span className="truncate">
                                       {judgeName(judge, judge._id)}
                                     </span>
-                                    {judge.name ? (
+                                    {reason ? (
+                                      <span className="text-muted-foreground text-xs font-normal">
+                                        {reason}
+                                      </span>
+                                    ) : judge.name ? (
                                       <span className="text-muted-foreground truncate text-xs font-normal">
                                         {judge.email}
                                       </span>
