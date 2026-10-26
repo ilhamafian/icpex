@@ -64,7 +64,7 @@ import {
 import { COMPETITION_ELIGIBILITY_LABELS } from "@/schemas/educationLevel";
 import type { UserRole, UserStatus } from "@/schemas/userSchema";
 import type { SerializedUser } from "@/types/user";
-import { rolesForCompetition } from "@/utils/roleGrants";
+import { hasGrant, rolesForCompetition } from "@/utils/roleGrants";
 
 const features = tableFeatures({
   columnVisibilityFeature,
@@ -163,16 +163,25 @@ function compareUsers(a: SerializedUser, b: SerializedUser, sortBy: SortOption) 
   }
 }
 
+export function roleToggleKey(userId: string, role: UserRole) {
+  return `${userId}:${role}`;
+}
+
 type UsersDataTableProps = {
   data: SerializedUser[];
   /** Roles are shown for this competition (plus global ADMIN). */
   competitionId: string | null;
   toolbar?: React.ReactNode;
   onAddUser: () => void;
-  onAddRole: (user: SerializedUser) => void;
+  onToggleRole: (
+    user: SerializedUser,
+    role: UserRole,
+    assign: boolean
+  ) => void;
   onResendInvite: (user: SerializedUser) => void;
   onDeleteUser: (user: SerializedUser) => void;
   busyId?: string | null;
+  busyKey?: string | null;
 };
 
 export function UsersDataTable({
@@ -180,10 +189,11 @@ export function UsersDataTable({
   competitionId,
   toolbar,
   onAddUser,
-  onAddRole,
+  onToggleRole,
   onResendInvite,
   onDeleteUser,
   busyId,
+  busyKey,
 }: UsersDataTableProps) {
   const [columnVisibility, setColumnVisibility] =
     React.useState<ColumnVisibilityState>({});
@@ -283,22 +293,68 @@ export function UsersDataTable({
         }),
         columnHelper.accessor("roles", {
           header: "Role",
+          enableHiding: false,
           cell: ({ row }) => {
-            const roles = rolesForCompetition(row.original.roles, competitionId);
-            if (roles.length === 0) {
-              return (
-                <span className="text-muted-foreground text-sm">
-                  No role in this competition
-                </span>
-              );
-            }
+            const user = row.original;
+            const roles = rolesForCompetition(user.roles, competitionId);
+            const onlyRole = user.roles.length <= 1;
             return (
-              <div className="flex flex-wrap gap-1">
+              <div className="flex flex-wrap items-center gap-1">
                 {roles.map((role) => (
                   <Badge key={role} variant="outline" className="px-1.5">
                     {ROLE_LABELS[role] ?? role}
                   </Badge>
                 ))}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-muted-foreground h-7 px-2"
+                    >
+                      <IconUserPlus />
+                      {roles.length === 0 ? "Assign" : null}
+                      <span className="sr-only">
+                        Assign roles to {user.email}
+                      </span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>Roles</DropdownMenuLabel>
+                    {ROLE_OPTIONS.map((role) => {
+                      const assigned = hasGrant(user.roles, role, competitionId);
+                      const key = roleToggleKey(user._id, role);
+                      const needsCompetition = role !== "ADMIN";
+                      const blocked =
+                        (needsCompetition && !competitionId) ||
+                        (assigned && onlyRole);
+                      return (
+                        <DropdownMenuCheckboxItem
+                          key={role}
+                          checked={assigned}
+                          disabled={busyKey === key || blocked}
+                          onSelect={(event) => event.preventDefault()}
+                          onCheckedChange={(checked) =>
+                            onToggleRole(user, role, checked === true)
+                          }
+                        >
+                          <div className="flex min-w-0 flex-col">
+                            <span className="truncate">{ROLE_LABELS[role]}</span>
+                            {assigned && onlyRole ? (
+                              <span className="text-muted-foreground text-xs font-normal">
+                                Keep at least one role
+                              </span>
+                            ) : needsCompetition && !competitionId ? (
+                              <span className="text-muted-foreground text-xs font-normal">
+                                Select a competition first
+                              </span>
+                            ) : null}
+                          </div>
+                        </DropdownMenuCheckboxItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             );
           },
@@ -356,13 +412,6 @@ export function UsersDataTable({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-44">
-                  <DropdownMenuItem
-                    onClick={() => onAddRole(user)}
-                    disabled={isBusy}
-                  >
-                    <IconUserPlus className="size-4" />
-                    Roles
-                  </DropdownMenuItem>
                   {user.status === "INVITED" ? (
                     <DropdownMenuItem
                       onClick={() => onResendInvite(user)}
@@ -389,10 +438,11 @@ export function UsersDataTable({
       ]),
     [
       busyId,
+      busyKey,
       competitionId,
-      onAddRole,
       onDeleteUser,
       onResendInvite,
+      onToggleRole,
       pagination.pageIndex,
       pagination.pageSize,
     ]
