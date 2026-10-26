@@ -152,12 +152,13 @@ export async function PATCH(
         );
       }
 
-      let totalScore = 0;
-      for (const score of parsed.data.scores) {
-        const criteriaId = toIdString(score.criteria_id);
-        const weight = criteriaById.get(criteriaId)?.weight ?? 1;
-        totalScore += score.score * weight;
-      }
+      const scoreSum = parsed.data.scores.reduce(
+        (sum, score) => sum + score.score,
+        0
+      );
+      const totalScore = parsed.data.scores.length
+        ? Math.round((scoreSum / parsed.data.scores.length) * 100) / 100
+        : 0;
 
       const scoresPayload: Pick<
         JudgeAssignment,

@@ -58,78 +58,279 @@ const CATEGORIES = [
 ];
 
 // ---------------------------------------------------------------------------
-// Judge criteria (weights per type sum to 100, including existing entries)
+// Judge criteria. Deliverable weights (Thesis + JTEC) sum to 100.
+// Criteria inside a deliverable are equally weighted.
 // ---------------------------------------------------------------------------
 
 const JUDGE_CRITERIA = [
   {
     name: "Originality",
-    description:
-      "Novelty of the research problem, approach, or findings compared to existing work in the field.",
-    weight: 25,
+    component:
+      "Novelty of the research problem, approach, or findings compared with existing work in the field.",
+    bands: {
+      "0-2":
+        "The work repeats known ideas with no identifiable contribution.",
+      "3-4":
+        "A familiar problem or method, with only a minor variation on existing work.",
+      "5-6":
+        "A clear point of difference, though much of the approach follows established work.",
+      "7-8":
+        "A distinct problem, method, or finding that is well distinguished from prior work.",
+      "9-10":
+        "A substantial original contribution that opens a new line of inquiry or application.",
+    },
     type: "THESIS",
   },
   {
     name: "Research Methodology",
-    description:
-      "Soundness of the research design, data collection, and analysis methods, and whether they are appropriate for the stated objectives.",
-    weight: 25,
+    component:
+      "Soundness of the research design, data collection, and analysis, and whether they fit the stated objectives.",
+    bands: {
+      "0-2":
+        "Objectives, method, and analysis are missing or do not connect.",
+      "3-4":
+        "A method is named, but the design, data, or analysis has major gaps.",
+      "5-6":
+        "A workable design that addresses the objectives, with some weaknesses in data or analysis.",
+      "7-8":
+        "A coherent design, appropriate data, and analysis that support the claims.",
+      "9-10":
+        "A rigorous, well justified method whose evidence fully supports the conclusions.",
+    },
     type: "THESIS",
   },
   {
     name: "Technical Implementation",
-    description:
-      "Quality and completeness of the prototype, experiments, or technical solution presented.",
-    weight: 20,
+    component:
+      "Quality and completeness of the prototype, experiments, or technical solution.",
+    bands: {
+      "0-2":
+        "No working solution, or the implementation does not address the problem.",
+      "3-4":
+        "An incomplete prototype or experiment, with important parts missing or untested.",
+      "5-6":
+        "A working implementation that meets the core requirements, with some unfinished parts.",
+      "7-8":
+        "A complete, reliable solution with clear evidence that it performs as intended.",
+      "9-10":
+        "A polished implementation, thoroughly tested, and ready to be reproduced or extended.",
+    },
     type: "THESIS",
   },
   {
     name: "Impact & Significance",
-    description:
-      "Potential contribution to industry, society, or the body of knowledge, including commercialisation potential.",
-    weight: 15,
+    component:
+      "Potential contribution to industry, society, or knowledge, including commercialisation potential.",
+    bands: {
+      "0-2":
+        "No stated beneficiary, and no plausible effect beyond the project itself.",
+      "3-4":
+        "A general claim of usefulness without evidence of who benefits or how.",
+      "5-6":
+        "A defined audience or use, with a reasonable but partly evidenced benefit.",
+      "7-8":
+        "A convincing benefit to a specific group, industry, or body of knowledge.",
+      "9-10":
+        "A significant, well evidenced contribution with a credible path to adoption or publication.",
+    },
     type: "THESIS",
   },
   {
     name: "Presentation & Documentation",
-    description:
+    component:
       "Clarity of the written report, figures, and citations, and adherence to academic writing standards.",
-    weight: 15,
+    bands: {
+      "0-2":
+        "The report is unclear, incomplete, or missing citations and structure.",
+      "3-4":
+        "The main idea can be followed, but organisation, figures, or references are weak.",
+      "5-6":
+        "A readable report with adequate figures and citations, and some lapses in writing.",
+      "7-8":
+        "A clear, well structured report with accurate figures and consistent citations.",
+      "9-10":
+        "Publication-quality writing, figures, and referencing that make the work easy to assess.",
+    },
     type: "THESIS",
   },
   {
+    name: "Authenticity",
+    component:
+      "Original authorship of the e-book, with proper attribution and no uncredited copied material.",
+    bands: {
+      "0-2":
+        "Large parts appear copied, or sources and authorship are not acknowledged.",
+      "3-4":
+        "Some original writing, but noticeable copied or poorly attributed passages.",
+      "5-6":
+        "Mostly original, with sources credited and only minor attribution gaps.",
+      "7-8":
+        "Clearly the authors' own work, with consistent and accurate attribution.",
+      "9-10":
+        "Fully original, transparently sourced, and free of uncredited material.",
+    },
+    type: "JTEC",
+  },
+  {
+    name: "Content Accuracy",
+    component:
+      "Factual correctness and depth of the subject matter, at a level suited to the intended audience.",
+    bands: {
+      "0-2":
+        "Serious factual errors, or content too thin for the stated audience.",
+      "3-4":
+        "The topic is covered, but important facts are wrong, outdated, or oversimplified.",
+      "5-6":
+        "Generally accurate content at the right level, with a few gaps or minor errors.",
+      "7-8":
+        "Accurate, sufficiently deep content that matches the audience and learning goals.",
+      "9-10":
+        "Authoritative, current, and well scoped content with no meaningful inaccuracies.",
+    },
+    type: "JTEC",
+  },
+  {
+    name: "Visual Design & Layout",
+    component:
+      "Consistency of typography, colour, illustrations, and page layout across the e-book.",
+    bands: {
+      "0-2":
+        "Layout is inconsistent or hard to read, and visual elements clash or are missing.",
+      "3-4":
+        "A basic layout, with uneven type, spacing, colour, or illustration quality.",
+      "5-6":
+        "A consistent layout that is readable, with some uneven pages or visuals.",
+      "7-8":
+        "A coherent visual system: clear hierarchy, consistent type, and supportive illustrations.",
+      "9-10":
+        "A polished, consistent design that makes the content easy to navigate and understand.",
+    },
+    type: "JTEC",
+  },
+  {
+    name: "Readability & Language",
+    component:
+      "Clear structure, correct grammar, and a reading level suited to the target readers.",
+    bands: {
+      "0-2":
+        "Frequent errors or wording that the intended readers would struggle to follow.",
+      "3-4":
+        "Understandable in parts, but grammar, tone, or structure often get in the way.",
+      "5-6":
+        "Clear enough for the audience, with some awkward sentences or structural gaps.",
+      "7-8":
+        "Fluent, well structured language at the right reading level, with few errors.",
+      "9-10":
+        "Precise, engaging writing that is consistently appropriate for the target readers.",
+    },
+    type: "JTEC",
+  },
+  {
+    name: "Interactivity & Multimedia",
+    component:
+      "Use of audio, video, quizzes, or links in ways that help the reader learn.",
+    bands: {
+      "0-2":
+        "No meaningful media or interaction, or media that does not relate to the content.",
+      "3-4":
+        "Media or activities are present but decorative, broken, or weakly tied to the text.",
+      "5-6":
+        "Relevant media or activities that support some of the learning points.",
+      "7-8":
+        "Well chosen media and interaction that reinforce the content and work reliably.",
+      "9-10":
+        "Integrated multimedia and activities that clearly deepen understanding throughout.",
+    },
+    type: "JTEC",
+  },
+  {
     name: "Innovation & Creativity",
-    description:
+    component:
       "How new and inventive the technology or engineering solution is, and how creatively it tackles the problem.",
-    weight: 25,
+    bands: {
+      "0-2":
+        "A routine application of an existing product, with no inventive step.",
+      "3-4":
+        "A small twist on a known solution, with limited creative problem solving.",
+      "5-6":
+        "A recognisable new combination or adaptation that addresses the problem.",
+      "7-8":
+        "A creative solution with a clear inventive idea and a convincing use of it.",
+      "9-10":
+        "A highly original solution that changes how the problem can be approached.",
+    },
     type: "JTEC",
   },
   {
     name: "Technical Feasibility",
-    description:
-      "Soundness of the engineering design, choice of technology, and evidence that the solution works as intended.",
-    weight: 25,
+    component:
+      "Soundness of the engineering design, choice of technology, and evidence that the solution works.",
+    bands: {
+      "0-2":
+        "The design is not credible, or there is no evidence the solution can work.",
+      "3-4":
+        "A plausible idea, but the design, technology choice, or evidence is weak.",
+      "5-6":
+        "A sound basic design with partial evidence that the chosen technology works.",
+      "7-8":
+        "A justified design and technology choice, supported by a working demonstration.",
+      "9-10":
+        "A robust, well evidenced design that is clearly feasible to build and operate.",
+    },
     type: "JTEC",
   },
   {
     name: "Practical Application",
-    description:
-      "How well the solution addresses a real-world need, including usability, scalability, and readiness for deployment.",
-    weight: 20,
+    component:
+      "How well the solution meets a real need, including usability, scale, and readiness to deploy.",
+    bands: {
+      "0-2":
+        "No clear user or setting, or the solution cannot be used as proposed.",
+      "3-4":
+        "A real need is named, but usability, scale, or deployment is largely unaddressed.",
+      "5-6":
+        "Usable for the stated need, with some open questions about scale or deployment.",
+      "7-8":
+        "Practical for the intended users, with a credible plan for scale and deployment.",
+      "9-10":
+        "Ready for real use: usable, appropriately scaled, and prepared for deployment.",
+    },
     type: "JTEC",
   },
   {
     name: "Commercial & Social Value",
-    description:
-      "Market potential, cost-effectiveness, and benefit to industry or the community, including sustainability considerations.",
-    weight: 15,
+    component:
+      "Market potential, cost-effectiveness, and benefit to industry or the community, including sustainability.",
+    bands: {
+      "0-2":
+        "No identifiable customer, community benefit, or reason the solution is worth its cost.",
+      "3-4":
+        "A benefit is claimed, but cost, market, or community value is weakly supported.",
+      "5-6":
+        "A plausible market or social benefit, with a partial view of cost or sustainability.",
+      "7-8":
+        "A clear beneficiary, a reasonable cost case, and a stated sustainability consideration.",
+      "9-10":
+        "A compelling commercial or social case, cost-effective and sustainable for the context.",
+    },
     type: "JTEC",
   },
   {
     name: "Demonstration & Communication",
-    description:
-      "Clarity of the prototype demonstration, video, and supporting documents in explaining how the solution works.",
-    weight: 15,
+    component:
+      "Clarity of the prototype demonstration, video, and documents in explaining how the solution works.",
+    bands: {
+      "0-2":
+        "The demonstration or documents do not show what the solution does.",
+      "3-4":
+        "A viewer can see the idea, but how it works remains unclear or incomplete.",
+      "5-6":
+        "The demo and documents explain the main functions, with some missing detail.",
+      "7-8":
+        "A clear demo and supporting material that show how the solution works.",
+      "9-10":
+        "A concise, complete explanation that lets a judge assess the solution without guesswork.",
+    },
     type: "JTEC",
   },
 ];
@@ -831,19 +1032,52 @@ async function seedCategories(db) {
 async function seedJudgeCriteria(db) {
   const col = db.collection("judge_criteria");
   let inserted = 0;
+  let updated = 0;
 
   for (const [i, c] of JUDGE_CRITERIA.entries()) {
     const criteria_id = slugify(c.name);
     const ts = new Date(Date.UTC(2026, 8, 23, 9, 30 + i));
     const res = await col.updateOne(
       { criteria_id },
-      { $setOnInsert: { criteria_id, ...c, created_at: ts, updated_at: ts } },
+      {
+        $set: {
+          name: c.name,
+          component: c.component,
+          bands: c.bands,
+          type: c.type,
+          updated_at: new Date(),
+        },
+        $unset: { description: "", weight: "" },
+        $setOnInsert: { criteria_id, created_at: ts },
+      },
+      { upsert: true }
+    );
+    if (res.upsertedCount) inserted += 1;
+    else if (res.modifiedCount) updated += 1;
+  }
+
+  console.log(
+    `judge_criteria: +${inserted}, updated ${updated} (total ${await col.countDocuments()})`
+  );
+}
+
+async function seedJudgeDeliverables(db) {
+  const col = db.collection("judge_deliverables");
+  let inserted = 0;
+  const ts = new Date(Date.UTC(2026, 8, 23, 9, 0));
+
+  for (const type of ["THESIS", "JTEC"]) {
+    const res = await col.updateOne(
+      { type },
+      { $setOnInsert: { type, weight: 50, created_at: ts, updated_at: ts } },
       { upsert: true }
     );
     if (res.upsertedCount) inserted += 1;
   }
 
-  console.log(`judge_criteria: +${inserted} (total ${await col.countDocuments()})`);
+  console.log(
+    `judge_deliverables: +${inserted} (total ${await col.countDocuments()})`
+  );
 }
 
 async function seedUsers(db) {
@@ -1035,11 +1269,13 @@ async function main() {
     console.log(`Seeding database "${dbName}"...`);
     if (only === "criteria") {
       await seedJudgeCriteria(db);
+      await seedJudgeDeliverables(db);
       console.log("Done.");
       return;
     }
     const categoryIdBySlug = await seedCategories(db);
     await seedJudgeCriteria(db);
+    await seedJudgeDeliverables(db);
     await seedUsers(db);
     await seedRegistrations(db, categoryIdBySlug);
     await seedPayments(db);

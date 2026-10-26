@@ -44,6 +44,10 @@ import {
   TYPE_LABELS,
 } from "@/components/my-assignments-data-table";
 import { readError } from "@/components/MyAssignmentsManager";
+import {
+  SCORE_BAND_KEYS,
+  SCORE_BAND_LABELS,
+} from "@/schemas/judgeCriteriaSchema";
 import type { Registration } from "@/schemas/registrationSchema";
 import type { SerializedJudgeCriteria } from "@/utils/serializeJudgeCriteria";
 import type { SerializedJudgeAssignment } from "@/utils/serializeJudgeAssignment";
@@ -138,15 +142,21 @@ function PersonList({
   );
 }
 
+function formatAverage(value: number) {
+  return String(Math.round(value * 100) / 100);
+}
+
 export function AssessmentWorkspace({
   initialAssignment,
   registration,
   criteria,
+  deliverableWeight = null,
   judgingDueDate = null,
 }: {
   initialAssignment: SerializedJudgeAssignment;
   registration: AssessmentRegistration;
   criteria: SerializedJudgeCriteria[];
+  deliverableWeight?: number | null;
   judgingDueDate?: string | null;
 }) {
   const router = useRouter();
@@ -159,12 +169,17 @@ export function AssessmentWorkspace({
   const scoringClosed = isJudgingClosed(judgingDueDate);
   const deadlineMessage = judgeScoringDeadlineMessage(judgingDueDate);
 
-  const weightedTotal = scoreForm.reduce((sum, row, index) => {
+  const enteredScores = scoreForm.flatMap((row) => {
     const score = Number(row.score);
-    if (row.score.trim() === "" || !Number.isFinite(score)) return sum;
-    return sum + score * (criteria[index]?.weight ?? 1);
-  }, 0);
-  const completed = scoreForm.filter((row) => row.score.trim() !== "").length;
+    if (row.score.trim() === "" || !Number.isInteger(score)) return [];
+    return [score];
+  });
+  const average =
+    enteredScores.length === 0
+      ? null
+      : enteredScores.reduce((sum, score) => sum + score, 0) /
+        enteredScores.length;
+  const completed = enteredScores.length;
 
   function updateRow(index: number, patch: Partial<ScoreFormRow>) {
     setScoreForm((current) =>
@@ -202,8 +217,8 @@ export function AssessmentWorkspace({
         toast.error("Enter a score for every criterion.");
         return;
       }
-      if (score < 0 || score > 100) {
-        toast.error("Scores must be between 0 and 100.");
+      if (!Number.isInteger(score) || score < 0 || score > 10) {
+        toast.error("Scores must be whole numbers from 0 to 10.");
         return;
       }
       scores.push({
@@ -286,7 +301,7 @@ export function AssessmentWorkspace({
         </div>
       </div>
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(32rem,50%)]">
         <div className="flex flex-col gap-6">
           <Card>
             <CardHeader>
@@ -397,7 +412,11 @@ export function AssessmentWorkspace({
               {assignment.status === "ACCEPTED"
                 ? scoringClosed
                   ? deadlineMessage
-                  : "Score each criterion from 0 to 100."
+                  : `${TYPE_LABELS[assignment.type]} is ${
+                      deliverableWeight === null
+                        ? "not weighted yet"
+                        : `${deliverableWeight}% of the combined result`
+                    }. Score each criterion from 0 to 10. The total is the average of those scores.`
                 : "You rejected this assignment."}
             </CardDescription>
           </CardHeader>
@@ -419,31 +438,39 @@ export function AssessmentWorkspace({
                         key={criterion._id}
                         className="flex flex-col gap-3 border-b pb-5 last:border-0 last:pb-0"
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-medium">
-                              {criterion.name}
+                        <div>
+                          <p className="text-sm font-medium">{criterion.name}</p>
+                          {criterion.component ? (
+                            <p className="mt-0.5 text-xs text-muted-foreground whitespace-pre-line">
+                              {criterion.component}
                             </p>
-                            {criterion.description ? (
-                              <p className="mt-0.5 text-xs text-muted-foreground">
-                                {criterion.description}
-                              </p>
-                            ) : null}
-                          </div>
-                          <Badge variant="secondary" className="shrink-0">
-                            ×{criterion.weight}
-                          </Badge>
+                          ) : null}
                         </div>
+                        <dl className="flex flex-col gap-1.5">
+                          {SCORE_BAND_KEYS.map((key) => (
+                            <div
+                              key={key}
+                              className="grid grid-cols-[3.25rem_minmax(0,1fr)] gap-2 text-xs"
+                            >
+                              <dt className="font-medium">
+                                {SCORE_BAND_LABELS[key]}
+                              </dt>
+                              <dd className="text-muted-foreground">
+                                {criterion.bands[key] || "—"}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
                         <div className="flex flex-col gap-1.5">
                           <Label htmlFor={`score-${criterion._id}`}>
-                            Score (0–100)
+                            Score (0–10)
                           </Label>
                           <Input
                             id={`score-${criterion._id}`}
                             type="number"
                             min={0}
-                            max={100}
-                            step="any"
+                            max={10}
+                            step={1}
                             value={row.score}
                             disabled={scoringClosed}
                             onChange={(event) =>
@@ -480,7 +507,8 @@ export function AssessmentWorkspace({
                         {completed}/{criteria.length} criteria scored
                       </span>
                       <span className="font-medium tabular-nums">
-                        Weighted total {weightedTotal}
+                        Average {average === null ? "—" : formatAverage(average)}{" "}
+                        / 10
                       </span>
                     </div>
                     <div className="flex gap-2">

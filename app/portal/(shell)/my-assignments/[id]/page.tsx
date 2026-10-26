@@ -8,6 +8,7 @@ import { CategoryModel } from "@/models/Category";
 import { CompetitionModel } from "@/models/Competition";
 import { JudgeAssignmentModel } from "@/models/JudgeAssignment";
 import { JudgeCriteriaModel } from "@/models/JudgeCriteria";
+import { JudgeDeliverableModel } from "@/models/JudgeDeliverable";
 import { RegistrationModel } from "@/models/Registration";
 import { toIdString } from "@/schemas/objectId";
 import { registrationCompetitionId } from "@/utils/competitionScope";
@@ -50,13 +51,14 @@ export default async function AssessmentPage({
     notFound();
   }
 
-  const [competition, category, criteria] = await Promise.all([
+  const [competition, category, criteria, deliverable] = await Promise.all([
     new CompetitionModel().findById(toIdString(registration.competition_id)),
     new CategoryModel().findById(toIdString(registration.category_id)),
     new JudgeCriteriaModel().find(
       { type: assignment.type },
-      { sort: { name: 1 } }
+      { sort: { created_at: 1, name: 1 } }
     ),
+    new JudgeDeliverableModel().findOne({ type: assignment.type }),
   ]);
 
   const assessmentRegistration: AssessmentRegistration = {
@@ -106,6 +108,7 @@ export default async function AssessmentPage({
       initialAssignment={serializeJudgeAssignment(assignment)}
       registration={assessmentRegistration}
       criteria={criteria.map(serializeJudgeCriteria)}
+      deliverableWeight={deliverable?.weight ?? null}
       judgingDueDate={
         competition?.judging_due_date
           ? new Date(competition.judging_due_date).toISOString()

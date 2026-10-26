@@ -49,7 +49,7 @@ export const judgeAssignmentScoreSubmitSchema = z.object({
   scores: z
     .array(
       judgeScoreSchema.extend({
-        score: z.number().min(0).max(100),
+        score: z.number().int().min(0).max(10),
         comments: z.string().default(""),
       })
     )

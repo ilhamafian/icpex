@@ -19,7 +19,7 @@ export async function GET() {
 
     const criteria = await new JudgeCriteriaModel().find(
       {},
-      { sort: { type: 1, name: 1 } }
+      { sort: { created_at: 1, name: 1 } }
     );
 
     return createResponse({
