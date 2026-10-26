@@ -331,7 +331,7 @@ export function AssessmentWorkspace({
                 </p>
               ) : (
                 <ul className="flex flex-col divide-y">
-                  {documents.map((doc) => (
+                  {documents.map((doc, index) => (
                     <li
                       key={doc.file_url}
                       className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
@@ -348,7 +348,15 @@ export function AssessmentWorkspace({
                         </div>
                       </div>
                       <Button size="sm" variant="outline" asChild>
-                        <a href={doc.file_url} target="_blank" rel="noreferrer">
+                        <a
+                          href={
+                            doc.type === "VIDEO_LINK"
+                              ? doc.file_url
+                              : `/api/my-assignments/${assignment._id}/documents?index=${index}`
+                          }
+                          target="_blank"
+                          rel="noreferrer"
+                        >
                           <IconExternalLink />
                           Open
                         </a>
