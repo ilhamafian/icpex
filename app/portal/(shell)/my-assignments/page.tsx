@@ -15,11 +15,14 @@ async function loadMyAssignments(
   competitionId: string | null
 ) {
   try {
+    const assignmentModel = new JudgeAssignmentModel();
+    await assignmentModel.acceptPending();
+
     const registrations = await findRegistrationsForCompetition(competitionId);
     const assignments =
       registrations.length === 0
         ? []
-        : await new JudgeAssignmentModel().find(
+        : await assignmentModel.find(
             {
               judge_id: judgeId,
               registration_number: {

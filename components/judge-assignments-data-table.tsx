@@ -14,6 +14,7 @@ import {
   IconSearch,
   IconUserPlus,
 } from "@tabler/icons-react";
+import { SquareArrowOutUpRight } from "lucide-react";
 import {
   columnVisibilityFeature,
   createColumnHelper,
@@ -109,33 +110,49 @@ function assignmentStatusVariant(
   }
 }
 
-function registrationStatusVariant(
-  status: AssignmentRegistrationOption["status"]
+type JudgingProgress = "UNASSIGNED" | "TO_SCORE" | "IN_PROGRESS" | "SCORED";
+type PaymentFilter = PaymentStatus | "NONE";
+type AssignmentFilter = "ASSIGNED" | "UNASSIGNED";
+
+const JUDGING_PROGRESS: JudgingProgress[] = [
+  "UNASSIGNED",
+  "TO_SCORE",
+  "IN_PROGRESS",
+  "SCORED",
+];
+
+const JUDGING_PROGRESS_LABELS: Record<JudgingProgress, string> = {
+  UNASSIGNED: "UNASSIGNED",
+  TO_SCORE: "TO SCORE",
+  IN_PROGRESS: "IN PROGRESS",
+  SCORED: "SCORED",
+};
+
+function judgingProgress(
+  assignments: SerializedJudgeAssignment[]
+): JudgingProgress {
+  const active = assignments.filter((item) => item.status !== "REJECTED");
+  if (active.length === 0) return "UNASSIGNED";
+  const scored = active.filter((item) => item.submitted_at).length;
+  if (scored === 0) return "TO_SCORE";
+  if (scored === active.length) return "SCORED";
+  return "IN_PROGRESS";
+}
+
+function judgingProgressVariant(
+  status: JudgingProgress
 ): "default" | "secondary" | "outline" | "destructive" {
   switch (status) {
-    case "ACCEPTED":
-    case "COMPLETED":
+    case "SCORED":
       return "default";
-    case "REJECTED":
-      return "destructive";
-    case "REVIEWING":
+    case "IN_PROGRESS":
+      return "default";
+    case "TO_SCORE":
       return "secondary";
     default:
       return "outline";
   }
 }
-
-type RegistrationStatus = AssignmentRegistrationOption["status"];
-type PaymentFilter = PaymentStatus | "NONE";
-type AssignmentFilter = "ASSIGNED" | "UNASSIGNED";
-
-const REGISTRATION_STATUSES: RegistrationStatus[] = [
-  "SUBMITTED",
-  "REVIEWING",
-  "ACCEPTED",
-  "REJECTED",
-  "COMPLETED",
-];
 
 const PAYMENT_FILTERS: { value: PaymentFilter; label: string }[] = [
   { value: "REVIEW", label: "To review" },
@@ -164,7 +181,7 @@ const SORT_OPTIONS = {
   registration: "Registration number",
   participant: "Participant (A–Z)",
   institution: "Institution (A–Z)",
-  status: "Registration status",
+  status: "Judging progress",
   payment: "Payment status",
   fewestJudges: "Fewest judges first",
 } as const;
@@ -206,8 +223,8 @@ function compareRows(
       return ra.institution_name.localeCompare(rb.institution_name);
     case "status":
       return (
-        REGISTRATION_STATUSES.indexOf(ra.status) -
-        REGISTRATION_STATUSES.indexOf(rb.status)
+        JUDGING_PROGRESS.indexOf(judgingProgress(a.assignments)) -
+        JUDGING_PROGRESS.indexOf(judgingProgress(b.assignments))
       );
     case "payment":
       return PAYMENT_ORDER[paymentFilterValue(a)] - PAYMENT_ORDER[paymentFilterValue(b)];
@@ -224,11 +241,31 @@ function toggleIn<T>(set: Set<T>, value: T, on: boolean) {
 }
 
 const DOCUMENTS_ZIP_URL = "/api/registration-documents";
+const DOCUMENT_BADGE_CLASS = "justify-center gap-1 px-1.5";
 
-function documentsZipUrl(registrationNumber: string) {
-  return `${DOCUMENTS_ZIP_URL}?${new URLSearchParams({
-    registration: registrationNumber,
-  })}`;
+function documentStatusBadge({
+  url,
+  label,
+}: {
+  url: string | null;
+  label: string;
+}) {
+  if (url) {
+    return (
+      <Badge variant="default" className={DOCUMENT_BADGE_CLASS} asChild>
+        <a href={url} target="_blank" rel="noreferrer">
+          <SquareArrowOutUpRight />
+          UPLOADED
+          <span className="sr-only"> Open {label}</span>
+        </a>
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className={DOCUMENT_BADGE_CLASS}>
+      NONE
+    </Badge>
+  );
 }
 
 function paymentStatusVariant(
@@ -290,9 +327,9 @@ export function JudgeAssignmentsDataTable({
   onToggleJudge,
 }: JudgeAssignmentsDataTableProps) {
   const [query, setQuery] = React.useState("");
-  const [statusFilter, setStatusFilter] = React.useState<
-    Set<RegistrationStatus>
-  >(() => new Set());
+  const [statusFilter, setStatusFilter] = React.useState<Set<JudgingProgress>>(
+    () => new Set()
+  );
   const [paymentFilter, setPaymentFilter] = React.useState<Set<PaymentFilter>>(
     () => new Set()
   );
@@ -321,7 +358,10 @@ export function JudgeAssignmentsDataTable({
     return data
       .filter((row) => {
         const { registration, assignments } = row;
-        if (statusFilter.size && !statusFilter.has(registration.status)) {
+        if (
+          statusFilter.size &&
+          !statusFilter.has(judgingProgress(assignments))
+        ) {
           return false;
         }
         if (paymentFilter.size && !paymentFilter.has(paymentFilterValue(row))) {
@@ -345,6 +385,7 @@ export function JudgeAssignmentsDataTable({
           registration.project_title,
           registration.participant_name,
           registration.institution_name,
+          registration.category_name,
           ...assignments.map((item) =>
             judgeName(judgesById.get(item.judge_id), item.judge_id)
           ),
@@ -409,19 +450,29 @@ export function JudgeAssignmentsDataTable({
             </div>
           ),
         }),
-        columnHelper.accessor((row) => row.registration.status, {
+        columnHelper.accessor((row) => row.registration.category_name, {
+          id: "category",
+          header: "Category",
+          cell: ({ row }) => (
+            <span className="text-sm">
+              {row.original.registration.category_name || "—"}
+            </span>
+          ),
+        }),
+        columnHelper.accessor((row) => judgingProgress(row.assignments), {
           id: "status",
           header: "Status",
-          cell: ({ row }) => (
-            <Badge
-              variant={registrationStatusVariant(
-                row.original.registration.status
-              )}
-              className="px-1.5"
-            >
-              {row.original.registration.status}
-            </Badge>
-          ),
+          cell: ({ row }) => {
+            const progress = judgingProgress(row.original.assignments);
+            return (
+              <Badge
+                variant={judgingProgressVariant(progress)}
+                className="px-1.5"
+              >
+                {JUDGING_PROGRESS_LABELS[progress]}
+              </Badge>
+            );
+          },
         }),
         columnHelper.accessor((row) => row.registration.payment_status ?? "", {
           id: "payment",
@@ -446,51 +497,41 @@ export function JudgeAssignmentsDataTable({
             );
           },
         }),
+        columnHelper.accessor((row) => row.registration.abstract_file_url ?? "", {
+          id: "abstract",
+          header: () => <div className="w-full text-center">Abstract</div>,
+          cell: ({ row }) => (
+            <div className="flex justify-center">
+              {documentStatusBadge({
+                url: row.original.registration.abstract_file_url,
+                label: `abstract for ${row.original.registration.registration_number}`,
+              })}
+            </div>
+          ),
+        }),
+        columnHelper.accessor((row) => row.registration.video_url ?? "", {
+          id: "video",
+          header: () => <div className="w-full text-center">Video</div>,
+          cell: ({ row }) => (
+            <div className="flex justify-center">
+              {documentStatusBadge({
+                url: row.original.registration.video_url,
+                label: `video for ${row.original.registration.registration_number}`,
+              })}
+            </div>
+          ),
+        }),
         columnHelper.accessor((row) => row.registration.has_full_paper, {
           id: "full paper",
           header: () => <div className="w-full text-center">Full paper</div>,
           cell: ({ row }) => (
             <div className="flex justify-center">
-              <Badge
-                variant={
-                  row.original.registration.has_full_paper ? "default" : "outline"
-                }
-                className="w-20 justify-center px-1.5"
-              >
-                {row.original.registration.has_full_paper
-                  ? "UPLOADED"
-                  : "NONE"}
-              </Badge>
+              {documentStatusBadge({
+                url: row.original.registration.full_paper_url,
+                label: `full paper for ${row.original.registration.registration_number}`,
+              })}
             </div>
           ),
-        }),
-        columnHelper.accessor((row) => row.registration.document_count, {
-          id: "documents",
-          header: () => <div className="w-full text-center">Documents</div>,
-          cell: ({ row }) => {
-            const { registration_number, document_count } =
-              row.original.registration;
-            const label = `Download documents for ${registration_number}`;
-            return (
-              <div className="flex justify-center">
-                {document_count ? (
-                  <Button variant="outline" size="sm" className="h-7" asChild>
-                    <a
-                      href={documentsZipUrl(registration_number)}
-                      download
-                      title={label}
-                    >
-                      <IconDownload />
-                      Zip
-                      <span className="sr-only">{label}</span>
-                    </a>
-                  </Button>
-                ) : (
-                  <span className="text-muted-foreground text-sm">None</span>
-                )}
-              </div>
-            );
-          },
         }),
         columnHelper.accessor((row) => row.registration.created_at, {
           id: "submitted",
@@ -689,19 +730,20 @@ export function JudgeAssignmentsDataTable({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>Registration status</DropdownMenuLabel>
-              {REGISTRATION_STATUSES.map((status) => (
+              <DropdownMenuLabel>Judging progress</DropdownMenuLabel>
+              {JUDGING_PROGRESS.map((status) => (
                 <DropdownMenuCheckboxItem
                   key={status}
-                  className="capitalize"
                   checked={statusFilter.has(status)}
                   onSelect={(event) => event.preventDefault()}
                   onCheckedChange={(checked) => {
-                    setStatusFilter((prev) => toggleIn(prev, status, checked === true));
+                    setStatusFilter((prev) =>
+                      toggleIn(prev, status, checked === true)
+                    );
                     table.setPageIndex(0);
                   }}
                 >
-                  {status.toLowerCase()}
+                  {JUDGING_PROGRESS_LABELS[status]}
                 </DropdownMenuCheckboxItem>
               ))}
               <DropdownMenuSeparator />

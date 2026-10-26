@@ -189,26 +189,6 @@ export function AssessmentWorkspace({
     return data.assignment;
   }
 
-  async function handleRespond(status: "ACCEPTED" | "REJECTED") {
-    setSaving(true);
-    try {
-      const updated = await patch({ action: "status", status });
-      if (updated) {
-        toast.success(
-          status === "ACCEPTED"
-            ? scoringClosed
-              ? "Assignment accepted."
-              : "Assignment accepted. You can now score it."
-            : "Assignment rejected."
-        );
-      }
-    } catch {
-      toast.error("Failed to update status.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function handleSubmitScores() {
     if (scoringClosed) {
       toast.error(deadlineMessage);
@@ -418,31 +398,9 @@ export function AssessmentWorkspace({
                 ? scoringClosed
                   ? deadlineMessage
                   : "Score each criterion from 0 to 100."
-                : assignment.status === "PENDING"
-                  ? "Read the submission, then accept to start scoring."
-                  : "You rejected this assignment."}
+                : "You rejected this assignment."}
             </CardDescription>
           </CardHeader>
-
-          {assignment.status === "PENDING" ? (
-            <CardFooter className="gap-2">
-              <Button
-                variant="outline"
-                className="flex-1"
-                disabled={saving}
-                onClick={() => void handleRespond("REJECTED")}
-              >
-                Reject
-              </Button>
-              <Button
-                className="flex-1"
-                disabled={saving}
-                onClick={() => void handleRespond("ACCEPTED")}
-              >
-                Accept
-              </Button>
-            </CardFooter>
-          ) : null}
 
           {assignment.status === "ACCEPTED" ? (
             <>

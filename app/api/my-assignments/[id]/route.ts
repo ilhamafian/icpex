@@ -4,7 +4,6 @@ import { JudgeAssignmentModel } from "@/models/JudgeAssignment";
 import { JudgeCriteriaModel } from "@/models/JudgeCriteria";
 import { CompetitionModel } from "@/models/Competition";
 import {
-  judgeAssignmentJudgeStatusSchema,
   judgeAssignmentScoreSubmitSchema,
   type JudgeAssignment,
 } from "@/schemas/judgeAssignmentsSchema";
@@ -100,25 +99,7 @@ export async function PATCH(
     const body = (await req.json()) as { action?: string };
     const { model, existing } = owned;
 
-    if (body.action === "status") {
-      const parsed = judgeAssignmentJudgeStatusSchema.safeParse(body);
-      if (!parsed.success) {
-        return createResponse({ error: parsed.error.format() }, 400);
-      }
-
-      if (existing.status !== "PENDING") {
-        return createResponse(
-          { error: "Only pending assignments can be accepted or rejected." },
-          400
-        );
-      }
-
-      await model.update(
-        id,
-        { status: parsed.data.status },
-        judgeAssignmentJudgeStatusSchema
-      );
-    } else if (body.action === "scores") {
+    if (body.action === "scores") {
       const closed = await scoringClosedMessage(owned.competitionId);
       if (closed) {
         return createResponse({ error: closed }, 400);
@@ -131,7 +112,7 @@ export async function PATCH(
 
       if (existing.status !== "ACCEPTED") {
         return createResponse(
-          { error: "Accept the assignment before submitting scores." },
+          { error: "This assignment was rejected and cannot be scored." },
           400
         );
       }
@@ -208,7 +189,7 @@ export async function PATCH(
       await model.clearScores(id);
     } else {
       return createResponse(
-        { error: "Unknown action. Use status, scores, or clear_scores." },
+        { error: "Unknown action. Use scores or clear_scores." },
         400
       );
     }

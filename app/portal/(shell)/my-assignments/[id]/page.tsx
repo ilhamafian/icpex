@@ -29,7 +29,9 @@ export default async function AssessmentPage({
   }
 
   const { id } = await params;
-  const assignment = await new JudgeAssignmentModel().findById(id);
+  const assignmentModel = new JudgeAssignmentModel();
+  await assignmentModel.acceptPending();
+  const assignment = await assignmentModel.findById(id);
   if (
     !assignment ||
     toIdString(assignment.judge_id) !== toIdString(judge._id) ||

@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
         judge_id: judgeId,
         registration_number: parsed.data.registration_number,
         type: parsed.data.type,
-        status: parsed.data.status ?? "PENDING",
+        status: "ACCEPTED",
         scores: [],
         total_score: 0,
       })

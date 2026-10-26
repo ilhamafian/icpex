@@ -78,7 +78,7 @@ const features = tableFeatures({
 
 const columnHelper = createColumnHelper<typeof features, MyAssignmentRow>();
 
-type View = "all" | "pending" | "to-score" | "scored";
+type View = "all" | "to-score" | "scored";
 
 const VIEWS: {
   value: View;
@@ -86,11 +86,6 @@ const VIEWS: {
   match: (row: MyAssignmentRow) => boolean;
 }[] = [
   { value: "all", label: "All", match: () => true },
-  {
-    value: "pending",
-    label: "Pending",
-    match: (row) => row.assignment.status === "PENDING",
-  },
   {
     value: "to-score",
     label: "To Score",
@@ -135,20 +130,13 @@ function formatDate(iso?: string) {
 type MyAssignmentsDataTableProps = {
   data: MyAssignmentRow[];
   showType: boolean;
-  busyId?: string | null;
   judgingDueDate?: string | null;
-  onRespond: (
-    assignment: SerializedJudgeAssignment,
-    status: "ACCEPTED" | "REJECTED"
-  ) => void;
 };
 
 export function MyAssignmentsDataTable({
   data,
   showType,
-  busyId,
   judgingDueDate = null,
-  onRespond,
 }: MyAssignmentsDataTableProps) {
   const [view, setView] = React.useState<View>("all");
   const [query, setQuery] = React.useState("");
@@ -308,29 +296,8 @@ export function MyAssignmentsDataTable({
           cell: ({ row }) => {
             const { assignment } = row.original;
             const href = `/portal/my-assignments/${assignment._id}`;
-            const busy = busyId === assignment._id;
             return (
               <div className="flex items-center justify-end gap-2">
-                {assignment.status === "PENDING" ? (
-                  <>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={() => onRespond(assignment, "REJECTED")}
-                    >
-                      Reject
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busy}
-                      onClick={() => onRespond(assignment, "ACCEPTED")}
-                    >
-                      Accept
-                    </Button>
-                  </>
-                ) : null}
                 {assignment.status === "ACCEPTED" ? (
                   <Button size="sm" asChild>
                     <Link href={href}>
@@ -351,7 +318,7 @@ export function MyAssignmentsDataTable({
           },
         }),
       ]),
-    [busyId, onRespond, pagination.pageIndex, pagination.pageSize, showType]
+    [pagination.pageIndex, pagination.pageSize, showType]
   );
 
   const table = useTable({
@@ -383,8 +350,7 @@ export function MyAssignmentsDataTable({
       <div className="flex flex-col gap-1 px-4 lg:px-6">
         <h2 className="text-lg font-medium">My Assignments</h2>
         <p className="text-sm text-muted-foreground">
-          Accept or reject assigned registrations, then open each one to read
-          the submission and score it.
+          Open each assigned registration to read the submission and score it.
         </p>
         <p className="text-sm text-muted-foreground">
           {judgeScoringDeadlineMessage(judgingDueDate)}

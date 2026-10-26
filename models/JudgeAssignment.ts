@@ -9,6 +9,15 @@ export class JudgeAssignmentModel extends ModelBase<JudgeAssignment> {
   protected collectionName = "judge_assignments";
   protected schema: ZodSchema<JudgeAssignment> = judgeAssignmentsSchema;
 
+  /** Pending assignments are accepted in place. Rejected rows are left alone. */
+  async acceptPending() {
+    const collection = await this.getCollection();
+    return collection.updateMany(
+      { status: "PENDING" },
+      { $set: { status: "ACCEPTED", updated_at: new Date() } }
+    );
+  }
+
   async clearScores(id: string) {
     const collection = await this.getCollection();
     return collection.updateOne(this.buildIdFilter(id), {

@@ -1,4 +1,5 @@
 import { JudgeAssignmentsManager } from "@/components/JudgeAssignmentsManager";
+import { CategoryModel } from "@/models/Category";
 import { JudgeAssignmentModel } from "@/models/JudgeAssignment";
 import { PaymentModel } from "@/models/Payment";
 import { UserModel } from "@/models/User";
@@ -19,13 +20,21 @@ async function loadAssignmentData(competitionId: string | null) {
   }
 
   try {
-    const [registrations, users, payments] = await Promise.all([
+    const assignmentModel = new JudgeAssignmentModel();
+    await assignmentModel.acceptPending();
+
+    const [registrations, users, payments, categories] = await Promise.all([
       findRegistrationsForCompetition(competitionId),
       new UserModel().find(usersWithRolesFilter(JUDGE_ROLES, competitionId), {
         sort: { email: 1 },
       }),
       new PaymentModel().find({}, { sort: { created_at: -1 } }),
+      new CategoryModel().find({}),
     ]);
+
+    const categoryNames = new Map(
+      categories.map((item) => [toIdString(item._id), item.name])
+    );
 
     // Payments are sorted newest first, so the first one seen per registration wins.
     const paymentStatusByRegistration = new Map<string, PaymentStatus>();
@@ -36,7 +45,7 @@ async function loadAssignmentData(competitionId: string | null) {
       }
     }
 
-    const assignments = await new JudgeAssignmentModel().find(
+    const assignments = await assignmentModel.find(
       {
         registration_number: {
           $in: registrations.map((item) => item.registration_number),
@@ -51,7 +60,8 @@ async function loadAssignmentData(competitionId: string | null) {
       registrations: registrations.map((registration) =>
         toAssignmentRegistrationOption(
           registration,
-          paymentStatusByRegistration.get(toIdString(registration._id)) ?? null
+          paymentStatusByRegistration.get(toIdString(registration._id)) ?? null,
+          categoryNames.get(toIdString(registration.category_id)) ?? ""
         )
       ),
     };

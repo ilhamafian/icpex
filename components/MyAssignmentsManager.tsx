@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import { toast } from "sonner";
+import { useMemo } from "react";
 
 import {
   MyAssignmentsDataTable,
@@ -32,64 +31,23 @@ export function MyAssignmentsManager({
   allowedTypes: JudgeAssignmentType[];
   judgingDueDate?: string | null;
 }) {
-  const [assignments, setAssignments] = useState(initialAssignments);
-  const [busyId, setBusyId] = useState<string | null>(null);
-
   const rows = useMemo<MyAssignmentRow[]>(() => {
     const byNumber = new Map(
       registrations.map((item) => [item.registration_number, item])
     );
-    return assignments
+    return initialAssignments
       .filter((item) => allowedTypes.includes(item.type))
       .map((assignment) => ({
         assignment,
         registration: byNumber.get(assignment.registration_number),
       }));
-  }, [assignments, registrations, allowedTypes]);
-
-  const handleRespond = useCallback(
-    async (
-      assignment: SerializedJudgeAssignment,
-      status: "ACCEPTED" | "REJECTED"
-    ) => {
-      setBusyId(assignment._id);
-      try {
-        const res = await fetch(`/api/my-assignments/${assignment._id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "status", status }),
-        });
-        if (!res.ok) {
-          toast.error(await readError(res));
-          return;
-        }
-        const data = (await res.json()) as {
-          assignment: SerializedJudgeAssignment;
-        };
-        setAssignments((prev) =>
-          prev.map((item) =>
-            item._id === assignment._id ? data.assignment : item
-          )
-        );
-        toast.success(
-          status === "ACCEPTED" ? "Assignment accepted." : "Assignment rejected."
-        );
-      } catch {
-        toast.error("Failed to update status.");
-      } finally {
-        setBusyId(null);
-      }
-    },
-    []
-  );
+  }, [initialAssignments, registrations, allowedTypes]);
 
   return (
     <MyAssignmentsDataTable
       data={rows}
       showType={allowedTypes.length > 1}
-      busyId={busyId}
       judgingDueDate={judgingDueDate}
-      onRespond={handleRespond}
     />
   );
 }
