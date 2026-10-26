@@ -108,7 +108,7 @@ const VIEWS: { value: View; label: string; match: (row: DashboardRow) => boolean
   },
 ]
 
-const TYPE_LABELS = { THESIS: "Thesis", EBOOK: "E-book", JTEC: "JTEC" } as const
+const TYPE_LABELS = { THESIS: "Thesis", JTEC: "JTEC" } as const
 
 function formatDate(iso?: string) {
   if (!iso) return "—"

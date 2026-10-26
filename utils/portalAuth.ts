@@ -3,7 +3,6 @@ import type { UserRole } from "@/schemas/userRole";
 
 export const JUDGE_ROLES: UserRole[] = [
   "THESIS_JUDGE",
-  "EBOOK_JUDGE",
   "JTEC_JUDGE",
 ];
 
@@ -23,7 +22,7 @@ export async function requireAdminSession(): Promise<SessionPayload | null> {
   return requireSession(["ADMIN"]);
 }
 
-/** Thesis / e-book / JTEC judge session check. */
+/** Thesis / JTEC judge session check. */
 export async function requireJudgeSession(): Promise<SessionPayload | null> {
   return requireSession(JUDGE_ROLES);
 }

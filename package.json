@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "node --env-file=.env scripts/seed.mjs",
-    "migrate:roles": "node --env-file=.env scripts/migrate-role-grants.mjs"
+    "migrate:roles": "node --env-file=.env scripts/migrate-role-grants.mjs",
+    "migrate:ebook-to-jtec": "node --env-file=.env scripts/migrate-ebook-to-jtec.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

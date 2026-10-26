@@ -101,7 +101,6 @@ const VIEWS: {
 
 export const TYPE_LABELS: Record<JudgeAssignmentType, string> = {
   THESIS: "Thesis",
-  EBOOK: "E-book",
   JTEC: "JTEC",
 };
 

@@ -11,7 +11,6 @@ import { hasGrant } from "@/utils/roleGrants";
 
 const ROLE_FOR_TYPE: Record<JudgeAssignmentType, UserRole> = {
   THESIS: "THESIS_JUDGE",
-  EBOOK: "EBOOK_JUDGE",
   JTEC: "JTEC_JUDGE",
 };
 

@@ -1,7 +1,7 @@
 import z from "zod";
 import { objectIdSchema } from "./objectId";
 
-export const judgeCriteriaTypeSchema = z.enum(["EBOOK", "THESIS", "JTEC"]);
+export const judgeCriteriaTypeSchema = z.enum(["THESIS", "JTEC"]);
 
 export const judgeCriteriaSchema = z.object({
   _id: objectIdSchema.optional(),

@@ -87,13 +87,11 @@ const columnHelper = createColumnHelper<typeof features, JudgeAssignmentRow>();
 
 const TYPE_LABELS: Record<JudgeAssignmentType, string> = {
   THESIS: "Thesis",
-  EBOOK: "E-book",
   JTEC: "JTEC",
 };
 
 const TYPE_ROLE: Record<JudgeAssignmentType, UserRole> = {
   THESIS: "THESIS_JUDGE",
-  EBOOK: "EBOOK_JUDGE",
   JTEC: "JTEC_JUDGE",
 };
 
@@ -578,7 +576,7 @@ export function JudgeAssignmentsDataTable({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-72">
-                    {(["THESIS", "EBOOK", "JTEC"] as const).map((type, index) => {
+                    {(["THESIS", "JTEC"] as const).map((type, index) => {
                       const role = TYPE_ROLE[type];
                       const assignedIds = new Set(
                         assignments
@@ -697,7 +695,7 @@ export function JudgeAssignmentsDataTable({
         <div>
           <h2 className="text-lg font-medium">Judge Assignments</h2>
           <p className="text-muted-foreground text-sm">
-            Choose which thesis, e-book and JTEC judges review each registration.
+            Choose which thesis and JTEC judges review each registration.
           </p>
           <p className="text-muted-foreground text-sm">
             {leaderScoringDeadlineMessage(judgingDueDate)}

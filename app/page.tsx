@@ -135,7 +135,7 @@ const STEPS: { icon: Icon; title: string; body: string }[] = [
   {
     icon: IconAward,
     title: "Be judged by experts",
-    body: "Thesis, e-book and JTEC judges score each submission against published criteria.",
+    body: "Thesis and JTEC judges score each submission against published criteria.",
   },
 ];
 

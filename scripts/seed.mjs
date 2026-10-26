@@ -98,41 +98,6 @@ const JUDGE_CRITERIA = [
     type: "THESIS",
   },
   {
-    name: "Authenticity",
-    description:
-      "Content is the team's own original work, with all third-party material properly credited.",
-    weight: 30,
-    type: "EBOOK",
-  },
-  {
-    name: "Content Accuracy",
-    description:
-      "Factual correctness and depth of the subject matter, appropriate for the intended audience.",
-    weight: 25,
-    type: "EBOOK",
-  },
-  {
-    name: "Visual Design & Layout",
-    description:
-      "Consistency of typography, colour, illustrations, and page layout across the e-book.",
-    weight: 20,
-    type: "EBOOK",
-  },
-  {
-    name: "Readability & Language",
-    description:
-      "Clear structure, correct grammar, and a reading level suited to the target readers.",
-    weight: 15,
-    type: "EBOOK",
-  },
-  {
-    name: "Interactivity & Multimedia",
-    description:
-      "Effective use of embedded audio, video, quizzes, or links to enhance engagement.",
-    weight: 10,
-    type: "EBOOK",
-  },
-  {
     name: "Innovation & Creativity",
     description:
       "How new and inventive the technology or engineering solution is, and how creatively it tackles the problem.",
@@ -195,7 +160,7 @@ const USERS = [
   {
     name: "Prof. Madya Dr. Siti Aishah binti Rahman",
     email: "sitiaishah.rahman@unikl.edu.my",
-    roles: ["THESIS_JUDGE", "EBOOK_JUDGE"],
+    roles: ["THESIS_JUDGE", "JTEC_JUDGE"],
     status: "ACTIVE",
   },
   {
@@ -207,13 +172,13 @@ const USERS = [
   {
     name: "Dr. Priya a/p Ramasamy",
     email: "priya.ramasamy@um.edu.my",
-    roles: ["EBOOK_JUDGE"],
+    roles: ["JTEC_JUDGE"],
     status: "ACTIVE",
   },
   {
     name: "Encik Mohd Hafiz bin Othman",
     email: "mhafiz.othman@unikl.edu.my",
-    roles: ["EBOOK_JUDGE"],
+    roles: ["JTEC_JUDGE"],
     status: "ACTIVE",
   },
   {
@@ -224,7 +189,7 @@ const USERS = [
   },
   {
     email: "tan.meiling@upm.edu.my",
-    roles: ["EBOOK_JUDGE"],
+    roles: ["JTEC_JUDGE"],
     status: "INVITED",
     inviteExpiresInDays: -2,
   },

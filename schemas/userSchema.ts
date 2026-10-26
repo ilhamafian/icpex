@@ -36,7 +36,7 @@ export const userSchema = z.object({
   email_verified: z.boolean().default(false),
   invite_token_hash: z.string().min(1).optional(),
   invite_expires_at: z.coerce.date().optional(),
-  /** Set when a thesis, e-book, or JTEC judge accepts an invitation. */
+  /** Set when a thesis or JTEC judge accepts an invitation. */
   judge_profile: judgeProfileSchema.optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional(),

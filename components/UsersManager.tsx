@@ -44,7 +44,6 @@ const ROLE_OPTIONS: UserRole[] = [
   "SECRETARY",
   "JUDGE_LEADER",
   "THESIS_JUDGE",
-  "EBOOK_JUDGE",
   "JTEC_JUDGE",
 ];
 

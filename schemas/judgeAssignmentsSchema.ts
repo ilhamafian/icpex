@@ -7,7 +7,7 @@ export const judgeAssignmentStatusSchema = z.enum([
   "REJECTED",
 ]);
 
-export const judgeAssignmentTypeSchema = z.enum(["EBOOK", "THESIS", "JTEC"]);
+export const judgeAssignmentTypeSchema = z.enum(["THESIS", "JTEC"]);
 
 export const judgeScoreSchema = z.object({
   criteria_id: objectIdSchema,

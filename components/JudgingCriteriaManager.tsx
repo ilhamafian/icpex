@@ -95,11 +95,10 @@ async function readError(res: Response): Promise<string> {
 
 const TYPE_LABELS: Record<JudgeCriteriaType, string> = {
   THESIS: "Thesis",
-  EBOOK: "E-Book",
   JTEC: "JTEC",
 };
 
-const CRITERIA_TYPES: JudgeCriteriaType[] = ["THESIS", "EBOOK", "JTEC"];
+const CRITERIA_TYPES: JudgeCriteriaType[] = ["THESIS", "JTEC"];
 
 export function JudgingCriteriaManager({
   initialCriteria,
@@ -234,7 +233,7 @@ export function JudgingCriteriaManager({
         <div>
           <h2 className="text-lg font-semibold">Judging Criteria</h2>
           <p className="text-sm text-muted-foreground">
-            Define weighted scoring criteria for thesis, e-book and JTEC judges.
+            Define weighted scoring criteria for thesis and JTEC judges.
           </p>
         </div>
         <Button size="icon" onClick={openCreate} aria-label="Add criteria">
