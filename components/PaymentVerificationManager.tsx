@@ -1,13 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
+  IconArrowBackUp,
+  IconArrowDown,
+  IconArrowUp,
   IconArrowsSort,
-  IconExternalLink,
+  IconBell,
+  IconCheck,
+  IconDeviceFloppy,
+  IconDotsVertical,
   IconMail,
+  IconReceipt,
   IconSearch,
   IconSortAscending,
   IconSortDescending,
+  IconX,
 } from "@tabler/icons-react";
 import {
   columnVisibilityFeature,
@@ -32,6 +40,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -129,20 +144,45 @@ function paymentStatusVariant(
   }
 }
 
-function registrationStatusVariant(
-  status: RegistrationStatus
-): "default" | "secondary" | "outline" | "destructive" {
-  switch (status) {
-    case "ACCEPTED":
-    case "COMPLETED":
-      return "default";
-    case "REJECTED":
-      return "destructive";
-    case "REVIEWING":
-      return "secondary";
-    default:
-      return "outline";
-  }
+const REGISTRATION_STATUSES: {
+  value: RegistrationStatus;
+  label: string;
+  dot: string;
+}[] = [
+  { value: "SUBMITTED", label: "Submitted", dot: "bg-muted-foreground/60" },
+  { value: "REVIEWING", label: "Reviewing", dot: "bg-amber-500" },
+  { value: "ACCEPTED", label: "Accepted", dot: "bg-emerald-500" },
+  { value: "REJECTED", label: "Rejected", dot: "bg-destructive" },
+  { value: "COMPLETED", label: "Completed", dot: "bg-sky-500" },
+];
+
+function RowActionsMenu({
+  label,
+  disabled,
+  children,
+}: {
+  label: string;
+  disabled?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          disabled={disabled}
+          aria-label={label}
+          className="text-muted-foreground"
+        >
+          <IconDotsVertical />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-auto">
+        {children}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 async function readError(res: Response): Promise<string> {
@@ -591,9 +631,9 @@ export function PaymentVerificationManager({
           id: "index",
           header: "#",
           enableSorting: false,
-          cell: ({ row }) => (
+          cell: ({ row, table }) => (
             <span className="tabular-nums text-muted-foreground">
-              {row.index + 1}
+              {table.getRowModel().rows.findIndex((r) => r.id === row.id) + 1}
             </span>
           ),
         }),
@@ -611,7 +651,7 @@ export function PaymentVerificationManager({
             const item = row.original;
             const submissionNumber = item.group.submission?.submission_number;
             return (
-              <div className="flex min-w-40 max-w-56 flex-col gap-0.5">
+              <div className="flex min-w-40 max-w-52 flex-col gap-0.5">
                 <span className="font-medium">
                   {item.registration.registration_number}
                 </span>
@@ -715,7 +755,7 @@ export function PaymentVerificationManager({
         }),
         columnHelper.display({
           id: "fee",
-          header: "Fee / Payment",
+          header: "Fee",
           enableSorting: false,
           cell: ({ row }) => {
             const item = row.original;
@@ -728,12 +768,14 @@ export function PaymentVerificationManager({
               String(item.payment?.amount ?? item.registration.fee ?? 0);
             const busy = busyId === group.id;
             const paymentStatus = item.payment?.status;
+            const showStatus = paymentStatus && paymentStatus !== tab;
+            const requestedAt = group.submission?.payment_requested_at;
 
             return (
-              <div className="flex min-w-36 flex-col gap-1.5">
+              <div className="flex flex-col gap-1">
                 {canEdit ? (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm text-muted-foreground">
+                  <div className="relative w-32">
+                    <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-xs font-medium text-muted-foreground">
                       {currency === "MYR" ? "RM" : "USD"}
                     </span>
                     <Input
@@ -741,7 +783,7 @@ export function PaymentVerificationManager({
                       min={0}
                       step="0.01"
                       aria-label={`Fee for ${item.registration.registration_number}`}
-                      className="h-8 w-28"
+                      className={`h-8 tabular-nums ${currency === "MYR" ? "pl-9" : "pl-11"}`}
                       value={amount}
                       disabled={busy}
                       onChange={(event) =>
@@ -753,24 +795,23 @@ export function PaymentVerificationManager({
                     />
                   </div>
                 ) : (
-                  <span className="text-sm tabular-nums">
+                  <span className="font-medium tabular-nums">
                     {(item.payment?.amount ?? 0) === 0
                       ? "Free"
                       : formatMoney(item.payment?.amount ?? 0, currency)}
                   </span>
                 )}
-                {paymentStatus ? (
-                  <Badge
-                    variant={paymentStatusVariant(paymentStatus)}
-                    className="w-fit"
-                  >
-                    {PAYMENT_STATUS_LABELS[paymentStatus]}
-                  </Badge>
-                ) : null}
-                {group.submission?.payment_requested_at ? (
-                  <span className="text-xs text-muted-foreground">
-                    Requested {formatDay(group.submission.payment_requested_at)}
-                  </span>
+                {showStatus || requestedAt ? (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    {showStatus ? (
+                      <Badge variant={paymentStatusVariant(paymentStatus)}>
+                        {PAYMENT_STATUS_LABELS[paymentStatus]}
+                      </Badge>
+                    ) : null}
+                    {requestedAt ? (
+                      <span>Requested {formatDay(requestedAt)}</span>
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
             );
@@ -784,42 +825,39 @@ export function PaymentVerificationManager({
             const item = row.original;
             const busy = busyId === item.group.id;
             return (
-              <div className="flex flex-col gap-1.5">
-                <Badge
-                  variant={registrationStatusVariant(item.registration.status)}
-                  className="w-fit"
+              <Select
+                value={item.registration.status}
+                onValueChange={(value) =>
+                  void setRegistrationStatus(
+                    item.group,
+                    item.registration._id,
+                    value as RegistrationStatus
+                  )
+                }
+                disabled={busy}
+              >
+                <SelectTrigger
+                  size="sm"
+                  aria-label={`Registration status for ${item.registration.registration_number}`}
+                  className="h-7 border-border bg-transparent pr-2 pl-2.5 text-xs font-medium hover:bg-muted"
                 >
-                  {item.registration.status}
-                </Badge>
-                <Select
-                  value={item.registration.status}
-                  onValueChange={(value) =>
-                    void setRegistrationStatus(
-                      item.group,
-                      item.registration._id,
-                      value as RegistrationStatus
-                    )
-                  }
-                  disabled={busy}
-                >
-                  <SelectTrigger className="h-8 w-35">
-                    <SelectValue placeholder="Reg. status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="SUBMITTED">SUBMITTED</SelectItem>
-                    <SelectItem value="REVIEWING">REVIEWING</SelectItem>
-                    <SelectItem value="ACCEPTED">ACCEPTED</SelectItem>
-                    <SelectItem value="REJECTED">REJECTED</SelectItem>
-                    <SelectItem value="COMPLETED">COMPLETED</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent position="popper" align="start">
+                  {REGISTRATION_STATUSES.map((status) => (
+                    <SelectItem key={status.value} value={status.value}>
+                      <span className={`size-2 rounded-full ${status.dot}`} />
+                      {status.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             );
           },
         }),
         columnHelper.display({
           id: "actions",
-          header: "Actions",
+          header: () => <div className="text-right">Actions</div>,
           enableSorting: false,
           cell: ({ row }) => {
             const item = row.original;
@@ -830,58 +868,61 @@ export function PaymentVerificationManager({
             const receiptUrl = group.projects.find(
               (project) => project.payment?.receipt_url
             )?.payment?.receipt_url;
+            const menuLabel = `More actions for ${item.registration.registration_number}`;
+            const openAdjustment = (type: AdjustmentType) =>
+              setAdjustment({
+                groupId: group.id,
+                submissionNumber:
+                  group.submission?.submission_number ?? "this submission",
+                type,
+                amount: "",
+                currency: group.submission?.currency ?? "MYR",
+              });
 
             return (
-              <div className="flex max-w-72 flex-wrap gap-1.5">
+              <div className="flex items-center justify-end gap-1.5">
+                {receiptUrl && tab !== "REVIEW" ? (
+                  <Button size="icon-sm" variant="outline" asChild>
+                    <a
+                      href={receiptUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="View receipt"
+                      aria-label={`View receipt for ${item.registration.registration_number}`}
+                    >
+                      <IconReceipt />
+                    </a>
+                  </Button>
+                ) : null}
                 {canEdit ? (
                   <>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busy}
-                      onClick={() => {
-                        setBusyId(group.id);
-                        void saveFees(group)
-                          .then((saved) => {
-                            if (saved) toast.success("Prices saved.");
-                          })
-                          .finally(() => setBusyId(null));
-                      }}
-                    >
-                      Save prices
-                    </Button>
                     <Button
                       size="sm"
                       disabled={busy || draftTotal === null}
                       onClick={() => void sendPaymentRequest(group)}
                     >
                       <IconMail />
-                      {draftTotal === 0
-                        ? "Mark as no charge"
-                        : "Send payment request"}
+                      {draftTotal === 0 ? "Mark as no charge" : "Send request"}
                     </Button>
+                    <RowActionsMenu label={menuLabel} disabled={busy}>
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          setBusyId(group.id);
+                          void saveFees(group)
+                            .then((saved) => {
+                              if (saved) toast.success("Prices saved.");
+                            })
+                            .finally(() => setBusyId(null));
+                        }}
+                      >
+                        <IconDeviceFloppy />
+                        Save prices without sending
+                      </DropdownMenuItem>
+                    </RowActionsMenu>
                   </>
                 ) : null}
                 {tab === "AWAITING" && group.submission ? (
                   <>
-                    {receiptUrl ? (
-                      <Button size="sm" variant="outline" asChild>
-                        <a href={receiptUrl} target="_blank" rel="noreferrer">
-                          <IconExternalLink />
-                          Receipt
-                        </a>
-                      </Button>
-                    ) : null}
-                    {group.submission.balance_due ? null : (
-                      <Button
-                        size="sm"
-                        disabled={busy}
-                        onClick={() => void resendPaymentRequest(group)}
-                      >
-                        <IconMail />
-                        Resend
-                      </Button>
-                    )}
                     <Button
                       size="sm"
                       variant="outline"
@@ -895,89 +936,61 @@ export function PaymentVerificationManager({
                         )
                       }
                     >
-                      <IconMail />
+                      <IconBell />
                       Remind
                     </Button>
+                    {group.submission.balance_due ? null : (
+                      <RowActionsMenu label={menuLabel} disabled={busy}>
+                        <DropdownMenuItem
+                          onSelect={() => void resendPaymentRequest(group)}
+                        >
+                          <IconMail />
+                          Resend payment request
+                        </DropdownMenuItem>
+                      </RowActionsMenu>
+                    )}
                   </>
                 ) : null}
                 {tab === "PENDING" ? (
                   <>
-                    {receiptUrl ? (
-                      <Button size="sm" variant="outline" asChild>
-                        <a href={receiptUrl} target="_blank" rel="noreferrer">
-                          <IconExternalLink />
-                          Receipt
-                        </a>
-                      </Button>
-                    ) : null}
                     <Button
                       size="sm"
                       disabled={busy}
                       onClick={() => verify(group, "PAID")}
                     >
+                      <IconCheck />
                       Mark paid
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busy || !group.submission}
-                      onClick={() =>
-                        setAdjustment({
-                          groupId: group.id,
-                          submissionNumber:
-                            group.submission?.submission_number ??
-                            "this submission",
-                          type: "UNDERPAID",
-                          amount: "",
-                          currency: group.submission?.currency ?? "MYR",
-                        })
-                      }
-                    >
-                      Underpaid
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busy || !group.submission}
-                      onClick={() =>
-                        setAdjustment({
-                          groupId: group.id,
-                          submissionNumber:
-                            group.submission?.submission_number ??
-                            "this submission",
-                          type: "OVERPAID",
-                          amount: "",
-                          currency: group.submission?.currency ?? "MYR",
-                        })
-                      }
-                    >
-                      Overpaid
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busy}
-                      onClick={() => verify(group, "FAILED")}
-                    >
-                      Mark failed
-                    </Button>
+                    <RowActionsMenu label={menuLabel} disabled={busy}>
+                      <DropdownMenuItem
+                        disabled={!group.submission}
+                        onSelect={() => openAdjustment("UNDERPAID")}
+                      >
+                        <IconArrowDown />
+                        Underpaid…
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={!group.submission}
+                        onSelect={() => openAdjustment("OVERPAID")}
+                      >
+                        <IconArrowUp />
+                        Overpaid…
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onSelect={() => verify(group, "FAILED")}
+                      >
+                        <IconX />
+                        Mark failed
+                      </DropdownMenuItem>
+                    </RowActionsMenu>
                   </>
                 ) : null}
                 {tab === "PAID" || tab === "FAILED" ? (
-                  <>
-                    {receiptUrl ? (
-                      <Button size="sm" variant="outline" asChild>
-                        <a href={receiptUrl} target="_blank" rel="noreferrer">
-                          <IconExternalLink />
-                          Receipt
-                        </a>
-                      </Button>
-                    ) : null}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busy}
-                      onClick={() =>
+                  <RowActionsMenu label={menuLabel} disabled={busy}>
+                    <DropdownMenuItem
+                      onSelect={() =>
                         void setPaymentStatus(
                           group,
                           receiptUrl
@@ -988,9 +1001,10 @@ export function PaymentVerificationManager({
                         )
                       }
                     >
-                      Reopen
-                    </Button>
-                  </>
+                      <IconArrowBackUp />
+                      Reopen payment
+                    </DropdownMenuItem>
+                  </RowActionsMenu>
                 ) : null}
               </div>
             );
