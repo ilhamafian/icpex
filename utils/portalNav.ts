@@ -17,7 +17,8 @@ export type PortalSection =
   | "judge-assignments"
   | "users"
   | "registrations"
-  | "my-assignments";
+  | "my-assignments"
+  | "account";
 
 export type PortalNavItem = {
   title: string;
@@ -88,6 +89,7 @@ const titleBySection: Record<PortalSection, string> = {
   users: "Users",
   registrations: "Payments",
   "my-assignments": "My Assignments",
+  account: "Account",
 };
 
 export function getNavForRole(role: UserRole): PortalNavItem[] {
@@ -95,6 +97,9 @@ export function getNavForRole(role: UserRole): PortalNavItem[] {
 }
 
 export function getPortalSection(pathname: string): PortalSection {
+  if (pathname.startsWith("/portal/account")) {
+    return "account";
+  }
   if (pathname.startsWith("/portal/competitions-categories")) {
     return "competitions-categories";
   }

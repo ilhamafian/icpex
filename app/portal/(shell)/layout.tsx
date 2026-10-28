@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { getSession } from "@/lib/session";
+import { UserModel } from "@/models/User";
 import { getHomePathForRole } from "@/utils/portalHome";
 
 export default async function PortalShellLayout({
@@ -21,6 +22,14 @@ export default async function PortalShellLayout({
   if (!session) {
     redirect("/portal/login");
   }
+
+  const account =
+    session.source === "env"
+      ? null
+      : await new UserModel().findByEmail(session.username.toLowerCase());
+  const displayName = account?.name?.trim() || session.username;
+  const displayEmail =
+    account?.email ?? session.role.toLowerCase().replace(/_/g, " ");
 
   return (
     <TooltipProvider>
@@ -37,8 +46,8 @@ export default async function PortalShellLayout({
           role={session.role}
           homeHref={getHomePathForRole(session.role)}
           user={{
-            name: session.username,
-            email: session.role.toLowerCase().replace(/_/g, " "),
+            name: displayName,
+            email: displayEmail,
             avatar: "",
           }}
         />

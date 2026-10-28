@@ -18,6 +18,19 @@ export class UserModel extends ModelBase<User> {
     return result ?? null;
   }
 
+  async updateCredentials(
+    id: string,
+    data: { name?: string; password_hash?: string }
+  ) {
+    const collection = await this.getCollection();
+    return collection.updateOne(this.buildIdFilter(id), {
+      $set: {
+        ...data,
+        updated_at: new Date(),
+      },
+    });
+  }
+
   async findByInviteTokenHash(tokenHash: string): Promise<User | null> {
     const result = await this.findOne({ invite_token_hash: tokenHash });
     return result ?? null;
