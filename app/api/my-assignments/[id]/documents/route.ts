@@ -8,7 +8,7 @@ import { createResponse, handleError } from "@/utils/apiHelper";
 import { isBlobStoreUrl } from "@/utils/blobUrl";
 import { registrationCompetitionId } from "@/utils/competitionScope";
 import { safeFileName } from "@/utils/documentZip";
-import { judgeTypesForRoles } from "@/utils/judgeTypes";
+import { canScoreAssignments } from "@/utils/judgeTypes";
 import { requireJudgeSession } from "@/utils/portalAuth";
 import { resolveJudgeUser } from "@/utils/resolveJudgeUser";
 import { canAccessEducationLevel } from "@/utils/trackAccess";
@@ -39,7 +39,7 @@ export async function GET(
     if (
       !assignment ||
       toIdString(assignment.judge_id) !== judge._id ||
-      !judgeTypesForRoles(judge.roles).includes(assignment.type)
+      !canScoreAssignments(judge.roles)
     ) {
       return createResponse({ error: "Forbidden" }, 403);
     }

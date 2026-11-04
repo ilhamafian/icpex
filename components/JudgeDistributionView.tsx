@@ -73,7 +73,6 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useIsMobile } from "@/hooks/use-mobile";
-import type { JudgeAssignmentType } from "@/schemas/judgeAssignmentsSchema";
 import { formatScore } from "@/utils/formatScore";
 import type { JudgeDistributionRow } from "@/utils/judgeLeaderReports";
 
@@ -89,11 +88,6 @@ const columnHelper = createColumnHelper<
   typeof features,
   JudgeDistributionRow
 >();
-
-const TYPE_LABELS: Record<JudgeAssignmentType, string> = {
-  THESIS: "Thesis",
-  JTEC: "JTEC",
-};
 
 const chartConfig = {
   participants: {
@@ -361,8 +355,6 @@ function JudgeDrawer({ item }: { item: JudgeDistributionRow }) {
             <p className="text-muted-foreground">{item.institution}</p>
           ) : null}
           <div className="grid grid-cols-2 gap-3">
-            <Count label="Thesis" value={item.thesis_count} />
-            <Count label="JTEC" value={item.jtec_count} />
             <Count label="Scored" value={item.scored_count} />
             <Count label="Awaiting" value={item.awaiting_count} />
           </div>
@@ -374,7 +366,7 @@ function JudgeDrawer({ item }: { item: JudgeDistributionRow }) {
             <ul className="flex flex-col gap-3">
               {active.map((participant) => (
                 <ParticipantLine
-                  key={`${participant.registration_number}-${participant.type}`}
+                  key={participant.registration_number}
                   participant={participant}
                 />
               ))}
@@ -386,7 +378,7 @@ function JudgeDrawer({ item }: { item: JudgeDistributionRow }) {
               <ul className="flex flex-col gap-3">
                 {declined.map((participant) => (
                   <ParticipantLine
-                    key={`${participant.registration_number}-${participant.type}`}
+                    key={participant.registration_number}
                     participant={participant}
                   />
                 ))}
@@ -424,8 +416,7 @@ function ParticipantLine({
         <span className="font-medium">{participant.registration_number}</span>
         <span className="truncate">{participant.participant_name}</span>
         <span className="truncate text-xs text-muted-foreground">
-          {participant.project_title || "Untitled project"} ·{" "}
-          {TYPE_LABELS[participant.type]}
+          {participant.project_title || "Untitled project"}
         </span>
       </div>
       <span className="shrink-0 tabular-nums">
@@ -489,16 +480,6 @@ function createColumns(pageIndex: number, pageSize: number) {
           {row.original.participant_count.toLocaleString()}
         </div>
       ),
-    }),
-    columnHelper.accessor("thesis_count", {
-      id: "thesis",
-      header: () => <div className="w-full text-right">Thesis</div>,
-      cell: ({ row }) => <CountCell value={row.original.thesis_count} />,
-    }),
-    columnHelper.accessor("jtec_count", {
-      id: "jtec",
-      header: () => <div className="w-full text-right">JTEC</div>,
-      cell: ({ row }) => <CountCell value={row.original.jtec_count} />,
     }),
     columnHelper.accessor("scored_count", {
       id: "scored",

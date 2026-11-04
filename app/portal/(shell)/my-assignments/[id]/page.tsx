@@ -7,16 +7,16 @@ import {
 import { CategoryModel } from "@/models/Category";
 import { CompetitionModel } from "@/models/Competition";
 import { JudgeAssignmentModel } from "@/models/JudgeAssignment";
-import { JudgeCriteriaModel } from "@/models/JudgeCriteria";
-import { JudgeDeliverableModel } from "@/models/JudgeDeliverable";
+import { JudgeRubricModel } from "@/models/JudgeRubric";
 import { RegistrationModel } from "@/models/Registration";
 import { toIdString } from "@/schemas/objectId";
 import { registrationCompetitionId } from "@/utils/competitionScope";
-import { judgeTypesForRoles } from "@/utils/judgeTypes";
+import { canScoreAssignments } from "@/utils/judgeTypes";
+import { readyRubrics, scoringBlockReason } from "@/utils/rubricScore";
 import { requirePortalSection } from "@/utils/requirePortalAccess";
 import { resolveJudgeUser } from "@/utils/resolveJudgeUser";
 import { serializeJudgeAssignment } from "@/utils/serializeJudgeAssignment";
-import { serializeJudgeCriteria } from "@/utils/serializeJudgeCriteria";
+import { serializeJudgeRubric } from "@/utils/serializeJudgeRubric";
 import { canAccessEducationLevel } from "@/utils/trackAccess";
 
 export default async function AssessmentPage({
@@ -37,7 +37,7 @@ export default async function AssessmentPage({
   if (
     !assignment ||
     toIdString(assignment.judge_id) !== toIdString(judge._id) ||
-    !judgeTypesForRoles(judge.roles).includes(assignment.type)
+    !canScoreAssignments(judge.roles)
   ) {
     notFound();
   }
@@ -56,15 +56,19 @@ export default async function AssessmentPage({
     notFound();
   }
 
-  const [competition, category, criteria, deliverable] = await Promise.all([
+  const [competition, category, rubricDocs] = await Promise.all([
     new CompetitionModel().findById(toIdString(registration.competition_id)),
     new CategoryModel().findById(toIdString(registration.category_id)),
-    new JudgeCriteriaModel().find(
-      { type: assignment.type },
-      { sort: { created_at: 1, name: 1 } }
+    new JudgeRubricModel().find(
+      {
+        competition_id: registrationCompetitionId(registration),
+        education_level: registration.participant.education_level,
+      },
+      { sort: { sort_order: 1, created_at: 1 } }
     ),
-    new JudgeDeliverableModel().findOne({ type: assignment.type }),
   ]);
+  const rubrics = rubricDocs.map(serializeJudgeRubric);
+  const scoringBlocked = scoringBlockReason(rubrics);
 
   const assessmentRegistration: AssessmentRegistration = {
     registration_number: registration.registration_number,
@@ -112,8 +116,8 @@ export default async function AssessmentPage({
       key={toIdString(assignment._id)}
       initialAssignment={serializeJudgeAssignment(assignment)}
       registration={assessmentRegistration}
-      criteria={criteria.map(serializeJudgeCriteria)}
-      deliverableWeight={deliverable?.weight ?? null}
+      rubrics={scoringBlocked ? [] : readyRubrics(rubrics)}
+      scoringBlocked={scoringBlocked}
       judgingDueDate={
         competition?.judging_due_date
           ? new Date(competition.judging_due_date).toISOString()

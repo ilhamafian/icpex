@@ -7,12 +7,16 @@ export const judgeAssignmentStatusSchema = z.enum([
   "REJECTED",
 ]);
 
+/** Legacy rows may still store Thesis or JTEC. New assignments omit it. */
 export const judgeAssignmentTypeSchema = z.enum(["THESIS", "JTEC"]);
 
 export const judgeScoreSchema = z.object({
-  criteria_id: objectIdSchema,
+  component_id: objectIdSchema.optional(),
+  /** Scores saved before rubrics referenced a criterion id. */
+  criteria_id: objectIdSchema.optional(),
   score: z.number(),
-  comments: z.string(),
+  weight: z.number().optional(),
+  comments: z.string().default(""),
 });
 
 export const judgeAssignmentsSchema = z.object({
@@ -21,22 +25,21 @@ export const judgeAssignmentsSchema = z.object({
   registration_number: z.string().min(1),
   status: judgeAssignmentStatusSchema,
   scores: z.array(judgeScoreSchema).default([]),
-  type: judgeAssignmentTypeSchema,
+  type: judgeAssignmentTypeSchema.optional(),
   total_score: z.number().default(0),
   submitted_at: z.coerce.date().optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional(),
 });
 
-/** Admin create payload — scores / totals are set when a judge submits. */
+/** Leader create payload — scores / totals are set when a judge submits. */
 export const judgeAssignmentInputSchema = z.object({
   judge_id: objectIdSchema,
   registration_number: z.string().min(1),
-  type: judgeAssignmentTypeSchema,
   status: judgeAssignmentStatusSchema.optional(),
 });
 
-/** Admin may reassign judge, registration, type, or status — not scores. */
+/** Leader may reassign judge, registration, or status — not scores. */
 export const judgeAssignmentUpdateSchema = judgeAssignmentInputSchema.partial();
 
 /** Judge accepts or declines a pending assignment. */
@@ -48,8 +51,9 @@ export const judgeAssignmentJudgeStatusSchema = z.object({
 export const judgeAssignmentScoreSubmitSchema = z.object({
   scores: z
     .array(
-      judgeScoreSchema.extend({
-        score: z.number().int().min(0).max(10),
+      z.object({
+        component_id: objectIdSchema,
+        score: z.number().int().min(1).max(10),
         comments: z.string().default(""),
       })
     )

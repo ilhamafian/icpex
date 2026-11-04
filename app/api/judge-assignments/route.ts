@@ -39,10 +39,9 @@ export async function GET() {
       return createResponse({ error: "Unauthorized" }, 401);
     }
 
-    const assignments = await new JudgeAssignmentModel().find(
-      {},
-      { sort: { type: 1, created_at: -1 } }
-    );
+    const model = new JudgeAssignmentModel();
+    await model.collapseDuplicates();
+    const assignments = await model.find({}, { sort: { created_at: -1 } });
     const track = educationLevelForRole(session.role);
     const visible = track
       ? await filterAssignments(assignments, track)
@@ -73,7 +72,6 @@ export async function POST(req: NextRequest) {
     const refs = await validateAssignmentRefs({
       judge_id: judgeId,
       registration_number: parsed.data.registration_number,
-      type: parsed.data.type,
       actorRole: session.role,
     });
     if ("error" in refs) {
@@ -81,10 +79,10 @@ export async function POST(req: NextRequest) {
     }
 
     const model = new JudgeAssignmentModel();
+    await model.collapseDuplicates();
     const duplicate = await model.findOne({
       judge_id: judgeId,
       registration_number: parsed.data.registration_number,
-      type: parsed.data.type,
     });
     if (duplicate) {
       return createResponse(
@@ -97,7 +95,6 @@ export async function POST(req: NextRequest) {
       judgeAssignmentsSchema.parse({
         judge_id: judgeId,
         registration_number: parsed.data.registration_number,
-        type: parsed.data.type,
         status: "ACCEPTED",
         scores: [],
         total_score: 0,

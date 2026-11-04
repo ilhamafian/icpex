@@ -54,7 +54,6 @@ export async function PATCH(
       : toIdString(existing.judge_id);
     const nextRegistration =
       parsed.data.registration_number ?? existing.registration_number;
-    const nextType = parsed.data.type ?? existing.type;
 
     const registration = await new RegistrationModel().findOne({
       registration_number: nextRegistration,
@@ -65,14 +64,12 @@ export async function PATCH(
 
     const changedIdentity =
       nextJudgeId !== toIdString(existing.judge_id) ||
-      nextRegistration !== existing.registration_number ||
-      nextType !== existing.type;
+      nextRegistration !== existing.registration_number;
 
     if (changedIdentity) {
       const refs = await validateAssignmentRefs({
         judge_id: nextJudgeId,
         registration_number: nextRegistration,
-        type: nextType,
         actorRole: session.role,
       });
       if ("error" in refs) {
@@ -82,7 +79,6 @@ export async function PATCH(
       const duplicate = await model.findOne({
         judge_id: nextJudgeId,
         registration_number: nextRegistration,
-        type: nextType,
       });
       if (duplicate && toIdString(duplicate._id) !== id) {
         return createResponse(
@@ -98,9 +94,6 @@ export async function PATCH(
     }
     if (parsed.data.registration_number !== undefined) {
       updatePayload.registration_number = parsed.data.registration_number;
-    }
-    if (parsed.data.type !== undefined) {
-      updatePayload.type = parsed.data.type;
     }
     if (parsed.data.status !== undefined) {
       updatePayload.status = parsed.data.status;

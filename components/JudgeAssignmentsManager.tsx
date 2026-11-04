@@ -19,7 +19,6 @@ import {
   JudgeAssignmentsDataTable,
   type JudgeAssignmentRow,
 } from "@/components/judge-assignments-data-table";
-import type { JudgeAssignmentType } from "@/schemas/judgeAssignmentsSchema";
 import type { SerializedUser } from "@/types/user";
 import type { AssignmentRegistrationOption } from "@/utils/assignmentOptions";
 import type { SerializedJudgeAssignment } from "@/utils/serializeJudgeAssignment";
@@ -69,8 +68,7 @@ export function JudgeAssignmentsManager({
     async (assignment: SerializedJudgeAssignment) => {
       const key = assignmentKey(
         assignment.registration_number,
-        assignment.judge_id,
-        assignment.type
+        assignment.judge_id
       );
       setBusyKey(key);
       try {
@@ -98,14 +96,13 @@ export function JudgeAssignmentsManager({
     async (
       row: JudgeAssignmentRow,
       judge: SerializedUser,
-      type: JudgeAssignmentType,
       assign: boolean
     ) => {
       const registrationNumber = row.registration.registration_number;
 
       if (!assign) {
         const existing = row.assignments.find(
-          (item) => item.judge_id === judge._id && item.type === type
+          (item) => item.judge_id === judge._id
         );
         if (!existing) return;
         if (existing.submitted_at || existing.scores.length > 0) {
@@ -116,7 +113,7 @@ export function JudgeAssignmentsManager({
         return;
       }
 
-      setBusyKey(assignmentKey(registrationNumber, judge._id, type));
+      setBusyKey(assignmentKey(registrationNumber, judge._id));
       try {
         const res = await fetch("/api/judge-assignments", {
           method: "POST",
@@ -124,7 +121,6 @@ export function JudgeAssignmentsManager({
           body: JSON.stringify({
             judge_id: judge._id,
             registration_number: registrationNumber,
-            type,
           }),
         });
         if (!res.ok) {

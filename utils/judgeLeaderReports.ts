@@ -4,12 +4,11 @@ import { ObjectId, type Filter } from "mongodb";
 
 import { CategoryModel } from "@/models/Category";
 import { JudgeAssignmentModel } from "@/models/JudgeAssignment";
-import { JudgeCriteriaModel } from "@/models/JudgeCriteria";
+import { JudgeRubricModel } from "@/models/JudgeRubric";
 import { UserModel } from "@/models/User";
 import type { EducationLevel } from "@/schemas/educationLevel";
 import type {
   JudgeAssignmentStatus,
-  JudgeAssignmentType,
   JudgeScore,
 } from "@/schemas/judgeAssignmentsSchema";
 import { toIdString } from "@/schemas/objectId";
@@ -23,8 +22,7 @@ import {
 import { findRegistrationsForCompetition } from "@/utils/competitionScope";
 import { getCurrentCompetition } from "@/utils/currentCompetition";
 import { usersWithRolesFilter } from "@/utils/roleGrants";
-import { serializeJudgeCriteria } from "@/utils/serializeJudgeCriteria";
-import type { SerializedJudgeCriteria } from "@/utils/serializeJudgeCriteria";
+import { serializeJudgeRubric } from "@/utils/serializeJudgeRubric";
 
 export type ParticipantMarkScore = {
   criteria_id: string;
@@ -37,7 +35,6 @@ export type ParticipantMarkJudge = {
   assignment_id: string;
   judge_id: string;
   judge_name: string;
-  type: JudgeAssignmentType;
   status: JudgeAssignmentStatus;
   total_score: number;
   submitted: boolean;
@@ -60,7 +57,6 @@ export type JudgeDistributionParticipant = {
   participant_name: string;
   project_title: string;
   category_name: string;
-  type: JudgeAssignmentType;
   status: JudgeAssignmentStatus;
   total_score: number;
   submitted: boolean;
@@ -73,8 +69,6 @@ export type JudgeDistributionRow = {
   institution: string;
   /** Unique participants with a non-declined assignment. */
   participant_count: number;
-  thesis_count: number;
-  jtec_count: number;
   scored_count: number;
   awaiting_count: number;
   declined_count: number;
@@ -120,31 +114,32 @@ async function findUsersByIds(ids: string[]) {
   return new UserModel().find({ $or: clauses } as Filter<User>);
 }
 
+function scoreComponentId(score: JudgeScore) {
+  return toIdString(score.component_id ?? score.criteria_id);
+}
+
 function scoresForAssignment(
   assignmentScores: JudgeScore[],
   submitted: boolean,
-  criteria: SerializedJudgeCriteria[]
+  componentNames: Map<string, string>
 ): ParticipantMarkScore[] {
   if (!submitted) return [];
-  const byId = new Map(
-    assignmentScores.map((score) => [toIdString(score.criteria_id), score])
-  );
   const rows: ParticipantMarkScore[] = [];
   const seen = new Set<string>();
-  for (const item of criteria) {
-    const score = byId.get(item._id);
+  for (const [id, name] of componentNames) {
+    const score = assignmentScores.find((item) => scoreComponentId(item) === id);
     if (!score) continue;
-    seen.add(item._id);
+    seen.add(id);
     rows.push({
-      criteria_id: item._id,
-      criteria_name: item.name,
+      criteria_id: id,
+      criteria_name: name,
       score: score.score,
       comments: score.comments ?? "",
     });
   }
   for (const score of assignmentScores) {
-    const id = toIdString(score.criteria_id);
-    if (seen.has(id)) continue;
+    const id = scoreComponentId(score);
+    if (!id || seen.has(id)) continue;
     rows.push({
       criteria_id: id,
       criteria_name: "Removed criterion",
@@ -167,16 +162,21 @@ export async function loadJudgeLeaderReport(
     ? [judgeRoleForEducation(track)]
     : [...SCORING_JUDGE_ROLES];
 
-  const [foundRegistrations, assignedJudges, categories, criteriaDocs] =
+  const assignmentModel = new JudgeAssignmentModel();
+  await assignmentModel.collapseDuplicates();
+
+  const [foundRegistrations, assignedJudges, categories, rubricDocs] =
     await Promise.all([
       findRegistrationsForCompetition(competitionId),
       new UserModel().find(usersWithRolesFilter(judgeRoles, competitionId), {
         sort: { name: 1, email: 1 },
       }),
       new CategoryModel().find({}),
-      new JudgeCriteriaModel().find(
-        {},
-        { sort: { created_at: 1, name: 1 } }
+      new JudgeRubricModel().find(
+        track
+          ? { competition_id: competitionId, education_level: track }
+          : { competition_id: competitionId },
+        { sort: { sort_order: 1, created_at: 1 } }
       ),
     ]);
 
@@ -192,7 +192,7 @@ export async function loadJudgeLeaderReport(
   const assignments =
     registrationNumbers.length === 0
       ? []
-      : await new JudgeAssignmentModel().find({
+      : await assignmentModel.find({
           registration_number: { $in: registrationNumbers },
         });
 
@@ -214,12 +214,12 @@ export async function loadJudgeLeaderReport(
   const categoryNames = new Map(
     categories.map((category) => [toIdString(category._id), category.name])
   );
-  const criteria = criteriaDocs.map(serializeJudgeCriteria);
-  const criteriaByType: Record<JudgeAssignmentType, SerializedJudgeCriteria[]> =
-    {
-      THESIS: criteria.filter((item) => item.type === "THESIS"),
-      JTEC: criteria.filter((item) => item.type === "JTEC"),
-    };
+  const componentNames = new Map<string, string>();
+  for (const rubric of rubricDocs.map(serializeJudgeRubric)) {
+    for (const component of rubric.components) {
+      componentNames.set(component._id, `${rubric.name} · ${component.name}`);
+    }
+  }
 
   function judgeName(judgeId: string) {
     const judge = judgesById.get(judgeId);
@@ -245,14 +245,13 @@ export async function loadJudgeLeaderReport(
           assignment_id: toIdString(assignment._id),
           judge_id: judgeId,
           judge_name: judgeName(judgeId),
-          type: assignment.type,
           status: assignment.status,
           total_score: assignment.total_score ?? 0,
           submitted,
           scores: scoresForAssignment(
             assignment.scores ?? [],
             submitted,
-            criteriaByType[assignment.type] ?? []
+            componentNames
           ),
         };
       }
@@ -289,8 +288,6 @@ export async function loadJudgeLeaderReport(
       email: judge?.email ?? "",
       institution: judge?.judge_profile?.institution?.name ?? "",
       participant_count: 0,
-      thesis_count: 0,
-      jtec_count: 0,
       scored_count: 0,
       awaiting_count: 0,
       declined_count: 0,
@@ -324,7 +321,6 @@ export async function loadJudgeLeaderReport(
       category_name: registration
         ? (categoryNames.get(toIdString(registration.category_id)) ?? "—")
         : "—",
-      type: assignment.type,
       status: assignment.status,
       total_score: assignment.total_score ?? 0,
       submitted: Boolean(assignment.submitted_at),
@@ -333,8 +329,6 @@ export async function loadJudgeLeaderReport(
       row.declined_count += 1;
       continue;
     }
-    if (assignment.type === "THESIS") row.thesis_count += 1;
-    else row.jtec_count += 1;
     if (assignment.submitted_at) row.scored_count += 1;
     else row.awaiting_count += 1;
   }
@@ -347,8 +341,7 @@ export async function loadJudgeLeaderReport(
           .map((participant) => participant.registration_number)
       );
       row.participants.sort((a, b) =>
-        a.registration_number.localeCompare(b.registration_number) ||
-        a.type.localeCompare(b.type)
+        a.registration_number.localeCompare(b.registration_number)
       );
       return { ...row, participant_count: activeNumbers.size };
     })

@@ -4,7 +4,7 @@ import { toIdString } from "@/schemas/objectId";
 import { toAssignmentRegistrationOption } from "@/utils/assignmentOptions";
 import { findRegistrationsForCompetition } from "@/utils/competitionScope";
 import { getCurrentCompetition } from "@/utils/currentCompetition";
-import { judgeTypesForRoles } from "@/utils/judgeTypes";
+import { canScoreAssignments } from "@/utils/judgeTypes";
 import { requirePortalSection } from "@/utils/requirePortalAccess";
 import { resolveJudgeUser } from "@/utils/resolveJudgeUser";
 import { serializeJudgeAssignment } from "@/utils/serializeJudgeAssignment";
@@ -19,6 +19,7 @@ async function loadMyAssignments(
   try {
     const assignmentModel = new JudgeAssignmentModel();
     await assignmentModel.acceptPending();
+    await assignmentModel.collapseDuplicates();
 
     const registrations = filterByEducationLevel(
       role,
@@ -59,8 +60,7 @@ export default async function MyAssignmentsPage() {
     redirect("/portal/login");
   }
 
-  const allowedTypes = judgeTypesForRoles(judge.roles);
-  if (allowedTypes.length === 0) {
+  if (!canScoreAssignments(judge.roles)) {
     redirect("/portal/login");
   }
 
@@ -75,7 +75,6 @@ export default async function MyAssignmentsPage() {
     <MyAssignmentsManager
       initialAssignments={assignments}
       registrations={registrations}
-      allowedTypes={allowedTypes}
       judgingDueDate={
         competition?.judging_due_date
           ? new Date(competition.judging_due_date).toISOString()

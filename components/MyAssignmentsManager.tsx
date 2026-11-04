@@ -6,7 +6,6 @@ import {
   MyAssignmentsDataTable,
   type MyAssignmentRow,
 } from "@/components/my-assignments-data-table";
-import type { JudgeAssignmentType } from "@/schemas/judgeAssignmentsSchema";
 import type { AssignmentRegistrationOption } from "@/utils/assignmentOptions";
 import type { SerializedJudgeAssignment } from "@/utils/serializeJudgeAssignment";
 
@@ -23,31 +22,23 @@ export async function readError(res: Response): Promise<string> {
 export function MyAssignmentsManager({
   initialAssignments,
   registrations,
-  allowedTypes,
   judgingDueDate = null,
 }: {
   initialAssignments: SerializedJudgeAssignment[];
   registrations: AssignmentRegistrationOption[];
-  allowedTypes: JudgeAssignmentType[];
   judgingDueDate?: string | null;
 }) {
   const rows = useMemo<MyAssignmentRow[]>(() => {
     const byNumber = new Map(
       registrations.map((item) => [item.registration_number, item])
     );
-    return initialAssignments
-      .filter((item) => allowedTypes.includes(item.type))
-      .map((assignment) => ({
-        assignment,
-        registration: byNumber.get(assignment.registration_number),
-      }));
-  }, [initialAssignments, registrations, allowedTypes]);
+    return initialAssignments.map((assignment) => ({
+      assignment,
+      registration: byNumber.get(assignment.registration_number),
+    }));
+  }, [initialAssignments, registrations]);
 
   return (
-    <MyAssignmentsDataTable
-      data={rows}
-      showType={allowedTypes.length > 1}
-      judgingDueDate={judgingDueDate}
-    />
+    <MyAssignmentsDataTable data={rows} judgingDueDate={judgingDueDate} />
   );
 }

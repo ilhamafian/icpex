@@ -2,7 +2,6 @@ import "server-only";
 
 import { RegistrationModel } from "@/models/Registration";
 import { UserModel } from "@/models/User";
-import type { JudgeAssignmentType } from "@/schemas/judgeAssignmentsSchema";
 import { toIdString } from "@/schemas/objectId";
 import type { UserRole } from "@/schemas/userRole";
 import {
@@ -17,7 +16,6 @@ import { hasGrant } from "@/utils/roleGrants";
 export async function validateAssignmentRefs(input: {
   judge_id: string;
   registration_number: string;
-  type: JudgeAssignmentType;
   /** Active role of the person creating the assignment. */
   actorRole?: UserRole;
 }) {

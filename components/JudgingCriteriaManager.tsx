@@ -25,64 +25,46 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Sheet,
   SheetContent,
   SheetFooter,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { hasAtMostOneDecimal } from "@/schemas/judgeDeliverableSchema";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  EDUCATION_LEVEL_LABELS,
+  type EducationLevel,
+} from "@/schemas/educationLevel";
 import {
   SCORE_BAND_KEYS,
   SCORE_BAND_LABELS,
   emptyScoreBands,
-  type JudgeCriteriaType,
+  hasAtMostOneDecimal,
   type ScoreBandKey,
-} from "@/schemas/judgeCriteriaSchema";
-import type { SerializedJudgeCriteria } from "@/utils/serializeJudgeCriteria";
-import type { SerializedJudgeDeliverable } from "@/utils/serializeJudgeDeliverable";
+} from "@/schemas/judgeRubricSchema";
+import { weightPercent, weightsSumTo100 } from "@/utils/rubricScore";
+import type { SerializedJudgeRubric } from "@/utils/serializeJudgeRubric";
 
-type FormState = {
+type ComponentForm = {
   name: string;
-  component: string;
-  type: JudgeCriteriaType;
+  description: string;
+  weight: string;
   bands: Record<ScoreBandKey, string>;
 };
 
 const textareaClassName =
   "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-lg border bg-transparent px-2.5 py-2 text-base outline-none focus-visible:ring-3 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30";
 
-function emptyForm(type: JudgeCriteriaType = "THESIS"): FormState {
+const TRACKS: EducationLevel[] = ["UNDERGRADUATE", "POSTGRADUATE"];
+
+function emptyComponentForm(): ComponentForm {
   return {
     name: "",
-    component: "",
-    type,
+    description: "",
+    weight: "",
     bands: emptyScoreBands(),
   };
-}
-
-function criteriaToForm(criteria: SerializedJudgeCriteria): FormState {
-  return {
-    name: criteria.name,
-    component: criteria.component,
-    type: criteria.type,
-    bands: { ...criteria.bands },
-  };
-}
-
-function compareCriteria(a: SerializedJudgeCriteria, b: SerializedJudgeCriteria) {
-  const aTime = a.created_at ?? "";
-  const bTime = b.created_at ?? "";
-  if (aTime !== bTime) return aTime < bTime ? -1 : 1;
-  return a.name.localeCompare(b.name);
 }
 
 function Field({
@@ -110,353 +92,380 @@ async function readError(res: Response): Promise<string> {
   }
 }
 
-const TYPE_LABELS: Record<JudgeCriteriaType, string> = {
-  THESIS: "Thesis",
-  JTEC: "JTEC",
-};
-
-const CRITERIA_TYPES: JudgeCriteriaType[] = ["THESIS", "JTEC"];
-
-function weightsFromDeliverables(
-  deliverables: SerializedJudgeDeliverable[]
-): Record<JudgeCriteriaType, string> {
-  return {
-    THESIS: weightInput(deliverables, "THESIS"),
-    JTEC: weightInput(deliverables, "JTEC"),
-  };
-}
-
-function weightInput(
-  deliverables: SerializedJudgeDeliverable[],
-  type: JudgeCriteriaType
-) {
-  const match = deliverables.find((item) => item.type === type);
-  return match ? String(match.weight) : "";
-}
-
-function parsedWeights(weights: Record<JudgeCriteriaType, string>) {
-  return CRITERIA_TYPES.map((type) => {
-    const raw = weights[type].trim();
-    if (raw === "") return { type, weight: null as number | null };
-    const weight = Number(raw);
-    return {
-      type,
-      weight: Number.isFinite(weight) ? weight : null,
-    };
-  });
+function compareRubrics(a: SerializedJudgeRubric, b: SerializedJudgeRubric) {
+  if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+  return a.name.localeCompare(b.name);
 }
 
 export function JudgingCriteriaManager({
-  initialCriteria,
-  initialDeliverables,
+  initialRubrics,
+  lockedTrack,
 }: {
-  initialCriteria: SerializedJudgeCriteria[];
-  initialDeliverables: SerializedJudgeDeliverable[];
+  initialRubrics: SerializedJudgeRubric[];
+  lockedTrack: EducationLevel | null;
 }) {
-  const [criteria, setCriteria] = useState(initialCriteria);
-  const [weights, setWeights] = useState(() =>
-    weightsFromDeliverables(initialDeliverables)
+  const [rubrics, setRubrics] = useState(initialRubrics);
+  const [track, setTrack] = useState<EducationLevel>(
+    lockedTrack ?? "UNDERGRADUATE"
   );
-  const [savingWeights, setSavingWeights] = useState(false);
-  const [tab, setTab] = useState<JudgeCriteriaType>("THESIS");
-  const [sheetOpen, setSheetOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState(emptyForm);
-  const [deleteTarget, setDeleteTarget] =
-    useState<SerializedJudgeCriteria | null>(null);
+  const [rubricSheet, setRubricSheet] = useState<{
+    id: string | null;
+    name: string;
+  } | null>(null);
+  const [componentSheet, setComponentSheet] = useState<{
+    rubricId: string;
+    componentId: string | null;
+    form: ComponentForm;
+  } | null>(null);
+  const [deleteRubric, setDeleteRubric] = useState<SerializedJudgeRubric | null>(
+    null
+  );
+  const [deleteComponent, setDeleteComponent] = useState<{
+    rubric: SerializedJudgeRubric;
+    componentId: string;
+    name: string;
+  } | null>(null);
 
-  const byType = useMemo(
+  const activeTrack = lockedTrack ?? track;
+  const visible = useMemo(
     () =>
-      Object.fromEntries(
-        CRITERIA_TYPES.map((type) => [
-          type,
-          criteria.filter((item) => item.type === type).sort(compareCriteria),
-        ])
-      ) as Record<JudgeCriteriaType, SerializedJudgeCriteria[]>,
-    [criteria]
+      rubrics
+        .filter((rubric) => rubric.education_level === activeTrack)
+        .sort(compareRubrics),
+    [rubrics, activeTrack]
   );
 
-  const weightValues = parsedWeights(weights);
-  const weightTotal = weightValues.every((item) => item.weight !== null)
-    ? Math.round(
-        weightValues.reduce((sum, item) => sum + (item.weight ?? 0), 0) * 10
-      ) / 10
-    : null;
-
-  function openCreate() {
-    setEditingId(null);
-    setForm(emptyForm(tab));
-    setSheetOpen(true);
+  function replaceRubric(next: SerializedJudgeRubric) {
+    setRubrics((current) => {
+      const without = current.filter((rubric) => rubric._id !== next._id);
+      return [...without, next];
+    });
   }
 
-  function openEdit(item: SerializedJudgeCriteria) {
-    setEditingId(item._id);
-    setForm(criteriaToForm(item));
-    setSheetOpen(true);
-  }
-
-  async function handleSaveWeights() {
-    if (weightValues.some((item) => item.weight === null)) {
-      toast.error("Enter a percentage for Thesis and JTEC.");
-      return;
-    }
-    if (
-      weightValues.some(
-        (item) =>
-          item.weight === null ||
-          item.weight < 0 ||
-          item.weight > 100 ||
-          !hasAtMostOneDecimal(item.weight)
-      )
-    ) {
-      toast.error(
-        "Percentages must be between 0 and 100, with at most one decimal place."
-      );
-      return;
-    }
-    const tenths = weightValues.reduce(
-      (sum, item) => sum + Math.round((item.weight ?? 0) * 10),
-      0
-    );
-    if (tenths !== 1000) {
-      toast.error("Thesis and JTEC must add up to 100%.");
-      return;
-    }
-
-    setSavingWeights(true);
-    try {
-      const res = await fetch("/api/judge-deliverables", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          deliverables: weightValues.map((item) => ({
-            type: item.type,
-            weight: item.weight,
-          })),
-        }),
-      });
-      if (!res.ok) {
-        toast.error(await readError(res));
-        return;
-      }
-      const data = (await res.json()) as {
-        deliverables: SerializedJudgeDeliverable[];
-      };
-      setWeights(weightsFromDeliverables(data.deliverables));
-      toast.success("Deliverable weights saved.");
-    } catch {
-      toast.error("Failed to save deliverable weights.");
-    } finally {
-      setSavingWeights(false);
-    }
-  }
-
-  async function handleSave() {
-    const name = form.name.trim();
-    const component = form.component.trim();
-    const bands = Object.fromEntries(
-      SCORE_BAND_KEYS.map((key) => [key, form.bands[key].trim()])
-    ) as Record<ScoreBandKey, string>;
-
+  async function saveRubricName() {
+    if (!rubricSheet) return;
+    const name = rubricSheet.name.trim();
     if (!name) {
-      toast.error("Name is required.");
+      toast.error("Enter a rubric name.");
       return;
     }
-    if (!component) {
-      toast.error("Component is required.");
-      return;
-    }
-    if (SCORE_BAND_KEYS.some((key) => !bands[key])) {
-      toast.error("Every score range needs a description.");
-      return;
-    }
-
     setSaving(true);
     try {
       const res = await fetch(
-        editingId ? `/api/judge-criteria/${editingId}` : "/api/judge-criteria",
+        rubricSheet.id ? `/api/judge-rubrics/${rubricSheet.id}` : "/api/judge-rubrics",
         {
-          method: editingId ? "PATCH" : "POST",
+          method: rubricSheet.id ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name,
-            component,
-            bands,
-            type: form.type,
-          }),
+          body: JSON.stringify(
+            rubricSheet.id
+              ? { name }
+              : { name, education_level: activeTrack }
+          ),
         }
       );
-
       if (!res.ok) {
         toast.error(await readError(res));
         return;
       }
-
-      const data = (await res.json()) as { criteria: SerializedJudgeCriteria };
-      setCriteria((prev) => {
-        const next = editingId
-          ? prev.map((item) => (item._id === editingId ? data.criteria : item))
-          : [...prev, data.criteria];
-        return next.sort(compareCriteria);
-      });
-      setSheetOpen(false);
-      toast.success(editingId ? "Criteria updated." : "Criteria created.");
+      const data = (await res.json()) as { rubric: SerializedJudgeRubric };
+      replaceRubric(data.rubric);
+      setRubricSheet(null);
+      toast.success(rubricSheet.id ? "Rubric renamed." : "Rubric created.");
     } catch {
-      toast.error("Failed to save criteria.");
+      toast.error("Failed to save rubric.");
     } finally {
       setSaving(false);
     }
   }
 
-  async function confirmDelete() {
-    if (!deleteTarget) return;
-    const target = deleteTarget;
-    setDeleteTarget(null);
+  async function saveComponent() {
+    if (!componentSheet) return;
+    const rubric = rubrics.find((item) => item._id === componentSheet.rubricId);
+    if (!rubric) return;
+    const name = componentSheet.form.name.trim();
+    const description = componentSheet.form.description.trim();
+    const weight = Number(componentSheet.form.weight);
+    const bands = Object.fromEntries(
+      SCORE_BAND_KEYS.map((key) => [key, componentSheet.form.bands[key].trim()])
+    ) as ComponentForm["bands"];
 
+    if (!name) {
+      toast.error("Enter a component title.");
+      return;
+    }
+    if (!description) {
+      toast.error("Enter a description.");
+      return;
+    }
+    if (
+      !Number.isFinite(weight) ||
+      weight <= 0 ||
+      weight > 100 ||
+      !hasAtMostOneDecimal(weight)
+    ) {
+      toast.error("Enter a weight from 0.1 to 100, with at most one decimal.");
+      return;
+    }
+    if (SCORE_BAND_KEYS.some((key) => !bands[key])) {
+      toast.error("Describe every score band.");
+      return;
+    }
+
+    const components = rubric.components.map((component) => ({
+      _id: component._id,
+      name: component.name,
+      description: component.description,
+      weight: component.weight,
+      bands: component.bands,
+    }));
+    const next = {
+      name,
+      description,
+      weight,
+      bands,
+      ...(componentSheet.componentId ? { _id: componentSheet.componentId } : {}),
+    };
+    const payload = componentSheet.componentId
+      ? components.map((component) =>
+          component._id === componentSheet.componentId ? next : component
+        )
+      : [...components, next];
+
+    setSaving(true);
     try {
-      const res = await fetch(`/api/judge-criteria/${target._id}`, {
+      const res = await fetch(`/api/judge-rubrics/${rubric._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ components: payload }),
+      });
+      if (!res.ok) {
+        toast.error(await readError(res));
+        return;
+      }
+      const data = (await res.json()) as { rubric: SerializedJudgeRubric };
+      replaceRubric(data.rubric);
+      setComponentSheet(null);
+      toast.success(componentSheet.componentId ? "Component updated." : "Component added.");
+    } catch {
+      toast.error("Failed to save component.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function confirmDeleteRubric() {
+    if (!deleteRubric) return;
+    const target = deleteRubric;
+    setDeleteRubric(null);
+    try {
+      const res = await fetch(`/api/judge-rubrics/${target._id}`, {
         method: "DELETE",
       });
       if (!res.ok) {
         toast.error(await readError(res));
         return;
       }
-      setCriteria((prev) => prev.filter((item) => item._id !== target._id));
+      setRubrics((current) => current.filter((rubric) => rubric._id !== target._id));
       toast.success(`Deleted ${target.name}`);
     } catch {
-      toast.error("Failed to delete criteria.");
+      toast.error("Failed to delete rubric.");
     }
   }
 
+  async function confirmDeleteComponent() {
+    if (!deleteComponent) return;
+    const target = deleteComponent;
+    setDeleteComponent(null);
+    const components = target.rubric.components
+      .filter((component) => component._id !== target.componentId)
+      .map((component) => ({
+        _id: component._id,
+        name: component.name,
+        description: component.description,
+        weight: component.weight,
+        bands: component.bands,
+      }));
+    try {
+      const res = await fetch(`/api/judge-rubrics/${target.rubric._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ components }),
+      });
+      if (!res.ok) {
+        toast.error(await readError(res));
+        return;
+      }
+      const data = (await res.json()) as { rubric: SerializedJudgeRubric };
+      replaceRubric(data.rubric);
+      toast.success(`Deleted ${target.name}`);
+    } catch {
+      toast.error("Failed to delete component.");
+    }
+  }
+
+  const editingRubric = componentSheet
+    ? rubrics.find((rubric) => rubric._id === componentSheet.rubricId)
+    : undefined;
+
   return (
     <div className="flex flex-col gap-4 px-4 lg:px-6">
-      <div>
-        <h2 className="text-lg font-semibold">Judging Criteria</h2>
-        <p className="text-sm text-muted-foreground">
-          Set how much Thesis and JTEC count, then define the rubric for each
-          deliverable.
-        </p>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Deliverables</CardTitle>
-          <CardDescription>
-            Thesis and JTEC percentages must add up to 100%. Criteria inside a
-            deliverable count equally.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            {CRITERIA_TYPES.map((type) => (
-              <Field key={type} label={`${TYPE_LABELS[type]} weight (%)`}>
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={0.1}
-                  value={weights[type]}
-                  onChange={(event) =>
-                    setWeights((current) => ({
-                      ...current,
-                      [type]: event.target.value,
-                    }))
-                  }
-                  placeholder="50"
-                />
-              </Field>
-            ))}
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <p
-              className={
-                weightTotal !== null && weightTotal !== 100
-                  ? "text-sm text-destructive"
-                  : "text-sm text-muted-foreground"
-              }
-            >
-              Total: {weightTotal === null ? "—" : `${weightTotal}%`}
-            </p>
-            <Button onClick={() => void handleSaveWeights()} disabled={savingWeights}>
-              {savingWeights ? "Saving…" : "Save weights"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="text-base font-semibold">Rubric</h3>
-        <Button size="icon" onClick={openCreate} aria-label="Add criteria">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">Judging Criteria</h2>
+          <p className="text-sm text-muted-foreground">
+            Define the rubrics for this education track. Component weights
+            inside a rubric add up to 100%. Judges score every rubric, and the
+            total is the average of those rubric scores.
+          </p>
+        </div>
+        <Button
+          onClick={() => setRubricSheet({ id: null, name: "" })}
+        >
           <IconPlus />
+          Add rubric
         </Button>
       </div>
 
-      <Tabs
-        value={tab}
-        onValueChange={(value) => setTab(value as JudgeCriteriaType)}
-        className="gap-4"
-      >
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          {CRITERIA_TYPES.map((type) => (
-            <TabsTrigger key={type} value={type}>
-              {TYPE_LABELS[type]}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+      {lockedTrack ? null : (
+        <Tabs
+          value={track}
+          onValueChange={(value) => setTrack(value as EducationLevel)}
+        >
+          <TabsList>
+            {TRACKS.map((level) => (
+              <TabsTrigger key={level} value={level}>
+                {EDUCATION_LEVEL_LABELS[level]}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      )}
 
-        {CRITERIA_TYPES.map((type) => {
-          const items = byType[type];
-          const label = TYPE_LABELS[type];
-
-          return (
-            <TabsContent key={type} value={type} className="mt-0">
-              <p className="mb-3 text-sm text-muted-foreground">
-                {items.length} {items.length === 1 ? "criterion" : "criteria"}
-              </p>
-
-              {items.length === 0 ? (
-                <Card>
-                  <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                    No {label.toLowerCase()} criteria yet. Tap + to add one.
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {items.map((item) => (
-                    <Card key={item._id}>
-                      <CardHeader>
+      {visible.length === 0 ? (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            No rubrics yet. Add one to start the scoring form.
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="flex flex-col gap-4">
+          {visible.map((rubric) => {
+            const weights = rubric.components.map((component) => component.weight);
+            const total = weightPercent(weights);
+            const ready = weightsSumTo100(weights);
+            return (
+              <Card key={rubric._id}>
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <CardTitle className="text-base">{rubric.name}</CardTitle>
+                      <CardDescription
+                        className={
+                          rubric.components.length > 0 && !ready
+                            ? "text-destructive"
+                            : undefined
+                        }
+                      >
+                        {rubric.components.length === 0
+                          ? "No components yet. This rubric is not scored."
+                          : ready
+                            ? "Weights add up to 100%."
+                            : `Weights add up to ${total}%. They must add up to 100% before judges can score.`}
+                      </CardDescription>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() =>
+                          setRubricSheet({ id: rubric._id, name: rubric.name })
+                        }
+                        aria-label={`Rename ${rubric.name}`}
+                      >
+                        <IconPencil />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => setDeleteRubric(rubric)}
+                        aria-label={`Delete ${rubric.name}`}
+                      >
+                        <IconTrash />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        onClick={() =>
+                          setComponentSheet({
+                            rubricId: rubric._id,
+                            componentId: null,
+                            form: emptyComponentForm(),
+                          })
+                        }
+                        aria-label={`Add component to ${rubric.name}`}
+                      >
+                        <IconPlus />
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                {rubric.components.length > 0 ? (
+                  <CardContent className="flex flex-col gap-3">
+                    {rubric.components.map((component) => (
+                      <div
+                        key={component._id}
+                        className="rounded-lg border p-3"
+                      >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <CardTitle className="text-base">
-                              {item.name}
-                            </CardTitle>
-                            <CardDescription className="mt-1 whitespace-pre-line">
-                              {item.component}
-                            </CardDescription>
+                            <p className="text-sm font-medium">
+                              {component.name}
+                              <span className="ml-2 font-normal text-muted-foreground">
+                                {component.weight}%
+                              </span>
+                            </p>
+                            <p className="mt-1 text-sm whitespace-pre-line text-muted-foreground">
+                              {component.description}
+                            </p>
                           </div>
                           <div className="flex shrink-0 items-center gap-1">
                             <Button
                               size="icon"
                               variant="ghost"
-                              onClick={() => openEdit(item)}
-                              aria-label={`Edit ${item.name}`}
+                              onClick={() =>
+                                setComponentSheet({
+                                  rubricId: rubric._id,
+                                  componentId: component._id,
+                                  form: {
+                                    name: component.name,
+                                    description: component.description,
+                                    weight: String(component.weight),
+                                    bands: { ...component.bands },
+                                  },
+                                })
+                              }
+                              aria-label={`Edit ${component.name}`}
                             >
                               <IconPencil />
                             </Button>
                             <Button
                               size="icon"
                               variant="ghost"
-                              onClick={() => setDeleteTarget(item)}
-                              aria-label={`Delete ${item.name}`}
+                              onClick={() =>
+                                setDeleteComponent({
+                                  rubric,
+                                  componentId: component._id,
+                                  name: component.name,
+                                })
+                              }
+                              aria-label={`Delete ${component.name}`}
                             >
                               <IconTrash />
                             </Button>
                           </div>
                         </div>
-                      </CardHeader>
-                      <CardContent>
-                        <dl className="flex flex-col gap-2">
+                        <dl className="mt-3 flex flex-col gap-2">
                           {SCORE_BAND_KEYS.map((key) => (
                             <div
                               key={key}
@@ -466,131 +475,239 @@ export function JudgingCriteriaManager({
                                 {SCORE_BAND_LABELS[key]}
                               </dt>
                               <dd className="text-muted-foreground">
-                                {item.bands[key] || "No description yet."}
+                                {component.bands[key]}
                               </dd>
                             </div>
                           ))}
                         </dl>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-          );
-        })}
-      </Tabs>
+                      </div>
+                    ))}
+                  </CardContent>
+                ) : null}
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent className="flex w-full flex-col gap-4 overflow-y-auto data-[side=right]:sm:max-w-xl">
+      <Sheet
+        open={rubricSheet !== null}
+        onOpenChange={(open) => {
+          if (!open) setRubricSheet(null);
+        }}
+      >
+        <SheetContent className="flex w-full flex-col gap-4 overflow-y-auto data-[side=right]:sm:max-w-md">
           <SheetHeader>
             <SheetTitle>
-              {editingId ? "Edit criteria" : "Add criteria"}
+              {rubricSheet?.id ? "Rename rubric" : "Add rubric"}
             </SheetTitle>
           </SheetHeader>
-
           <div className="flex flex-1 flex-col gap-4 px-4">
-            <Field label="Criteria">
+            <Field label="Name">
               <Input
-                value={form.name}
+                value={rubricSheet?.name ?? ""}
                 onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    name: event.target.value,
-                  }))
+                  setRubricSheet((current) =>
+                    current ? { ...current, name: event.target.value } : current
+                  )
                 }
-                placeholder="Originality"
+                placeholder="Presentation"
               />
-            </Field>
-            <Field label="Component">
-              <textarea
-                className={`${textareaClassName} min-h-24`}
-                value={form.component}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    component: event.target.value,
-                  }))
-                }
-                placeholder="What this criterion covers"
-              />
-            </Field>
-            {SCORE_BAND_KEYS.map((key) => (
-              <Field key={key} label={`${SCORE_BAND_LABELS[key]} description`}>
-                <textarea
-                  className={`${textareaClassName} min-h-16`}
-                  value={form.bands[key]}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      bands: { ...current.bands, [key]: event.target.value },
-                    }))
-                  }
-                  placeholder={`How a score of ${SCORE_BAND_LABELS[key]} looks`}
-                />
-              </Field>
-            ))}
-            <Field label="Deliverable">
-              <Select
-                value={form.type}
-                onValueChange={(value) =>
-                  setForm((current) => ({
-                    ...current,
-                    type: value as JudgeCriteriaType,
-                  }))
-                }
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select deliverable" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CRITERIA_TYPES.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {TYPE_LABELS[type]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </Field>
           </div>
-
           <SheetFooter>
             <Button
               variant="outline"
-              onClick={() => setSheetOpen(false)}
+              onClick={() => setRubricSheet(null)}
               disabled={saving}
             >
               Cancel
             </Button>
-            <Button onClick={() => void handleSave()} disabled={saving}>
-              {saving ? "Saving…" : editingId ? "Save changes" : "Create"}
+            <Button onClick={() => void saveRubricName()} disabled={saving}>
+              {saving ? "Saving…" : rubricSheet?.id ? "Save" : "Create"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet
+        open={componentSheet !== null}
+        onOpenChange={(open) => {
+          if (!open) setComponentSheet(null);
+        }}
+      >
+        <SheetContent className="flex w-full flex-col gap-4 overflow-y-auto data-[side=right]:sm:max-w-xl">
+          <SheetHeader>
+            <SheetTitle>
+              {componentSheet?.componentId ? "Edit component" : "Add component"}
+            </SheetTitle>
+          </SheetHeader>
+          {componentSheet ? (
+            <div className="flex flex-1 flex-col gap-4 px-4">
+              <Field label="Title">
+                <Input
+                  value={componentSheet.form.name}
+                  onChange={(event) =>
+                    setComponentSheet((current) =>
+                      current
+                        ? {
+                            ...current,
+                            form: { ...current.form, name: event.target.value },
+                          }
+                        : current
+                    )
+                  }
+                  placeholder="Originality"
+                />
+              </Field>
+              <Field label="Description">
+                <textarea
+                  className={`${textareaClassName} min-h-24`}
+                  value={componentSheet.form.description}
+                  onChange={(event) =>
+                    setComponentSheet((current) =>
+                      current
+                        ? {
+                            ...current,
+                            form: {
+                              ...current.form,
+                              description: event.target.value,
+                            },
+                          }
+                        : current
+                    )
+                  }
+                  placeholder="What this component covers"
+                />
+              </Field>
+              <Field label="Weight (%)">
+                <Input
+                  type="number"
+                  min={0.1}
+                  max={100}
+                  step={0.1}
+                  value={componentSheet.form.weight}
+                  onChange={(event) =>
+                    setComponentSheet((current) =>
+                      current
+                        ? {
+                            ...current,
+                            form: {
+                              ...current.form,
+                              weight: event.target.value,
+                            },
+                          }
+                        : current
+                    )
+                  }
+                  placeholder="25"
+                />
+              </Field>
+              {editingRubric ? (
+                <ComponentWeightHint
+                  rubric={editingRubric}
+                  componentId={componentSheet.componentId}
+                  weight={componentSheet.form.weight}
+                />
+              ) : null}
+              {SCORE_BAND_KEYS.map((key) => (
+                <Field key={key} label={`${SCORE_BAND_LABELS[key]} description`}>
+                  <textarea
+                    className={`${textareaClassName} min-h-16`}
+                    value={componentSheet.form.bands[key]}
+                    onChange={(event) =>
+                      setComponentSheet((current) =>
+                        current
+                          ? {
+                              ...current,
+                              form: {
+                                ...current.form,
+                                bands: {
+                                  ...current.form.bands,
+                                  [key]: event.target.value,
+                                },
+                              },
+                            }
+                          : current
+                      )
+                    }
+                    placeholder={`How a score of ${SCORE_BAND_LABELS[key]} looks`}
+                  />
+                </Field>
+              ))}
+            </div>
+          ) : null}
+          <SheetFooter>
+            <Button
+              variant="outline"
+              onClick={() => setComponentSheet(null)}
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+            <Button onClick={() => void saveComponent()} disabled={saving}>
+              {saving
+                ? "Saving…"
+                : componentSheet?.componentId
+                  ? "Save changes"
+                  : "Add"}
             </Button>
           </SheetFooter>
         </SheetContent>
       </Sheet>
 
       <AlertDialog
-        open={deleteTarget !== null}
+        open={deleteRubric !== null}
         onOpenChange={(open) => {
-          if (!open) setDeleteTarget(null);
+          if (!open) setDeleteRubric(null);
         }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete criteria?</AlertDialogTitle>
+            <AlertDialogTitle>Delete rubric?</AlertDialogTitle>
             <AlertDialogDescription>
               This will permanently remove{" "}
               <span className="font-medium text-foreground">
-                {deleteTarget?.name}
-              </span>
-              . Judges will no longer see this scoring item.
+                {deleteRubric?.name}
+              </span>{" "}
+              and its components. Rubrics that already have submitted scores
+              cannot be deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => void confirmDelete()}
+              onClick={() => void confirmDeleteRubric()}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={deleteComponent !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteComponent(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete component?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove{" "}
+              <span className="font-medium text-foreground">
+                {deleteComponent?.name}
+              </span>
+              . Components that already have submitted scores cannot be deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => void confirmDeleteComponent()}
             >
               Delete
             </AlertDialogAction>
@@ -599,4 +716,24 @@ export function JudgingCriteriaManager({
       </AlertDialog>
     </div>
   );
+}
+
+function ComponentWeightHint({
+  rubric,
+  componentId,
+  weight,
+}: {
+  rubric: SerializedJudgeRubric;
+  componentId: string | null;
+  weight: string;
+}) {
+  const parsed = Number(weight);
+  const others = rubric.components
+    .filter((component) => component._id !== componentId)
+    .map((component) => component.weight);
+  const total =
+    Number.isFinite(parsed) && parsed > 0
+      ? weightPercent([...others, parsed])
+      : weightPercent(others);
+  return <p className="text-sm text-muted-foreground">This rubric would total {total}%.</p>;
 }

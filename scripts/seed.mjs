@@ -1,6 +1,6 @@
 // Seeds realistic sample data for local development.
 // Usage: npm run seed   (reads MONGODB_URI / DB_NAME from .env)
-//        npm run seed -- criteria   (judge criteria only)
+//        npm run seed -- criteria   (judge rubrics only)
 // Idempotent: existing records (matched by slug, email, or project title) are left untouched.
 
 import { randomBytes, scrypt } from "crypto";
@@ -58,8 +58,8 @@ const CATEGORIES = [
 ];
 
 // ---------------------------------------------------------------------------
-// Judge criteria. Deliverable weights (Thesis + JTEC) sum to 100.
-// Criteria inside a deliverable are equally weighted.
+// Sample rubrics. Thesis and JTEC are rubric names, not assignment types.
+// Component weights inside a rubric add up to 100%. Score bands run from 1 to 10.
 // ---------------------------------------------------------------------------
 
 const JUDGE_CRITERIA = [
@@ -1029,54 +1029,86 @@ async function seedCategories(db) {
   return idBySlug;
 }
 
-async function seedJudgeCriteria(db) {
-  const col = db.collection("judge_criteria");
+function rubricBands(bands) {
+  return {
+    "1-2": bands["1-2"] ?? bands["0-2"],
+    "3-4": bands["3-4"],
+    "5-6": bands["5-6"],
+    "7-8": bands["7-8"],
+    "9-10": bands["9-10"],
+  };
+}
+
+async function seedJudgeRubrics(db) {
+  const [competition] = await db
+    .collection("competitions")
+    .find({ status: "PUBLISHED" })
+    .sort({ start_date: -1 })
+    .limit(1)
+    .toArray();
+  if (!competition) {
+    console.log("judge_rubrics: skipped (no published competition)");
+    return;
+  }
+
+  const competitionId = competition._id.toString();
+  const col = db.collection("judge_rubrics");
+  const groups = [
+    {
+      name: "Thesis",
+      items: JUDGE_CRITERIA.filter((item) => item.type === "THESIS"),
+    },
+    {
+      name: "JTEC",
+      items: JUDGE_CRITERIA.filter((item) => item.type === "JTEC"),
+    },
+  ];
   let inserted = 0;
   let updated = 0;
 
-  for (const [i, c] of JUDGE_CRITERIA.entries()) {
-    const criteria_id = slugify(c.name);
-    const ts = new Date(Date.UTC(2026, 8, 23, 9, 30 + i));
-    const res = await col.updateOne(
-      { criteria_id },
-      {
-        $set: {
-          name: c.name,
-          component: c.component,
-          bands: c.bands,
-          type: c.type,
-          updated_at: new Date(),
+  for (const education_level of ["UNDERGRADUATE", "POSTGRADUATE"]) {
+    for (const [sort_order, group] of groups.entries()) {
+      const existing = await col.findOne({
+        competition_id: competitionId,
+        education_level,
+        name: group.name,
+      });
+      const previous = new Map(
+        (existing?.components ?? []).map((component) => [
+          component.name,
+          component._id,
+        ])
+      );
+      const weight = 100 / group.items.length;
+      const components = group.items.map((item, index) => ({
+        _id: previous.get(item.name) ?? new ObjectId().toHexString(),
+        name: item.name,
+        description: item.component,
+        weight,
+        sort_order: index,
+        bands: rubricBands(item.bands),
+      }));
+      const now = new Date();
+      const res = await col.updateOne(
+        { competition_id: competitionId, education_level, name: group.name },
+        {
+          $set: { components, sort_order, updated_at: now },
+          $setOnInsert: {
+            competition_id: competitionId,
+            education_level,
+            name: group.name,
+            created_at: now,
+          },
         },
-        $unset: { description: "", weight: "" },
-        $setOnInsert: { criteria_id, created_at: ts },
-      },
-      { upsert: true }
-    );
-    if (res.upsertedCount) inserted += 1;
-    else if (res.modifiedCount) updated += 1;
+        { upsert: true }
+      );
+      if (res.upsertedCount) inserted += 1;
+      else if (res.modifiedCount) updated += 1;
+    }
   }
 
   console.log(
-    `judge_criteria: +${inserted}, updated ${updated} (total ${await col.countDocuments()})`
-  );
-}
-
-async function seedJudgeDeliverables(db) {
-  const col = db.collection("judge_deliverables");
-  let inserted = 0;
-  const ts = new Date(Date.UTC(2026, 8, 23, 9, 0));
-
-  for (const type of ["THESIS", "JTEC"]) {
-    const res = await col.updateOne(
-      { type },
-      { $setOnInsert: { type, weight: 50, created_at: ts, updated_at: ts } },
-      { upsert: true }
-    );
-    if (res.upsertedCount) inserted += 1;
-  }
-
-  console.log(
-    `judge_deliverables: +${inserted} (total ${await col.countDocuments()})`
+    `judge_rubrics: +${inserted}, updated ${updated} (total ${await col.countDocuments()})`
   );
 }
 
@@ -1268,14 +1300,12 @@ async function main() {
     const db = client.db(dbName);
     console.log(`Seeding database "${dbName}"...`);
     if (only === "criteria") {
-      await seedJudgeCriteria(db);
-      await seedJudgeDeliverables(db);
+      await seedJudgeRubrics(db);
       console.log("Done.");
       return;
     }
     const categoryIdBySlug = await seedCategories(db);
-    await seedJudgeCriteria(db);
-    await seedJudgeDeliverables(db);
+    await seedJudgeRubrics(db);
     await seedUsers(db);
     await seedRegistrations(db, categoryIdBySlug);
     await seedPayments(db);

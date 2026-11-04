@@ -39,17 +39,19 @@ import {
   isJudgingClosed,
   judgeScoringDeadlineMessage,
 } from "@/utils/competitionDates";
-import {
-  assignmentStatusVariant,
-  TYPE_LABELS,
-} from "@/components/my-assignments-data-table";
+import { assignmentStatusVariant } from "@/components/my-assignments-data-table";
 import { readError } from "@/components/MyAssignmentsManager";
 import {
   SCORE_BAND_KEYS,
   SCORE_BAND_LABELS,
-} from "@/schemas/judgeCriteriaSchema";
+  type JudgeRubricBands,
+} from "@/schemas/judgeRubricSchema";
 import type { Registration } from "@/schemas/registrationSchema";
-import type { SerializedJudgeCriteria } from "@/utils/serializeJudgeCriteria";
+import {
+  averageRubricScores,
+  weightedRubricScore,
+} from "@/utils/rubricScore";
+import type { SerializedJudgeRubric } from "@/utils/serializeJudgeRubric";
 import type { SerializedJudgeAssignment } from "@/utils/serializeJudgeAssignment";
 
 export type AssessmentRegistration = {
@@ -70,7 +72,13 @@ export type AssessmentRegistration = {
 };
 
 type ScoreFormRow = {
-  criteria_id: string;
+  component_id: string;
+  rubric_id: string;
+  rubric_name: string;
+  name: string;
+  description: string;
+  weight: number;
+  bands: JudgeRubricBands;
   score: string;
   comments: string;
 };
@@ -98,17 +106,56 @@ function formatDate(iso?: string) {
 }
 
 function toScoreForm(
-  criteria: SerializedJudgeCriteria[],
+  rubrics: SerializedJudgeRubric[],
   assignment: SerializedJudgeAssignment
 ): ScoreFormRow[] {
   const existing = new Map(
-    assignment.scores.map((score) => [score.criteria_id, score])
+    assignment.scores.map((score) => [score.component_id, score])
   );
-  return criteria.map((item) => ({
-    criteria_id: item._id,
-    score: existing.has(item._id) ? String(existing.get(item._id)!.score) : "",
-    comments: existing.get(item._id)?.comments ?? "",
-  }));
+  return rubrics.flatMap((rubric) =>
+    rubric.components.map((component) => ({
+      component_id: component._id,
+      rubric_id: rubric._id,
+      rubric_name: rubric.name,
+      name: component.name,
+      description: component.description,
+      weight: component.weight,
+      bands: component.bands,
+      score: existing.has(component._id)
+        ? String(existing.get(component._id)!.score)
+        : "",
+      comments: existing.get(component._id)?.comments ?? "",
+    }))
+  );
+}
+
+function parsedScore(value: string) {
+  const score = Number(value);
+  if (value.trim() === "" || !Number.isInteger(score) || score < 1 || score > 10) {
+    return null;
+  }
+  return score;
+}
+
+function rubricGroups(rows: ScoreFormRow[]) {
+  const groups: {
+    rubric_id: string;
+    rubric_name: string;
+    rows: { row: ScoreFormRow; index: number }[];
+  }[] = [];
+  rows.forEach((row, index) => {
+    const last = groups[groups.length - 1];
+    if (!last || last.rubric_id !== row.rubric_id) {
+      groups.push({
+        rubric_id: row.rubric_id,
+        rubric_name: row.rubric_name,
+        rows: [{ row, index }],
+      });
+    } else {
+      last.rows.push({ row, index });
+    }
+  });
+  return groups;
 }
 
 function DetailField({ label, value }: { label: string; value: string }) {
@@ -149,37 +196,43 @@ function formatAverage(value: number) {
 export function AssessmentWorkspace({
   initialAssignment,
   registration,
-  criteria,
-  deliverableWeight = null,
+  rubrics,
+  scoringBlocked = null,
   judgingDueDate = null,
 }: {
   initialAssignment: SerializedJudgeAssignment;
   registration: AssessmentRegistration;
-  criteria: SerializedJudgeCriteria[];
-  deliverableWeight?: number | null;
+  rubrics: SerializedJudgeRubric[];
+  scoringBlocked?: string | null;
   judgingDueDate?: string | null;
 }) {
   const router = useRouter();
   const [assignment, setAssignment] = useState(initialAssignment);
   const [scoreForm, setScoreForm] = useState(() =>
-    toScoreForm(criteria, initialAssignment)
+    toScoreForm(rubrics, initialAssignment)
   );
   const [saving, setSaving] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const scoringClosed = isJudgingClosed(judgingDueDate);
   const deadlineMessage = judgeScoringDeadlineMessage(judgingDueDate);
 
-  const enteredScores = scoreForm.flatMap((row) => {
-    const score = Number(row.score);
-    if (row.score.trim() === "" || !Number.isInteger(score)) return [];
-    return [score];
+  const groups = rubricGroups(scoreForm);
+  const rubricTotals = groups.map((group) => {
+    const parts = group.rows.map(({ row }) => {
+      const score = parsedScore(row.score);
+      if (score === null) return null;
+      return { score, weight: row.weight };
+    });
+    if (parts.some((part) => part === null)) return null;
+    return weightedRubricScore(
+      parts.filter((part): part is { score: number; weight: number } => part !== null)
+    );
   });
+  const completed = scoreForm.filter((row) => parsedScore(row.score) !== null).length;
   const average =
-    enteredScores.length === 0
-      ? null
-      : enteredScores.reduce((sum, score) => sum + score, 0) /
-        enteredScores.length;
-  const completed = enteredScores.length;
+    scoreForm.length > 0 && rubricTotals.every((total) => total !== null)
+      ? averageRubricScores(rubricTotals as number[])
+      : null;
 
   function updateRow(index: number, patch: Partial<ScoreFormRow>) {
     setScoreForm((current) =>
@@ -209,20 +262,16 @@ export function AssessmentWorkspace({
       toast.error(deadlineMessage);
       return;
     }
-    const scores: { criteria_id: string; score: number; comments: string }[] =
+    const scores: { component_id: string; score: number; comments: string }[] =
       [];
     for (const row of scoreForm) {
-      const score = Number(row.score);
-      if (row.score.trim() === "" || !Number.isFinite(score)) {
-        toast.error("Enter a score for every criterion.");
-        return;
-      }
-      if (!Number.isInteger(score) || score < 0 || score > 10) {
-        toast.error("Scores must be whole numbers from 0 to 10.");
+      const score = parsedScore(row.score);
+      if (score === null) {
+        toast.error("Enter a whole-number score from 1 to 10 for every component.");
         return;
       }
       scores.push({
-        criteria_id: row.criteria_id,
+        component_id: row.component_id,
         score,
         comments: row.comments.trim(),
       });
@@ -262,7 +311,7 @@ export function AssessmentWorkspace({
       };
       if (data.assignment) {
         setAssignment(data.assignment);
-        setScoreForm(toScoreForm(criteria, data.assignment));
+        setScoreForm(toScoreForm(rubrics, data.assignment));
       }
       toast.success("Scores cleared.");
     } catch {
@@ -292,7 +341,6 @@ export function AssessmentWorkspace({
             <p className="mt-1 text-sm text-muted-foreground">{deadlineMessage}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge variant="outline">{TYPE_LABELS[assignment.type]}</Badge>
             <Badge variant="outline">{registration.category}</Badge>
             <Badge variant={assignmentStatusVariant(assignment.status)}>
               {assignment.submitted_at ? "SCORED" : assignment.status}
@@ -420,11 +468,7 @@ export function AssessmentWorkspace({
               {assignment.status === "ACCEPTED"
                 ? scoringClosed
                   ? deadlineMessage
-                  : `${TYPE_LABELS[assignment.type]} is ${
-                      deliverableWeight === null
-                        ? "not weighted yet"
-                        : `${deliverableWeight}% of the combined result`
-                    }. Score each criterion from 0 to 10. The total is the average of those scores.`
+                  : "Score each component from 1 to 10. A rubric score uses its component weights. Your total is the average of the rubric scores."
                 : "You rejected this assignment."}
             </CardDescription>
           </CardHeader>
@@ -432,90 +476,104 @@ export function AssessmentWorkspace({
           {assignment.status === "ACCEPTED" ? (
             <>
               <CardContent className="flex max-h-[calc(100vh-18rem)] flex-col gap-5 overflow-y-auto">
-                {criteria.length === 0 ? (
+                {scoringBlocked ? (
+                  <p className="text-sm text-muted-foreground">{scoringBlocked}</p>
+                ) : groups.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    No criteria are configured for{" "}
-                    {TYPE_LABELS[assignment.type].toLowerCase()} judging yet.
                     Ask a judge leader to add judging criteria.
                   </p>
                 ) : (
-                  criteria.map((criterion, index) => {
-                    const row = scoreForm[index];
-                    return (
-                      <div
-                        key={criterion._id}
-                        className="flex flex-col gap-3 border-b pb-5 last:border-0 last:pb-0"
-                      >
-                        <div>
-                          <p className="text-sm font-medium">{criterion.name}</p>
-                          {criterion.component ? (
-                            <p className="mt-0.5 text-xs text-muted-foreground whitespace-pre-line">
-                              {criterion.component}
-                            </p>
-                          ) : null}
-                        </div>
-                        <dl className="flex flex-col gap-1.5">
-                          {SCORE_BAND_KEYS.map((key) => (
-                            <div
-                              key={key}
-                              className="grid grid-cols-[3.25rem_minmax(0,1fr)] gap-2 text-xs"
-                            >
-                              <dt className="font-medium">
-                                {SCORE_BAND_LABELS[key]}
-                              </dt>
-                              <dd className="text-muted-foreground">
-                                {criterion.bands[key] || "—"}
-                              </dd>
-                            </div>
-                          ))}
-                        </dl>
-                        <div className="flex flex-col gap-1.5">
-                          <Label htmlFor={`score-${criterion._id}`}>
-                            Score (0–10)
-                          </Label>
-                          <Input
-                            id={`score-${criterion._id}`}
-                            type="number"
-                            min={0}
-                            max={10}
-                            step={1}
-                            value={row.score}
-                            disabled={scoringClosed}
-                            onChange={(event) =>
-                              updateRow(index, { score: event.target.value })
-                            }
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          <Label htmlFor={`comments-${criterion._id}`}>
-                            Comments
-                          </Label>
-                          <textarea
-                            id={`comments-${criterion._id}`}
-                            value={row.comments}
-                            rows={3}
-                            disabled={scoringClosed}
-                            className="min-h-16 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
-                            onChange={(event) =>
-                              updateRow(index, { comments: event.target.value })
-                            }
-                          />
-                        </div>
+                  groups.map((group, groupIndex) => (
+                    <div key={group.rubric_id} className="flex flex-col gap-5">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <p className="text-sm font-semibold">{group.rubric_name}</p>
+                        <span className="text-xs tabular-nums text-muted-foreground">
+                          {rubricTotals[groupIndex] === null
+                            ? "—"
+                            : formatAverage(rubricTotals[groupIndex]!)}
+                        </span>
                       </div>
-                    );
-                  })
+                      {group.rows.map(({ row, index }) => (
+                        <div
+                          key={row.component_id}
+                          className="flex flex-col gap-3 border-b pb-5 last:border-0 last:pb-0"
+                        >
+                          <div>
+                            <p className="text-sm font-medium">
+                              {row.name}
+                              <span className="ml-2 font-normal text-muted-foreground">
+                                {row.weight}%
+                              </span>
+                            </p>
+                            {row.description ? (
+                              <p className="mt-0.5 text-xs whitespace-pre-line text-muted-foreground">
+                                {row.description}
+                              </p>
+                            ) : null}
+                          </div>
+                          <dl className="flex flex-col gap-1.5">
+                            {SCORE_BAND_KEYS.map((key) => (
+                              <div
+                                key={key}
+                                className="grid grid-cols-[3.25rem_minmax(0,1fr)] gap-2 text-xs"
+                              >
+                                <dt className="font-medium">
+                                  {SCORE_BAND_LABELS[key]}
+                                </dt>
+                                <dd className="text-muted-foreground">
+                                  {row.bands[key] || "—"}
+                                </dd>
+                              </div>
+                            ))}
+                          </dl>
+                          <div className="flex flex-col gap-1.5">
+                            <Label htmlFor={`score-${row.component_id}`}>
+                              Score (1–10)
+                            </Label>
+                            <Input
+                              id={`score-${row.component_id}`}
+                              type="number"
+                              min={1}
+                              max={10}
+                              step={1}
+                              value={row.score}
+                              disabled={scoringClosed}
+                              onChange={(event) =>
+                                updateRow(index, { score: event.target.value })
+                              }
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1.5">
+                            <Label htmlFor={`comments-${row.component_id}`}>
+                              Comments
+                            </Label>
+                            <textarea
+                              id={`comments-${row.component_id}`}
+                              value={row.comments}
+                              rows={3}
+                              disabled={scoringClosed}
+                              className="min-h-16 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+                              onChange={(event) =>
+                                updateRow(index, { comments: event.target.value })
+                              }
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ))
                 )}
               </CardContent>
-              {criteria.length > 0 ? (
+              {scoreForm.length > 0 ? (
                 <>
                   <Separator />
                   <CardFooter className="flex-col items-stretch gap-3">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">
-                        {completed}/{criteria.length} criteria scored
+                        {completed}/{scoreForm.length} components scored
                       </span>
                       <span className="font-medium tabular-nums">
-                        Average {average === null ? "—" : formatAverage(average)}{" "}
+                        Total {average === null ? "—" : formatAverage(average)}{" "}
                         / 10
                       </span>
                     </div>

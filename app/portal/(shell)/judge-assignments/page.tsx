@@ -29,6 +29,7 @@ async function loadAssignmentData(
   try {
     const assignmentModel = new JudgeAssignmentModel();
     await assignmentModel.acceptPending();
+    await assignmentModel.collapseDuplicates();
 
     const track = educationLevelForRole(role);
     const judgeRoles = track

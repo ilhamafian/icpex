@@ -1,13 +1,13 @@
 import { NextRequest } from "next/server";
 
 import { JudgeAssignmentModel } from "@/models/JudgeAssignment";
-import { JudgeCriteriaModel } from "@/models/JudgeCriteria";
+import { JudgeRubricModel } from "@/models/JudgeRubric";
 import { CompetitionModel } from "@/models/Competition";
 import {
   judgeAssignmentScoreSubmitSchema,
   type JudgeAssignment,
 } from "@/schemas/judgeAssignmentsSchema";
-import { toIdString } from "@/schemas/objectId";
+import { objectIdSchema, toIdString } from "@/schemas/objectId";
 import { RegistrationModel } from "@/models/Registration";
 import { requireJudgeSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
@@ -16,7 +16,14 @@ import {
   isJudgingClosed,
 } from "@/utils/competitionDates";
 import { registrationCompetitionId } from "@/utils/competitionScope";
-import { judgeTypesForRoles } from "@/utils/judgeTypes";
+import { canScoreAssignments } from "@/utils/judgeTypes";
+import {
+  averageRubricScores,
+  readyRubrics,
+  scoringBlockReason,
+  weightedRubricScore,
+} from "@/utils/rubricScore";
+import { serializeJudgeRubric } from "@/utils/serializeJudgeRubric";
 import { canAccessEducationLevel } from "@/utils/trackAccess";
 import {
   resolveJudgeUser,
@@ -26,7 +33,14 @@ import { serializeJudgeAssignment } from "@/utils/serializeJudgeAssignment";
 import { z } from "zod";
 
 const scoresUpdateSchema = z.object({
-  scores: judgeAssignmentScoreSubmitSchema.shape.scores,
+  scores: z.array(
+    z.object({
+      component_id: objectIdSchema,
+      score: z.number().int().min(1).max(10),
+      weight: z.number(),
+      comments: z.string(),
+    })
+  ),
   total_score: z.number(),
   submitted_at: z.coerce.date(),
 });
@@ -44,7 +58,7 @@ async function loadOwnedAssignment(
   }
   if (
     toIdString(existing.judge_id) !== judge._id ||
-    !judgeTypesForRoles(judge.roles).includes(existing.type)
+    !canScoreAssignments(judge.roles)
   ) {
     return { error: "Forbidden", status: 403 as const };
   }
@@ -67,6 +81,7 @@ async function loadOwnedAssignment(
     model,
     existing,
     competitionId: registrationCompetitionId(registration),
+    educationLevel: registration.participant.education_level,
   };
 }
 
@@ -125,58 +140,80 @@ export async function PATCH(
         );
       }
 
-      const criteria = await new JudgeCriteriaModel().find({
-        type: existing.type,
-      });
-      const criteriaById = new Map(
-        criteria.map((item) => [toIdString(item._id), item])
+      const rubricDocs = await new JudgeRubricModel().find(
+        {
+          competition_id: owned.competitionId,
+          education_level: owned.educationLevel,
+        },
+        { sort: { sort_order: 1, created_at: 1 } }
+      );
+      const rubrics = rubricDocs.map(serializeJudgeRubric);
+      const blocked = scoringBlockReason(rubrics);
+      if (blocked) {
+        return createResponse({ error: blocked }, 400);
+      }
+      const ready = readyRubrics(rubrics);
+      const componentWeight = new Map(
+        ready.flatMap((rubric) =>
+          rubric.components.map(
+            (component) => [component._id, component.weight] as const
+          )
+        )
       );
 
       for (const score of parsed.data.scores) {
-        const criteriaId = toIdString(score.criteria_id);
-        if (!criteriaById.has(criteriaId)) {
+        const componentId = toIdString(score.component_id);
+        if (!componentWeight.has(componentId)) {
           return createResponse(
-            {
-              error:
-                "One or more criteria are invalid for this assignment type.",
-            },
+            { error: "One or more components are not part of this rubric." },
             400
           );
         }
       }
 
-      const expectedIds = new Set(criteria.map((item) => toIdString(item._id)));
+      const expectedIds = new Set(componentWeight.keys());
       const submittedIds = new Set(
-        parsed.data.scores.map((score) => toIdString(score.criteria_id))
+        parsed.data.scores.map((score) => toIdString(score.component_id))
       );
       if (
-        expectedIds.size > 0 &&
-        (submittedIds.size !== expectedIds.size ||
-          [...expectedIds].some((criteriaId) => !submittedIds.has(criteriaId)))
+        submittedIds.size !== expectedIds.size ||
+        [...expectedIds].some((componentId) => !submittedIds.has(componentId))
       ) {
         return createResponse(
-          { error: "Scores must include every criterion for this type." },
+          { error: "Scores must include every component." },
           400
         );
       }
 
-      const scoreSum = parsed.data.scores.reduce(
-        (sum, score) => sum + score.score,
-        0
+      const scoreById = new Map(
+        parsed.data.scores.map(
+          (score) => [toIdString(score.component_id), score.score] as const
+        )
       );
-      const totalScore = parsed.data.scores.length
-        ? Math.round((scoreSum / parsed.data.scores.length) * 100) / 100
-        : 0;
+      const totalScore = averageRubricScores(
+        ready.map((rubric) =>
+          weightedRubricScore(
+            rubric.components.map((component) => ({
+              score: scoreById.get(component._id) ?? 0,
+              weight: component.weight,
+            }))
+          )
+        )
+      );
 
       const scoresPayload: Pick<
         JudgeAssignment,
         "scores" | "total_score" | "submitted_at"
       > = {
-        scores: parsed.data.scores.map((score) => ({
-          criteria_id: toIdString(score.criteria_id),
-          score: score.score,
-          comments: score.comments ?? "",
-        })),
+        scores: parsed.data.scores.map((score) => {
+          const componentId = toIdString(score.component_id);
+          return {
+            component_id: componentId,
+            score: score.score,
+            weight: componentWeight.get(componentId) ?? 0,
+            comments: score.comments ?? "",
+          };
+        }),
         total_score: totalScore,
         submitted_at: new Date(),
       };

@@ -67,10 +67,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { educationLevelLabel } from "@/schemas/educationLevel";
-import type {
-  JudgeAssignmentStatus,
-  JudgeAssignmentType,
-} from "@/schemas/judgeAssignmentsSchema";
+import type { JudgeAssignmentStatus } from "@/schemas/judgeAssignmentsSchema";
 import { formatScore } from "@/utils/formatScore";
 import type {
   ParticipantMarkJudge,
@@ -86,11 +83,6 @@ const features = tableFeatures({
 });
 
 const columnHelper = createColumnHelper<typeof features, ParticipantMarkRow>();
-
-const TYPE_LABELS: Record<JudgeAssignmentType, string> = {
-  THESIS: "Thesis",
-  JTEC: "JTEC",
-};
 
 type Progress = "unassigned" | "awaiting" | "partial" | "scored";
 type View = "all" | "scored" | "in-progress" | "unassigned";
@@ -231,9 +223,6 @@ function JudgeMarks({ judge }: { judge: ParticipantMarkJudge }) {
         <div className="flex min-w-0 flex-col gap-1">
           <span className="font-medium">{judge.judge_name}</span>
           <div className="flex flex-wrap items-center gap-1.5">
-            <Badge variant="outline" className="px-1.5 text-muted-foreground">
-              {TYPE_LABELS[judge.type]}
-            </Badge>
             <Badge variant={statusVariant(judge.status)} className="px-1.5">
               {judge.status}
             </Badge>
@@ -438,10 +427,6 @@ function createColumns(pageIndex: number, pageSize: number, showTrack: boolean) 
               >
                 <span className="min-w-0 truncate" title={judge.judge_name}>
                   {judge.judge_name}
-                  <span className="text-muted-foreground">
-                    {" "}
-                    · {TYPE_LABELS[judge.type]}
-                  </span>
                 </span>
                 <span className="shrink-0 tabular-nums">
                   {markLabel(judge)}

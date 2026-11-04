@@ -44,7 +44,6 @@ export type DashboardChartPoint = {
 
 export type DashboardJudge = {
   name: string;
-  type: JudgeAssignment["type"];
   status: JudgeAssignment["status"];
   total_score: number;
   submitted_at?: string;
@@ -123,11 +122,14 @@ function buildChart(
 export async function loadDashboardData(
   educationLevel?: EducationLevel | null
 ): Promise<DashboardData> {
+  const assignmentModel = new JudgeAssignmentModel();
+  await assignmentModel.collapseDuplicates();
+
   const [allRegistrations, allPayments, allAssignments, judges, competitions, categories] =
     await Promise.all([
       new RegistrationModel().find({}, { sort: { created_at: -1 } }),
       new PaymentModel().find({}, { sort: { created_at: -1 } }),
-      new JudgeAssignmentModel().find({}),
+      assignmentModel.find({}),
       new UserModel().find({
         "roles.role": { $in: JUDGE_ROLES },
       }),
@@ -216,7 +218,6 @@ export async function loadDashboardData(
         : null,
       judges: registrationAssignments.map((item) => ({
         name: judgeNames.get(toIdString(item.judge_id)) ?? "Unknown judge",
-        type: item.type,
         status: item.status,
         total_score: item.total_score ?? 0,
         submitted_at: toIso(item.submitted_at),

@@ -55,10 +55,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type {
-  JudgeAssignmentStatus,
-  JudgeAssignmentType,
-} from "@/schemas/judgeAssignmentsSchema";
+import type { JudgeAssignmentStatus } from "@/schemas/judgeAssignmentsSchema";
 import type { AssignmentRegistrationOption } from "@/utils/assignmentOptions";
 import { judgeScoringDeadlineMessage } from "@/utils/competitionDates";
 import type { SerializedJudgeAssignment } from "@/utils/serializeJudgeAssignment";
@@ -99,11 +96,6 @@ const VIEWS: {
   },
 ];
 
-export const TYPE_LABELS: Record<JudgeAssignmentType, string> = {
-  THESIS: "Thesis",
-  JTEC: "JTEC",
-};
-
 export function assignmentStatusVariant(
   status: JudgeAssignmentStatus
 ): "default" | "secondary" | "outline" | "destructive" {
@@ -128,13 +120,11 @@ function formatDate(iso?: string) {
 
 type MyAssignmentsDataTableProps = {
   data: MyAssignmentRow[];
-  showType: boolean;
   judgingDueDate?: string | null;
 };
 
 export function MyAssignmentsDataTable({
   data,
-  showType,
   judgingDueDate = null,
 }: MyAssignmentsDataTableProps) {
   const [view, setView] = React.useState<View>("all");
@@ -223,22 +213,6 @@ export function MyAssignmentsDataTable({
             ),
           }
         ),
-        ...(showType
-          ? [
-              columnHelper.accessor((row) => row.assignment.type, {
-                id: "type",
-                header: "Type",
-                cell: ({ row }) => (
-                  <Badge
-                    variant="outline"
-                    className="px-1.5 text-muted-foreground"
-                  >
-                    {TYPE_LABELS[row.original.assignment.type]}
-                  </Badge>
-                ),
-              }),
-            ]
-          : []),
         columnHelper.accessor((row) => row.assignment.status, {
           id: "status",
           header: "Status",
@@ -317,7 +291,7 @@ export function MyAssignmentsDataTable({
           },
         }),
       ]),
-    [pagination.pageIndex, pagination.pageSize, showType]
+    [pagination.pageIndex, pagination.pageSize]
   );
 
   const table = useTable({

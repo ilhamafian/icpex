@@ -1,42 +1,41 @@
 import { JudgingCriteriaManager } from "@/components/JudgingCriteriaManager";
-import { JudgeCriteriaModel } from "@/models/JudgeCriteria";
-import { JudgeDeliverableModel } from "@/models/JudgeDeliverable";
-import { serializeJudgeCriteria } from "@/utils/serializeJudgeCriteria";
-import { serializeJudgeDeliverable } from "@/utils/serializeJudgeDeliverable";
+import { JudgeRubricModel } from "@/models/JudgeRubric";
+import { educationLevelForRole } from "@/schemas/userRole";
 import { requirePortalSection } from "@/utils/requirePortalAccess";
-
-async function loadCriteria() {
-  try {
-    const criteria = await new JudgeCriteriaModel().find(
-      {},
-      { sort: { created_at: 1, name: 1 } }
-    );
-    return criteria.map(serializeJudgeCriteria);
-  } catch {
-    return [];
-  }
-}
-
-async function loadDeliverables() {
-  try {
-    const deliverables = await new JudgeDeliverableModel().find({});
-    return deliverables.map(serializeJudgeDeliverable);
-  } catch {
-    return [];
-  }
-}
+import { serializeJudgeRubric } from "@/utils/serializeJudgeRubric";
 
 export default async function JudgingCriteriaPage() {
-  await requirePortalSection("judging-criteria");
-  const [criteria, deliverables] = await Promise.all([
-    loadCriteria(),
-    loadDeliverables(),
-  ]);
+  const session = await requirePortalSection("judging-criteria");
+  const track = educationLevelForRole(session.role);
+
+  if (!session.competition_id) {
+    return (
+      <div className="px-4 lg:px-6">
+        <h2 className="text-lg font-semibold">Judging Criteria</h2>
+        <p className="text-sm text-muted-foreground">
+          Choose a competition before defining rubrics.
+        </p>
+      </div>
+    );
+  }
+
+  let rubrics: ReturnType<typeof serializeJudgeRubric>[] = [];
+  try {
+    const found = await new JudgeRubricModel().find(
+      track
+        ? {
+            competition_id: session.competition_id,
+            education_level: track,
+          }
+        : { competition_id: session.competition_id },
+      { sort: { sort_order: 1, created_at: 1 } }
+    );
+    rubrics = found.map(serializeJudgeRubric);
+  } catch {
+    rubrics = [];
+  }
 
   return (
-    <JudgingCriteriaManager
-      initialCriteria={criteria}
-      initialDeliverables={deliverables}
-    />
+    <JudgingCriteriaManager initialRubrics={rubrics} lockedTrack={track} />
   );
 }

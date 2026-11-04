@@ -52,7 +52,7 @@ export const JUDGE_LEADER_ROLES: UserRole[] = [
   "UNDERGRAD_JUDGE_LEADER",
 ];
 
-/** Scoring judges. Thesis and JTEC are assignment types, not roles. */
+/** Scoring judges. Each one scores every rubric for their education track. */
 export const SCORING_JUDGE_ROLES: UserRole[] = [
   "POSTGRAD_JUDGE",
   "UNDERGRAD_JUDGE",

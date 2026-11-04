@@ -108,8 +108,6 @@ const VIEWS: { value: View; label: string; match: (row: DashboardRow) => boolean
   },
 ]
 
-const TYPE_LABELS = { THESIS: "Thesis", JTEC: "JTEC" } as const
-
 function formatDate(iso?: string) {
   if (!iso) return "—"
   return new Date(iso).toLocaleDateString(undefined, {
@@ -663,13 +661,13 @@ function TableCellViewer({ item }: { item: DashboardRow }) {
             ) : (
               item.judges.map((judge, index) => (
                 <div
-                  key={`${judge.name}-${judge.type}-${index}`}
+                  key={`${judge.name}-${index}`}
                   className="flex items-center justify-between gap-2"
                 >
                   <div className="flex flex-col">
                     <span className="font-medium">{judge.name}</span>
                     <span className="text-xs text-muted-foreground">
-                      {TYPE_LABELS[judge.type]} · {judge.status}
+                      {judge.status}
                     </span>
                   </div>
                   <span className="tabular-nums">

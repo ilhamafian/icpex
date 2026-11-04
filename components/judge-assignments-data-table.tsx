@@ -55,10 +55,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type {
-  JudgeAssignmentStatus,
-  JudgeAssignmentType,
-} from "@/schemas/judgeAssignmentsSchema";
+import type { JudgeAssignmentStatus } from "@/schemas/judgeAssignmentsSchema";
 import type { PaymentStatus } from "@/schemas/paymentSchema";
 import { PAYMENT_STATUS_LABELS } from "@/utils/paymentStatusLabel";
 import type { SerializedUser } from "@/types/user";
@@ -81,11 +78,6 @@ const features = tableFeatures({
 });
 
 const columnHelper = createColumnHelper<typeof features, JudgeAssignmentRow>();
-
-const TYPE_LABELS: Record<JudgeAssignmentType, string> = {
-  THESIS: "Thesis",
-  JTEC: "JTEC",
-};
 
 function assignmentStatusVariant(
   status: JudgeAssignmentStatus
@@ -295,17 +287,12 @@ type JudgeAssignmentsDataTableProps = {
   onToggleJudge: (
     row: JudgeAssignmentRow,
     judge: SerializedUser,
-    type: JudgeAssignmentType,
     assign: boolean
   ) => void;
 };
 
-export function assignmentKey(
-  registrationNumber: string,
-  judgeId: string,
-  type: JudgeAssignmentType
-) {
-  return `${registrationNumber}:${judgeId}:${type}`;
+export function assignmentKey(registrationNumber: string, judgeId: string) {
+  return `${registrationNumber}:${judgeId}`;
 }
 
 export function JudgeAssignmentsDataTable({
@@ -570,12 +557,9 @@ export function JudgeAssignmentsDataTable({
                     key={item._id}
                     variant={assignmentStatusVariant(item.status)}
                     className="px-1.5"
-                    title={`${TYPE_LABELS[item.type]} · ${item.status}`}
+                    title={item.status}
                   >
                     {judgeName(judgesById.get(item.judge_id), item.judge_id)}
-                    <span className="opacity-70">
-                      · {TYPE_LABELS[item.type]}
-                    </span>
                   </Badge>
                 ))}
                 <DropdownMenu>
@@ -593,80 +577,69 @@ export function JudgeAssignmentsDataTable({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-72">
-                    {(["THESIS", "JTEC"] as const).map((type, index) => {
+                    <DropdownMenuLabel>Judges</DropdownMenuLabel>
+                    {(() => {
                       const assignedIds = new Set(
-                        assignments
-                          .filter((item) => item.type === type)
-                          .map((item) => item.judge_id)
+                        assignments.map((item) => item.judge_id)
                       );
                       const options = judges.filter(
                         (judge) =>
                           judge.status === "ACTIVE" ||
                           assignedIds.has(judge._id)
                       );
-                      return (
-                        <React.Fragment key={type}>
-                          {index > 0 ? <DropdownMenuSeparator /> : null}
-                          <DropdownMenuLabel>
-                            {TYPE_LABELS[type]} judges
-                          </DropdownMenuLabel>
-                          {options.length === 0 ? (
-                            <p className="text-muted-foreground px-3 pb-2 text-sm">
-                              No {TYPE_LABELS[type].toLowerCase()} judges
-                            </p>
-                          ) : (
-                            options.map((judge) => {
-                              const key = assignmentKey(
-                                registration.registration_number,
-                                judge._id,
-                                type
-                              );
-                              const assigned = assignedIds.has(judge._id);
-                              const reason = assigned
-                                ? null
-                                : judgeProfileBlockReason(judge.judge_profile, {
-                                    category_id: registration.category_id,
-                                    education_level: registration.education_level,
-                                    institution_key: registration.institution_key,
-                                    institution_name:
-                                      registration.institution_name,
-                                  });
-                              return (
-                                <DropdownMenuCheckboxItem
-                                  key={key}
-                                  checked={assigned}
-                                  disabled={busyKey === key || reason !== null}
-                                  onSelect={(event) => event.preventDefault()}
-                                  onCheckedChange={(checked) =>
-                                    onToggleJudge(
-                                      row.original,
-                                      judge,
-                                      type,
-                                      checked === true
-                                    )
-                                  }
-                                >
-                                  <div className="flex min-w-0 flex-col">
-                                    <span className="truncate">
-                                      {judgeName(judge, judge._id)}
-                                    </span>
-                                    {reason ? (
-                                      <span className="text-muted-foreground text-xs font-normal">
-                                        {reason}
-                                      </span>
-                                    ) : judge.name ? (
-                                      <span className="text-muted-foreground truncate text-xs font-normal">
-                                        {judge.email}
-                                      </span>
-                                    ) : null}
-                                  </div>
-                                </DropdownMenuCheckboxItem>
-                              );
-                            })
-                          )}
-                        </React.Fragment>
-                      );
-                    })}
+                      if (options.length === 0) {
+                        return (
+                          <p className="text-muted-foreground px-3 pb-2 text-sm">
+                            No judges
+                          </p>
+                        );
+                      }
+                      return options.map((judge) => {
+                        const key = assignmentKey(
+                          registration.registration_number,
+                          judge._id
+                        );
+                        const assigned = assignedIds.has(judge._id);
+                        const reason = assigned
+                          ? null
+                          : judgeProfileBlockReason(judge.judge_profile, {
+                              category_id: registration.category_id,
+                              education_level: registration.education_level,
+                              institution_key: registration.institution_key,
+                              institution_name: registration.institution_name,
+                            });
+                        return (
+                          <DropdownMenuCheckboxItem
+                            key={key}
+                            checked={assigned}
+                            disabled={busyKey === key || reason !== null}
+                            onSelect={(event) => event.preventDefault()}
+                            onCheckedChange={(checked) =>
+                              onToggleJudge(
+                                row.original,
+                                judge,
+                                checked === true
+                              )
+                            }
+                          >
+                            <div className="flex min-w-0 flex-col">
+                              <span className="truncate">
+                                {judgeName(judge, judge._id)}
+                              </span>
+                              {reason ? (
+                                <span className="text-muted-foreground text-xs font-normal">
+                                  {reason}
+                                </span>
+                              ) : judge.name ? (
+                                <span className="text-muted-foreground truncate text-xs font-normal">
+                                  {judge.email}
+                                </span>
+                              ) : null}
+                            </div>
+                          </DropdownMenuCheckboxItem>
+                        );
+                      });
+                    })()}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -710,7 +683,7 @@ export function JudgeAssignmentsDataTable({
         <div>
           <h2 className="text-lg font-medium">Judge Assignments</h2>
           <p className="text-muted-foreground text-sm">
-            Choose which thesis and JTEC judges review each registration.
+            Choose which judges review each registration. They score every rubric for this track.
           </p>
           <p className="text-muted-foreground text-sm">
             {leaderScoringDeadlineMessage(judgingDueDate)}
