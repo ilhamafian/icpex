@@ -1,10 +1,12 @@
 import {
+  IconChartBar,
   IconClipboardList,
   IconDashboard,
   IconListDetails,
   IconScale,
   IconUserCheck,
   IconUsers,
+  IconUsersGroup,
   type Icon,
 } from "@tabler/icons-react";
 
@@ -21,6 +23,8 @@ export type PortalSection =
   | "competitions-categories"
   | "judging-criteria"
   | "judge-assignments"
+  | "participant-marks"
+  | "judge-distribution"
   | "users"
   | "registrations"
   | "my-assignments"
@@ -65,6 +69,20 @@ export const portalNavMain: PortalNavItem[] = [
     roles: JUDGE_LEADER_ROLES,
   },
   {
+    title: "Participant Marks",
+    url: "/portal/participant-marks",
+    icon: IconChartBar,
+    section: "participant-marks",
+    roles: JUDGE_LEADER_ROLES,
+  },
+  {
+    title: "Judge Distribution",
+    url: "/portal/judge-distribution",
+    icon: IconUsersGroup,
+    section: "judge-distribution",
+    roles: JUDGE_LEADER_ROLES,
+  },
+  {
     title: "Users",
     url: "/portal/users",
     icon: IconUsers,
@@ -92,6 +110,8 @@ const titleBySection: Record<PortalSection, string> = {
   "competitions-categories": "Competitions & Categories",
   "judging-criteria": "Judging Criteria",
   "judge-assignments": "Judge Assignments",
+  "participant-marks": "Participant Marks",
+  "judge-distribution": "Judge Distribution",
   users: "Users",
   registrations: "Payments",
   "my-assignments": "My Assignments",
@@ -114,6 +134,12 @@ export function getPortalSection(pathname: string): PortalSection {
   }
   if (pathname.startsWith("/portal/judge-assignments")) {
     return "judge-assignments";
+  }
+  if (pathname.startsWith("/portal/participant-marks")) {
+    return "participant-marks";
+  }
+  if (pathname.startsWith("/portal/judge-distribution")) {
+    return "judge-distribution";
   }
   if (pathname.startsWith("/portal/users")) {
     return "users";
