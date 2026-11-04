@@ -6,13 +6,11 @@ import { createInviteToken } from "@/lib/inviteToken";
 import { CompetitionModel } from "@/models/Competition";
 import { UserModel } from "@/models/User";
 import { toIdString } from "@/schemas/objectId";
-import {
-  inviteUserSchema,
-  userSchema,
-  type RoleGrant,
-} from "@/schemas/userSchema";
+import { inviteUserSchema, userSchema, type RoleGrant } from "@/schemas/userSchema";
+import { isGlobalRole } from "@/schemas/userRole";
 import { requireAdminSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
+import { grantDenied } from "@/utils/roleAccess";
 import { hasGrant } from "@/utils/roleGrants";
 import { serializeUser } from "@/utils/serializeUser";
 
@@ -48,10 +46,20 @@ export async function POST(req: NextRequest) {
 
     const email = parsed.data.email.toLowerCase();
     const role = parsed.data.role;
+    const denied = await grantDenied(
+      session,
+      role,
+      parsed.data.competition_id
+        ? toIdString(parsed.data.competition_id)
+        : undefined
+    );
+    if (denied) {
+      return createResponse({ error: denied }, 403);
+    }
 
     let grant: RoleGrant = { role };
     let competitionName: string | undefined;
-    if (role !== "ADMIN") {
+    if (!isGlobalRole(role)) {
       if (!parsed.data.competition_id) {
         return createResponse(
           { error: "Choose the competition this role is for." },

@@ -128,7 +128,7 @@ export async function createSession(
 
 /** @deprecated Prefer createSession(username, role, { source: "env" }) */
 export async function createAdminSession(username: string): Promise<void> {
-  await createSession(username, "ADMIN", { source: "env" });
+  await createSession(username, "SUPER_ADMIN", { source: "env" });
 }
 
 /**
@@ -144,7 +144,7 @@ export const getSession = cache(async (): Promise<SessionPayload | null> => {
   const competitionId = await getCurrentCompetitionId();
   const roles: UserRole[] =
     token.source === "env"
-      ? ["ADMIN"]
+      ? ["SUPER_ADMIN"]
       : await resolveUserRoles(token.username, competitionId);
 
   const [fallbackRole] = roles;

@@ -5,16 +5,23 @@ import { PaymentModel } from "@/models/Payment";
 import { UserModel } from "@/models/User";
 import { toIdString } from "@/schemas/objectId";
 import type { PaymentStatus } from "@/schemas/paymentSchema";
+import {
+  educationLevelForRole,
+  judgeRoleForEducation,
+  SCORING_JUDGE_ROLES,
+} from "@/schemas/userRole";
+import { usersWithRolesFilter } from "@/utils/roleGrants";
 import { toAssignmentRegistrationOption } from "@/utils/assignmentOptions";
 import { findRegistrationsForCompetition } from "@/utils/competitionScope";
 import { getCurrentCompetition } from "@/utils/currentCompetition";
-import { JUDGE_ROLES } from "@/utils/portalAuth";
-import { usersWithRolesFilter } from "@/utils/roleGrants";
+import { requirePortalSection } from "@/utils/requirePortalAccess";
 import { serializeJudgeAssignment } from "@/utils/serializeJudgeAssignment";
 import { serializeUser } from "@/utils/serializeUser";
-import { requirePortalSection } from "@/utils/requirePortalAccess";
 
-async function loadAssignmentData(competitionId: string | null) {
+async function loadAssignmentData(
+  competitionId: string | null,
+  role: Parameters<typeof educationLevelForRole>[0]
+) {
   if (!competitionId) {
     return { assignments: [], judges: [], registrations: [] };
   }
@@ -23,14 +30,24 @@ async function loadAssignmentData(competitionId: string | null) {
     const assignmentModel = new JudgeAssignmentModel();
     await assignmentModel.acceptPending();
 
-    const [registrations, users, payments, categories] = await Promise.all([
+    const track = educationLevelForRole(role);
+    const judgeRoles = track
+      ? [judgeRoleForEducation(track)]
+      : [...SCORING_JUDGE_ROLES];
+    const [foundRegistrations, users, payments, categories] = await Promise.all([
       findRegistrationsForCompetition(competitionId),
-      new UserModel().find(usersWithRolesFilter(JUDGE_ROLES, competitionId), {
+      new UserModel().find(usersWithRolesFilter(judgeRoles, competitionId), {
         sort: { email: 1 },
       }),
       new PaymentModel().find({}, { sort: { created_at: -1 } }),
       new CategoryModel().find({}),
     ]);
+
+    const registrations = track
+      ? foundRegistrations.filter(
+          (item) => item.participant.education_level === track
+        )
+      : foundRegistrations;
 
     const categoryNames = new Map(
       categories.map((item) => [toIdString(item._id), item.name])
@@ -71,11 +88,13 @@ async function loadAssignmentData(competitionId: string | null) {
 }
 
 export default async function JudgeAssignmentsPage() {
-  await requirePortalSection("judge-assignments");
+  const session = await requirePortalSection("judge-assignments");
   const competition = await getCurrentCompetition();
   const competitionId = competition ? toIdString(competition._id) : null;
-  const { assignments, judges, registrations } =
-    await loadAssignmentData(competitionId);
+  const { assignments, judges, registrations } = await loadAssignmentData(
+    competitionId,
+    session.role
+  );
 
   return (
     <JudgeAssignmentsManager

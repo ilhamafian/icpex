@@ -7,6 +7,7 @@ import {
   applySubmissionFees,
   loadSubmissionPaymentGroup,
 } from "@/utils/submissionPayments";
+import { denyUnlessSubmission } from "@/utils/trackAccess";
 
 export async function PATCH(
   req: NextRequest,
@@ -19,6 +20,8 @@ export async function PATCH(
     }
 
     const { id } = await params;
+    const denied = await denyUnlessSubmission(session.role, id);
+    if (denied) return denied;
     const body = await req.json();
     const parsed = submissionFeesSchema.safeParse(body);
     if (!parsed.success) {

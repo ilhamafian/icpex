@@ -5,14 +5,14 @@ import {
   competitionInputSchema,
   competitionSchema,
 } from "@/schemas/competitionSchema";
-import { requireAdminSession } from "@/utils/portalAuth";
+import { requireSuperAdminSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { serializeCompetition } from "@/utils/serializeCatalog";
 import { uniqueSlug } from "@/utils/slug";
 
 export async function GET() {
   try {
-    const session = await requireAdminSession();
+    const session = await requireSuperAdminSession();
     if (!session) {
       return createResponse({ error: "Unauthorized" }, 401);
     }
@@ -32,7 +32,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await requireAdminSession();
+    const session = await requireSuperAdminSession();
     if (!session) {
       return createResponse({ error: "Unauthorized" }, 401);
     }

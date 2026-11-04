@@ -7,6 +7,7 @@ import { registrationStatusUpdateSchema } from "@/schemas/registrationSchema";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { requireSecretarySession } from "@/utils/portalAuth";
 import { serializePayment } from "@/utils/serializePayment";
+import { educationDenied } from "@/utils/trackAccess";
 import {
   serializeRegistration,
   submissionNumbersFor,
@@ -27,6 +28,12 @@ export async function GET(
     if (!registration) {
       return createResponse({ error: "Registration not found" }, 404);
     }
+
+    const denied = educationDenied(
+      session.role,
+      registration.participant.education_level
+    );
+    if (denied) return denied;
 
     const payment = await new PaymentModel().findOne({
       registration_id: toIdString(registration._id),
@@ -60,6 +67,12 @@ export async function PATCH(
     if (!existing) {
       return createResponse({ error: "Registration not found" }, 404);
     }
+
+    const denied = educationDenied(
+      session.role,
+      existing.participant.education_level
+    );
+    if (denied) return denied;
 
     const body = await req.json();
     const parsed = registrationStatusUpdateSchema.safeParse(body);

@@ -42,8 +42,8 @@ export async function portalLogin(
   const { username, password } = validated.data;
 
   if (verifyEnvAdminCredentials(username, password)) {
-    await createSession(username, "ADMIN", { source: "env" });
-    redirect(getHomePathForRole("ADMIN"));
+    await createSession(username, "SUPER_ADMIN", { source: "env" });
+    redirect(getHomePathForRole("SUPER_ADMIN"));
   }
 
   const user = await new UserModel().findByEmail(username.toLowerCase());

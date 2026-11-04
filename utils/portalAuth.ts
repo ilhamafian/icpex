@@ -1,10 +1,13 @@
 import { getSession, type SessionPayload } from "@/lib/session";
-import type { UserRole } from "@/schemas/userRole";
+import {
+  ADMIN_ROLES,
+  JUDGE_LEADER_ROLES,
+  SCORING_JUDGE_ROLES,
+  SECRETARIAT_ROLES,
+  type UserRole,
+} from "@/schemas/userRole";
 
-export const JUDGE_ROLES: UserRole[] = [
-  "THESIS_JUDGE",
-  "JTEC_JUDGE",
-];
+export const JUDGE_ROLES: UserRole[] = [...SCORING_JUDGE_ROLES];
 
 export async function requireSession(
   allowedRoles?: UserRole[]
@@ -17,22 +20,27 @@ export async function requireSession(
   return session;
 }
 
-/** Admin-only session check (API routes that manage system config). */
+/** Super admin only — competitions, categories, and banners. */
+export async function requireSuperAdminSession(): Promise<SessionPayload | null> {
+  return requireSession(["SUPER_ADMIN"]);
+}
+
+/** Super admin or a track admin. */
 export async function requireAdminSession(): Promise<SessionPayload | null> {
-  return requireSession(["ADMIN"]);
+  return requireSession(ADMIN_ROLES);
 }
 
-/** Thesis / JTEC judge session check. */
+/** Scoring judge for the active education track. */
 export async function requireJudgeSession(): Promise<SessionPayload | null> {
-  return requireSession(JUDGE_ROLES);
+  return requireSession(SCORING_JUDGE_ROLES);
 }
 
-/** Judge leader — judging criteria and assignments for the current competition. */
+/** Judge leader or super admin — criteria and assignments. */
 export async function requireJudgeLeaderSession(): Promise<SessionPayload | null> {
-  return requireSession(["JUDGE_LEADER"]);
+  return requireSession(JUDGE_LEADER_ROLES);
 }
 
-/** Secretary (and admin) — payment / registration review. */
+/** Secretariat or super admin — payment and registration review. */
 export async function requireSecretarySession(): Promise<SessionPayload | null> {
-  return requireSession(["SECRETARY", "ADMIN"]);
+  return requireSession(SECRETARIAT_ROLES);
 }

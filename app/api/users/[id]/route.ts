@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { UserModel } from "@/models/User";
 import { requireAdminSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
+import { targetUserDenied } from "@/utils/roleAccess";
 
 export async function DELETE(
   _req: NextRequest,
@@ -19,6 +20,11 @@ export async function DELETE(
     const existing = await model.findById(id);
     if (!existing) {
       return createResponse({ error: "User not found" }, 404);
+    }
+
+    const denied = await targetUserDenied(session, existing.roles);
+    if (denied) {
+      return createResponse({ error: denied }, 403);
     }
 
     await model.delete(id);

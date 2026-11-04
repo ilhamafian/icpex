@@ -8,8 +8,9 @@ export { userRoleSchema, type UserRole } from "./userRole";
 export const userStatusSchema = z.enum(["INVITED", "ACTIVE", "DISABLED"]);
 
 /**
- * A role held by a user. ADMIN is global (no competition); every other role is
- * scoped to a single competition so staff reset when a new competition starts.
+ * A role held by a user. SUPER_ADMIN is global (no competition); every other
+ * role is scoped to a single competition so staff reset when a new competition
+ * starts.
  */
 export const roleGrantSchema = z
   .object({
@@ -20,8 +21,8 @@ export const roleGrantSchema = z
       .optional(),
   })
   .refine(
-    (grant) => (grant.role === "ADMIN") === !grant.competition_id,
-    "ADMIN is global; every other role needs a competition"
+    (grant) => (grant.role === "SUPER_ADMIN") === !grant.competition_id,
+    "Super admin is global; every other role needs a competition"
   );
 
 export type RoleGrant = z.infer<typeof roleGrantSchema>;
@@ -36,7 +37,7 @@ export const userSchema = z.object({
   email_verified: z.boolean().default(false),
   invite_token_hash: z.string().min(1).optional(),
   invite_expires_at: z.coerce.date().optional(),
-  /** Set when a thesis or JTEC judge accepts an invitation. */
+  /** Set when a scoring judge accepts an invitation. */
   judge_profile: judgeProfileSchema.optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional(),
@@ -45,7 +46,7 @@ export const userSchema = z.object({
 export const inviteUserSchema = z.object({
   email: z.email(),
   role: userRoleSchema,
-  /** Required for every role except ADMIN. */
+  /** Required for every role except SUPER_ADMIN. */
   competition_id: objectIdSchema.optional(),
 });
 

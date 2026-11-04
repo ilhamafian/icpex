@@ -2,17 +2,9 @@ import type { UserRole } from "@/schemas/userRole";
 
 /** Post-login / role home path for each staff role. */
 export function getHomePathForRole(role: UserRole): string {
-  switch (role) {
-    case "ADMIN":
-      return "/portal/dashboard";
-    case "SECRETARY":
-      return "/portal/registrations";
-    case "JUDGE_LEADER":
-      return "/portal/judging-criteria";
-    case "THESIS_JUDGE":
-    case "JTEC_JUDGE":
-      return "/portal/my-assignments";
-    default:
-      return "/portal/login";
-  }
+  if (role.endsWith("_ADMIN")) return "/portal/dashboard";
+  if (role.endsWith("_SECRETARIAT")) return "/portal/registrations";
+  if (role.endsWith("_JUDGE_LEADER")) return "/portal/judging-criteria";
+  if (role.endsWith("_JUDGE")) return "/portal/my-assignments";
+  return "/portal/login";
 }

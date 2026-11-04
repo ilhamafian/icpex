@@ -17,6 +17,7 @@ import {
 } from "@/utils/competitionDates";
 import { registrationCompetitionId } from "@/utils/competitionScope";
 import { judgeTypesForRoles } from "@/utils/judgeTypes";
+import { canAccessEducationLevel } from "@/utils/trackAccess";
 import {
   resolveJudgeUser,
   type PortalJudgeUser,
@@ -33,7 +34,8 @@ const scoresUpdateSchema = z.object({
 async function loadOwnedAssignment(
   id: string,
   judge: PortalJudgeUser,
-  competitionId: string | null
+  competitionId: string | null,
+  role: PortalJudgeUser["roles"][number]
 ) {
   const model = new JudgeAssignmentModel();
   const existing = await model.findById(id);
@@ -52,7 +54,8 @@ async function loadOwnedAssignment(
   });
   if (
     !registration ||
-    registrationCompetitionId(registration) !== competitionId
+    registrationCompetitionId(registration) !== competitionId ||
+    !canAccessEducationLevel(role, registration.participant.education_level)
   ) {
     return {
       error: "This assignment is not part of the current competition.",
@@ -91,7 +94,12 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    const owned = await loadOwnedAssignment(id, judge, session.competition_id);
+    const owned = await loadOwnedAssignment(
+      id,
+      judge,
+      session.competition_id,
+      session.role
+    );
     if ("error" in owned) {
       return createResponse({ error: owned.error }, owned.status);
     }
@@ -223,7 +231,12 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const owned = await loadOwnedAssignment(id, judge, session.competition_id);
+    const owned = await loadOwnedAssignment(
+      id,
+      judge,
+      session.competition_id,
+      session.role
+    );
     if ("error" in owned) {
       return createResponse({ error: owned.error }, owned.status);
     }

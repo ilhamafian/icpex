@@ -1,4 +1,4 @@
-import type { UpdateFilter } from "mongodb";
+import type { Filter, UpdateFilter, WithId } from "mongodb";
 import { ZodSchema } from "zod";
 import { ModelBase } from "@/models/ModelBase";
 import type { JudgeProfile } from "@/schemas/judgeProfileSchema";
@@ -8,10 +8,83 @@ import {
   type RoleGrant,
   type User,
 } from "@/schemas/userSchema";
+import {
+  grantsNeedMigration,
+  migrateRoleGrants,
+} from "@/utils/migrateRoleGrants";
+
+const LEGACY_ROLE_NAMES = [
+  "ADMIN",
+  "SECRETARY",
+  "JUDGE_LEADER",
+  "THESIS_JUDGE",
+  "JTEC_JUDGE",
+];
 
 export class UserModel extends ModelBase<User> {
   protected collectionName = "users";
   protected schema: ZodSchema<User> = userSchema;
+  private static legacyMigration: Promise<void> | null = null;
+
+  /**
+   * Rewrite leftover role grants once per process, before any user is read,
+   * so filters for the new roles still find existing staff.
+   */
+  private async ensureLegacyRolesMigrated() {
+    if (!UserModel.legacyMigration) {
+      UserModel.legacyMigration = this.rewriteLegacyRoles().catch((error) => {
+        UserModel.legacyMigration = null;
+        throw error;
+      });
+    }
+    await UserModel.legacyMigration;
+  }
+
+  private async rewriteLegacyRoles() {
+    const collection = await this.getCollection();
+    const docs = await collection
+      .find({
+        $or: [
+          { "roles.role": { $in: LEGACY_ROLE_NAMES } },
+          { roles: { $elemMatch: { $in: LEGACY_ROLE_NAMES } } },
+        ],
+      } as Filter<User>)
+      .toArray();
+
+    for (const doc of docs) {
+      if (!grantsNeedMigration(doc.roles)) continue;
+      const roles = migrateRoleGrants(
+        doc.roles,
+        doc.judge_profile?.education_eligibility
+      );
+      if (roles.length === 0) continue;
+      await collection.updateOne({ _id: doc._id } as Filter<User>, {
+        $set: { roles, updated_at: new Date() },
+      });
+    }
+  }
+
+  override async findById(id: string): Promise<WithId<User> | null> {
+    await this.ensureLegacyRolesMigrated();
+    return super.findById(id);
+  }
+
+  override async findOne(query: Filter<User>): Promise<WithId<User> | null> {
+    await this.ensureLegacyRolesMigrated();
+    return super.findOne(query);
+  }
+
+  override async find(
+    query: Filter<User> = {} as Filter<User>,
+    options: {
+      skip?: number;
+      limit?: number;
+      sort?: import("mongodb").Sort;
+    } = {}
+  ): Promise<WithId<User>[]> {
+    await this.ensureLegacyRolesMigrated();
+    return super.find(query, options);
+  }
 
   async findByEmail(email: string): Promise<User | null> {
     const result = await this.findOne({ email: email.toLowerCase() });

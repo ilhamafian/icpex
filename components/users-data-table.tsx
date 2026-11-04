@@ -63,6 +63,7 @@ import {
 } from "@/components/ui/table";
 import { COMPETITION_ELIGIBILITY_LABELS } from "@/schemas/educationLevel";
 import type { UserRole, UserStatus } from "@/schemas/userSchema";
+import { isGlobalRole, USER_ROLE_LABELS } from "@/schemas/userRole";
 import type { SerializedUser } from "@/types/user";
 import { hasGrant, rolesForCompetition } from "@/utils/roleGrants";
 
@@ -76,23 +77,7 @@ const features = tableFeatures({
 
 const columnHelper = createColumnHelper<typeof features, SerializedUser>();
 
-const ROLE_LABELS: Record<UserRole, string> = {
-  ADMIN: "Admin",
-  SECRETARY: "Secretary",
-  JUDGE_LEADER: "Judge Leader",
-  THESIS_JUDGE: "Thesis Judge",
-  JTEC_JUDGE: "JTEC Judge",
-};
-
 const USER_STATUSES: UserStatus[] = ["ACTIVE", "INVITED", "DISABLED"];
-
-const ROLE_OPTIONS: UserRole[] = [
-  "ADMIN",
-  "SECRETARY",
-  "JUDGE_LEADER",
-  "THESIS_JUDGE",
-  "JTEC_JUDGE",
-];
 
 type VerifiedFilter = "yes" | "no";
 
@@ -167,8 +152,10 @@ export function roleToggleKey(userId: string, role: UserRole) {
 
 type UsersDataTableProps = {
   data: SerializedUser[];
-  /** Roles are shown for this competition (plus global ADMIN). */
+  /** Roles are shown for this competition (plus global super admin). */
   competitionId: string | null;
+  /** Roles this viewer is allowed to grant. */
+  assignableRoles: UserRole[];
   toolbar?: React.ReactNode;
   onAddUser: () => void;
   onToggleRole: (
@@ -185,6 +172,7 @@ type UsersDataTableProps = {
 export function UsersDataTable({
   data,
   competitionId,
+  assignableRoles,
   toolbar,
   onAddUser,
   onToggleRole,
@@ -300,7 +288,7 @@ export function UsersDataTable({
               <div className="flex flex-wrap items-center gap-1">
                 {roles.map((role) => (
                   <Badge key={role} variant="outline" className="px-1.5">
-                    {ROLE_LABELS[role] ?? role}
+                    {USER_ROLE_LABELS[role] ?? role}
                   </Badge>
                 ))}
                 <DropdownMenu>
@@ -319,10 +307,10 @@ export function UsersDataTable({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
                     <DropdownMenuLabel>Roles</DropdownMenuLabel>
-                    {ROLE_OPTIONS.map((role) => {
+                    {assignableRoles.map((role) => {
                       const assigned = hasGrant(user.roles, role, competitionId);
                       const key = roleToggleKey(user._id, role);
-                      const needsCompetition = role !== "ADMIN";
+                      const needsCompetition = !isGlobalRole(role);
                       const blocked =
                         (needsCompetition && !competitionId) ||
                         (assigned && onlyRole);
@@ -337,7 +325,7 @@ export function UsersDataTable({
                           }
                         >
                           <div className="flex min-w-0 flex-col">
-                            <span className="truncate">{ROLE_LABELS[role]}</span>
+                            <span className="truncate">{USER_ROLE_LABELS[role]}</span>
                             {assigned && onlyRole ? (
                               <span className="text-muted-foreground text-xs font-normal">
                                 Keep at least one role
@@ -435,6 +423,7 @@ export function UsersDataTable({
         }),
       ]),
     [
+      assignableRoles,
       busyId,
       busyKey,
       competitionId,
@@ -516,7 +505,7 @@ export function UsersDataTable({
               ))}
               <DropdownMenuSeparator />
               <DropdownMenuLabel>Role</DropdownMenuLabel>
-              {ROLE_OPTIONS.map((role) => (
+              {assignableRoles.map((role) => (
                 <DropdownMenuCheckboxItem
                   key={role}
                   checked={roleFilter.has(role)}
@@ -528,7 +517,7 @@ export function UsersDataTable({
                     table.setPageIndex(0);
                   }}
                 >
-                  {ROLE_LABELS[role]}
+                  {USER_ROLE_LABELS[role]}
                 </DropdownMenuCheckboxItem>
               ))}
               <DropdownMenuSeparator />
@@ -758,4 +747,4 @@ export function UsersDataTable({
   );
 }
 
-export { ROLE_LABELS };
+export { USER_ROLE_LABELS as ROLE_LABELS };

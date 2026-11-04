@@ -62,10 +62,8 @@ import type {
 } from "@/schemas/judgeAssignmentsSchema";
 import type { PaymentStatus } from "@/schemas/paymentSchema";
 import { PAYMENT_STATUS_LABELS } from "@/utils/paymentStatusLabel";
-import type { UserRole } from "@/schemas/userRole";
 import type { SerializedUser } from "@/types/user";
 import { judgeProfileBlockReason } from "@/utils/judgeEligibility";
-import { hasGrant } from "@/utils/roleGrants";
 import type { AssignmentRegistrationOption } from "@/utils/assignmentOptions";
 import { leaderScoringDeadlineMessage } from "@/utils/competitionDates";
 import type { SerializedJudgeAssignment } from "@/utils/serializeJudgeAssignment";
@@ -88,11 +86,6 @@ const columnHelper = createColumnHelper<typeof features, JudgeAssignmentRow>();
 const TYPE_LABELS: Record<JudgeAssignmentType, string> = {
   THESIS: "Thesis",
   JTEC: "JTEC",
-};
-
-const TYPE_ROLE: Record<JudgeAssignmentType, UserRole> = {
-  THESIS: "THESIS_JUDGE",
-  JTEC: "JTEC_JUDGE",
 };
 
 function assignmentStatusVariant(
@@ -577,7 +570,6 @@ export function JudgeAssignmentsDataTable({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-72">
                     {(["THESIS", "JTEC"] as const).map((type, index) => {
-                      const role = TYPE_ROLE[type];
                       const assignedIds = new Set(
                         assignments
                           .filter((item) => item.type === type)
@@ -585,9 +577,8 @@ export function JudgeAssignmentsDataTable({
                       );
                       const options = judges.filter(
                         (judge) =>
-                          hasGrant(judge.roles, role, competitionId) &&
-                          (judge.status === "ACTIVE" ||
-                            assignedIds.has(judge._id))
+                          judge.status === "ACTIVE" ||
+                          assignedIds.has(judge._id)
                       );
                       return (
                         <React.Fragment key={type}>

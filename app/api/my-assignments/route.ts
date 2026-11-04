@@ -4,6 +4,7 @@ import { createResponse, handleError } from "@/utils/apiHelper";
 import { findRegistrationsForCompetition } from "@/utils/competitionScope";
 import { resolveJudgeUser } from "@/utils/resolveJudgeUser";
 import { serializeJudgeAssignment } from "@/utils/serializeJudgeAssignment";
+import { filterByEducationLevel } from "@/utils/trackAccess";
 
 export async function GET() {
   try {
@@ -17,8 +18,9 @@ export async function GET() {
       return createResponse({ error: "Judge account not found." }, 401);
     }
 
-    const registrations = await findRegistrationsForCompetition(
-      session.competition_id
+    const registrations = filterByEducationLevel(
+      session.role,
+      await findRegistrationsForCompetition(session.competition_id)
     );
     const assignments =
       registrations.length === 0

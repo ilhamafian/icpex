@@ -7,6 +7,7 @@ import { CompetitionModel } from "@/models/Competition";
 import { UserModel } from "@/models/User";
 import { requireAdminSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
+import { targetUserDenied } from "@/utils/roleAccess";
 import { serializeUser } from "@/utils/serializeUser";
 
 export async function POST(
@@ -31,6 +32,11 @@ export async function POST(
         { error: "Only invited users can be resent an invite." },
         400
       );
+    }
+
+    const denied = await targetUserDenied(session, existing.roles);
+    if (denied) {
+      return createResponse({ error: denied }, 403);
     }
 
     const { token, tokenHash, expiresAt } = createInviteToken();

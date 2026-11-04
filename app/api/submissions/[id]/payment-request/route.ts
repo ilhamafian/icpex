@@ -17,6 +17,7 @@ import {
   setSubmissionPaymentsStatus,
   submissionRecipients,
 } from "@/utils/submissionPayments";
+import { denyUnlessSubmission } from "@/utils/trackAccess";
 
 export async function POST(
   req: NextRequest,
@@ -29,6 +30,8 @@ export async function POST(
     }
 
     const { id } = await params;
+    const denied = await denyUnlessSubmission(session.role, id);
+    if (denied) return denied;
     const body = await req.json().catch(() => ({}));
     const feesParsed = submissionFeesSchema
       .pick({ fees: true })

@@ -3,7 +3,7 @@ import "server-only";
 import nodemailer, { type Transporter } from "nodemailer";
 import { Resend } from "resend";
 
-import type { UserRole } from "@/schemas/userSchema";
+import { USER_ROLE_LABELS, type UserRole } from "@/schemas/userRole";
 import { formatMoney, type Currency } from "@/utils/registrationFee";
 
 type MailAttachment = {
@@ -97,24 +97,16 @@ async function sendMail(message: MailMessage) {
   await getTransporter().sendMail({ from: getFrom(), ...message });
 }
 
-const ROLE_LABELS: Record<UserRole, string> = {
-  ADMIN: "Administrator",
-  SECRETARY: "Secretary",
-  JUDGE_LEADER: "Judge Leader",
-  THESIS_JUDGE: "Thesis Judge",
-  JTEC_JUDGE: "JTEC Judge",
-};
-
 export async function sendUserInviteEmail(options: {
   to: string;
   role: UserRole;
-  /** Shown for competition-scoped roles (everything except ADMIN). */
+  /** Shown for competition-scoped roles (everything except super admin). */
   competitionName?: string;
   inviteUrl: string;
 }) {
   const roleLabel = options.competitionName
-    ? `${ROLE_LABELS[options.role]} for ${options.competitionName}`
-    : ROLE_LABELS[options.role];
+    ? `${USER_ROLE_LABELS[options.role]} for ${options.competitionName}`
+    : USER_ROLE_LABELS[options.role];
 
   await sendMail({
     to: options.to,

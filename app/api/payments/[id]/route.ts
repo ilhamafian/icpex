@@ -13,6 +13,10 @@ import { registrationStatusUpdateSchema } from "@/schemas/registrationSchema";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { requireSecretarySession } from "@/utils/portalAuth";
 import { serializePayment } from "@/utils/serializePayment";
+import {
+  denyUnlessRegistration,
+  denyUnlessSubmission,
+} from "@/utils/trackAccess";
 
 async function maybeAdvanceRegistrationOnPaid(
   registrationId: string,
@@ -73,6 +77,12 @@ export async function GET(
       return createResponse({ error: "Payment not found" }, 404);
     }
 
+    const denied = await denyUnlessRegistration(
+      session.role,
+      toIdString(payment.registration_id)
+    );
+    if (denied) return denied;
+
     return createResponse({ payment: serializePayment(payment) });
   } catch (error) {
     return handleError(error);
@@ -95,6 +105,14 @@ export async function PATCH(
     if (!existing) {
       return createResponse({ error: "Payment not found" }, 404);
     }
+
+    const denied = existing.submission_id
+      ? await denyUnlessSubmission(session.role, toIdString(existing.submission_id))
+      : await denyUnlessRegistration(
+          session.role,
+          toIdString(existing.registration_id)
+        );
+    if (denied) return denied;
 
     const body = await req.json();
     const parsed = paymentUpdateSchema.safeParse(body);
@@ -159,6 +177,14 @@ export async function DELETE(
     if (!existing) {
       return createResponse({ error: "Payment not found" }, 404);
     }
+
+    const denied = existing.submission_id
+      ? await denyUnlessSubmission(session.role, toIdString(existing.submission_id))
+      : await denyUnlessRegistration(
+          session.role,
+          toIdString(existing.registration_id)
+        );
+    if (denied) return denied;
 
     await model.delete(id);
     return createResponse({ ok: true });

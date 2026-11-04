@@ -3,11 +3,15 @@ import type { RoleGrant } from "@/schemas/userSchema";
 
 /** Pre-migration documents stored roles as plain strings; only ADMIN survives. */
 function normalizeGrant(grant: RoleGrant | string): RoleGrant | null {
-  if (typeof grant !== "string") return grant;
-  return grant === "ADMIN" ? { role: "ADMIN" } : null;
+  if (typeof grant !== "string") {
+    return grant.role === "SUPER_ADMIN" ? { role: "SUPER_ADMIN" } : grant;
+  }
+  return grant === "ADMIN" || grant === "SUPER_ADMIN"
+    ? { role: "SUPER_ADMIN" }
+    : null;
 }
 
-/** Roles a user holds in a competition, including global ones (ADMIN). */
+/** Roles a user holds in a competition, including the global super admin role. */
 export function rolesForCompetition(
   grants: readonly (RoleGrant | string)[],
   competitionId: string | null | undefined

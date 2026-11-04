@@ -5,7 +5,7 @@ import {
   categoryUpdateSchema,
   type Category,
 } from "@/schemas/categorySchema";
-import { requireAdminSession } from "@/utils/portalAuth";
+import { requireSuperAdminSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { serializeCategory } from "@/utils/serializeCatalog";
 
@@ -14,7 +14,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await requireAdminSession();
+    const session = await requireSuperAdminSession();
     if (!session) {
       return createResponse({ error: "Unauthorized" }, 401);
     }
@@ -54,7 +54,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await requireAdminSession();
+    const session = await requireSuperAdminSession();
     if (!session) {
       return createResponse({ error: "Unauthorized" }, 401);
     }

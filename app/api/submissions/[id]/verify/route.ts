@@ -26,6 +26,7 @@ import {
   setSubmissionPaymentsStatus,
   submissionRecipients,
 } from "@/utils/submissionPayments";
+import { denyUnlessSubmission } from "@/utils/trackAccess";
 
 /**
  * Secretary decision on an uploaded receipt: paid (with invoice), failed,
@@ -42,6 +43,8 @@ export async function POST(
     }
 
     const { id } = await params;
+    const denied = await denyUnlessSubmission(session.role, id);
+    if (denied) return denied;
     const parsed = paymentVerificationSchema.safeParse(await req.json());
     if (!parsed.success) {
       return createResponse(

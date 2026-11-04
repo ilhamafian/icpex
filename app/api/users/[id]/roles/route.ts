@@ -2,8 +2,10 @@ import { NextRequest } from "next/server";
 
 import { UserModel } from "@/models/User";
 import { roleGrantSchema } from "@/schemas/userSchema";
+import { isGlobalRole } from "@/schemas/userRole";
 import { requireAdminSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
+import { grantDenied } from "@/utils/roleAccess";
 import { hasGrant } from "@/utils/roleGrants";
 import { serializeUser } from "@/utils/serializeUser";
 
@@ -29,8 +31,17 @@ export async function DELETE(
       return createResponse({ error: "User not found" }, 404);
     }
 
-    const scope =
-      parsed.data.role === "ADMIN" ? null : parsed.data.competition_id;
+    const scope = isGlobalRole(parsed.data.role)
+      ? null
+      : parsed.data.competition_id;
+    const denied = await grantDenied(
+      session,
+      parsed.data.role,
+      scope ?? undefined
+    );
+    if (denied) {
+      return createResponse({ error: denied }, 403);
+    }
     if (!hasGrant(existing.roles, parsed.data.role, scope)) {
       return createResponse({ error: "That role is not assigned." }, 404);
     }

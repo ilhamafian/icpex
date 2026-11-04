@@ -11,7 +11,12 @@ import {
 import { registrationStatusUpdateSchema } from "@/schemas/registrationSchema";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { requireSecretarySession } from "@/utils/portalAuth";
+import type { SessionPayload } from "@/lib/session";
 import { serializePayment } from "@/utils/serializePayment";
+import {
+  denyUnlessRegistration,
+  registrationIdsForRole,
+} from "@/utils/trackAccess";
 
 async function maybeAdvanceRegistrationOnPaid(
   registrationId: string,
@@ -42,9 +47,15 @@ export async function GET() {
       {},
       { sort: { created_at: -1 } }
     );
+    const allowedIds = await registrationIdsForRole(session.role);
+    const visible = allowedIds
+      ? payments.filter((payment) =>
+          allowedIds.has(toIdString(payment.registration_id))
+        )
+      : payments;
 
     return createResponse({
-      payments: payments.map(serializePayment),
+      payments: visible.map(serializePayment),
     });
   } catch (error) {
     return handleError(error);
@@ -60,8 +71,9 @@ export async function POST(req: NextRequest) {
 
     const hasStatus =
       body != null && typeof body === "object" && "status" in body;
+    let session: SessionPayload | null = null;
     if (hasStatus) {
-      const session = await requireSecretarySession();
+      session = await requireSecretarySession();
       if (!session) {
         return createResponse({ error: "Unauthorized" }, 401);
       }
@@ -75,6 +87,10 @@ export async function POST(req: NextRequest) {
     }
 
     const registrationId = toIdString(parsed.data.registration_id);
+    if (hasStatus && session) {
+      const denied = await denyUnlessRegistration(session.role, registrationId);
+      if (denied) return denied;
+    }
     const registration = await new RegistrationModel().findById(registrationId);
     if (!registration) {
       return createResponse({ error: "Registration not found." }, 404);

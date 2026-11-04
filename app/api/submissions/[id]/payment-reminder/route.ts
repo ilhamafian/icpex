@@ -13,6 +13,7 @@ import {
   loadSubmissionPaymentGroup,
   submissionRecipients,
 } from "@/utils/submissionPayments";
+import { denyUnlessSubmission } from "@/utils/trackAccess";
 
 export async function POST(
   _req: NextRequest,
@@ -25,6 +26,8 @@ export async function POST(
     }
 
     const { id } = await params;
+    const denied = await denyUnlessSubmission(session.role, id);
+    if (denied) return denied;
     const submissionModel = new SubmissionModel();
     const submission = await submissionModel.findById(id);
     if (!submission) {

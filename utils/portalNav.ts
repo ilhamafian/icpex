@@ -8,7 +8,13 @@ import {
   type Icon,
 } from "@tabler/icons-react";
 
-import type { UserRole } from "@/schemas/userRole";
+import {
+  ADMIN_ROLES,
+  JUDGE_LEADER_ROLES,
+  SCORING_JUDGE_ROLES,
+  SECRETARIAT_ROLES,
+  type UserRole,
+} from "@/schemas/userRole";
 
 export type PortalSection =
   | "dashboard"
@@ -35,49 +41,49 @@ export const portalNavMain: PortalNavItem[] = [
     url: "/portal/dashboard",
     icon: IconDashboard,
     section: "dashboard",
-    roles: ["ADMIN"],
+    roles: ADMIN_ROLES,
   },
   {
     title: "Competitions & Categories",
     url: "/portal/competitions-categories",
     icon: IconListDetails,
     section: "competitions-categories",
-    roles: ["ADMIN"],
+    roles: ["SUPER_ADMIN"],
   },
   {
     title: "Judging Criteria",
     url: "/portal/judging-criteria",
     icon: IconScale,
     section: "judging-criteria",
-    roles: ["JUDGE_LEADER"],
+    roles: JUDGE_LEADER_ROLES,
   },
   {
     title: "Judge Assignments",
     url: "/portal/judge-assignments",
     icon: IconUserCheck,
     section: "judge-assignments",
-    roles: ["JUDGE_LEADER"],
+    roles: JUDGE_LEADER_ROLES,
   },
   {
     title: "Users",
     url: "/portal/users",
     icon: IconUsers,
     section: "users",
-    roles: ["ADMIN"],
+    roles: ADMIN_ROLES,
   },
   {
     title: "Payments",
     url: "/portal/registrations",
     icon: IconClipboardList,
     section: "registrations",
-    roles: ["SECRETARY"],
+    roles: SECRETARIAT_ROLES,
   },
   {
     title: "My Assignments",
     url: "/portal/my-assignments",
     icon: IconClipboardList,
     section: "my-assignments",
-    roles: ["THESIS_JUDGE", "JTEC_JUDGE"],
+    roles: SCORING_JUDGE_ROLES,
   },
 ];
 

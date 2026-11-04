@@ -17,6 +17,7 @@ import { requirePortalSection } from "@/utils/requirePortalAccess";
 import { resolveJudgeUser } from "@/utils/resolveJudgeUser";
 import { serializeJudgeAssignment } from "@/utils/serializeJudgeAssignment";
 import { serializeJudgeCriteria } from "@/utils/serializeJudgeCriteria";
+import { canAccessEducationLevel } from "@/utils/trackAccess";
 
 export default async function AssessmentPage({
   params,
@@ -46,7 +47,11 @@ export default async function AssessmentPage({
   });
   if (
     !registration ||
-    registrationCompetitionId(registration) !== session.competition_id
+    registrationCompetitionId(registration) !== session.competition_id ||
+    !canAccessEducationLevel(
+      session.role,
+      registration.participant.education_level
+    )
   ) {
     notFound();
   }

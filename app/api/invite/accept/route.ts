@@ -7,7 +7,7 @@ import { UserModel } from "@/models/User";
 import { judgeProfileSchema } from "@/schemas/judgeProfileSchema";
 import { toIdString } from "@/schemas/objectId";
 import { acceptInviteSchema } from "@/schemas/userSchema";
-import { sortRoles } from "@/schemas/userRole";
+import { sortRoles, educationEligibilityForJudgeRoles } from "@/schemas/userRole";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { normalizeInstitution } from "@/utils/institutionKey";
 import { isScoringJudgeRole } from "@/utils/judgeTypes";
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
         return createResponse(
           {
             error:
-              "Judges must provide a university, national ID, categories, and education level.",
+              "Judges must provide a university, national ID, and categories.",
           },
           400
         );
@@ -116,10 +116,21 @@ export async function POST(req: NextRequest) {
         category_ids.push(canonical);
       }
 
+      const eligibility = educationEligibilityForJudgeRoles(
+        user.roles.map((grant) => grant.role)
+      );
+      if (!eligibility) {
+        return createResponse(
+          { error: "This invitation is not for a judge." },
+          400
+        );
+      }
+
       judge_profile = judgeProfileSchema.parse({
         ...parsed.data.judge_profile,
         category_ids,
         institution_key,
+        education_eligibility: eligibility,
       });
     }
 

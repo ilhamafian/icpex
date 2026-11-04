@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { requireSecretarySession } from "@/utils/portalAuth";
 import { loadSubmissionPaymentGroup } from "@/utils/submissionPayments";
+import { denyUnlessSubmission } from "@/utils/trackAccess";
 
 export async function GET(
   _req: NextRequest,
@@ -15,6 +16,8 @@ export async function GET(
     }
 
     const { id } = await params;
+    const denied = await denyUnlessSubmission(session.role, id);
+    if (denied) return denied;
     const group = await loadSubmissionPaymentGroup(id);
     if (!group) {
       return createResponse({ error: "Submission not found" }, 404);

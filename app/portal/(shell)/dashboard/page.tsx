@@ -4,6 +4,7 @@ import { DataTable } from "@/components/data-table";
 import { SectionCards } from "@/components/section-cards";
 import { BannerModel } from "@/models/Banner";
 import { CompetitionModel } from "@/models/Competition";
+import { educationLevelForRole } from "@/schemas/userRole";
 import { getCurrentCompetitionId } from "@/utils/currentCompetition";
 import { emptyDashboardData, loadDashboardData } from "@/utils/dashboardData";
 import { requirePortalSection } from "@/utils/requirePortalAccess";
@@ -28,20 +29,23 @@ async function loadBannerData() {
 }
 
 export default async function AdminDashboardPage() {
-  await requirePortalSection("dashboard");
+  const session = await requirePortalSection("dashboard");
+  const track = educationLevelForRole(session.role);
   const [{ stats, chart, rows }, bannerData] = await Promise.all([
-    loadDashboardData().catch(emptyDashboardData),
+    loadDashboardData(track).catch(emptyDashboardData),
     loadBannerData(),
   ]);
 
   return (
     <>
       <SectionCards stats={stats} />
-      <BannerManager
-        competitions={bannerData.competitions}
-        initialBanners={bannerData.banners}
-        currentCompetitionId={bannerData.currentCompetitionId}
-      />
+      {session.role === "SUPER_ADMIN" ? (
+        <BannerManager
+          competitions={bannerData.competitions}
+          initialBanners={bannerData.banners}
+          currentCompetitionId={bannerData.currentCompetitionId}
+        />
+      ) : null}
       <div className="px-4 lg:px-6">
         <ChartAreaInteractive data={chart} />
       </div>

@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { CompetitionEligibility } from "@/schemas/educationLevel";
 import type { UserRole } from "@/schemas/userRole";
+import { USER_ROLE_LABELS } from "@/schemas/userRole";
 import {
   COUNTRIES,
   MALAYSIA,
@@ -18,20 +18,6 @@ import {
   type MalaysiaInstitutionType,
 } from "@/utils/institutions";
 import { isScoringJudgeRole } from "@/utils/judgeTypes";
-
-const ROLE_LABELS: Record<UserRole, string> = {
-  ADMIN: "Administrator",
-  SECRETARY: "Secretary",
-  JUDGE_LEADER: "Judge Leader",
-  THESIS_JUDGE: "Thesis Judge",
-  JTEC_JUDGE: "JTEC Judge",
-};
-
-const LEVEL_OPTIONS: { value: CompetitionEligibility; label: string }[] = [
-  { value: "UNDERGRADUATE", label: "Undergraduate" },
-  { value: "POSTGRADUATE", label: "Postgraduate" },
-  { value: "BOTH", label: "Both" },
-];
 
 const selectClassName =
   "h-9 w-full rounded-3xl border border-transparent bg-input/50 px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50";
@@ -69,14 +55,11 @@ export function InviteAcceptForm({
   const [institutionName, setInstitutionName] = useState("");
   const [nationalId, setNationalId] = useState("");
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
-  const [educationLevel, setEducationLevel] = useState<
-    CompetitionEligibility | ""
-  >("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   const isMalaysia = country === MALAYSIA;
-  const roleLabel = roles.map((role) => ROLE_LABELS[role] ?? role).join(", ");
+  const roleLabel = roles.map((role) => USER_ROLE_LABELS[role] ?? role).join(", ");
 
   function changeCountry(next: string) {
     setCountry(next);
@@ -115,7 +98,6 @@ export function InviteAcceptForm({
       return "No categories are available yet. Ask an administrator to add categories before you accept this invitation.";
     }
     if (categoryIds.length === 0) return "Select at least one category.";
-    if (!educationLevel) return "Select who you can evaluate.";
     return null;
   }
 
@@ -129,7 +111,7 @@ export function InviteAcceptForm({
           token,
           password,
           name: name.trim(),
-          ...(needsProfile && educationLevel
+          ...(needsProfile
             ? {
                 judge_profile: {
                   institution: {
@@ -138,7 +120,6 @@ export function InviteAcceptForm({
                   },
                   national_id: nationalId.trim(),
                   category_ids: categoryIds,
-                  education_eligibility: educationLevel,
                 },
               }
             : {}),
@@ -402,30 +383,6 @@ export function InviteAcceptForm({
                 </div>
               )}
             </fieldset>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="invite-level">Who you can evaluate</Label>
-              <select
-                id="invite-level"
-                value={educationLevel}
-                onChange={(e) =>
-                  setEducationLevel(
-                    e.target.value as CompetitionEligibility | ""
-                  )
-                }
-                className={selectClassName}
-                required
-              >
-                <option value="" disabled>
-                  Select a level
-                </option>
-                {LEVEL_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
           </>
         )}
 

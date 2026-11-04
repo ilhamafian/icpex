@@ -5,7 +5,7 @@ import {
   competitionUpdateSchema,
   type Competition,
 } from "@/schemas/competitionSchema";
-import { requireAdminSession } from "@/utils/portalAuth";
+import { requireSuperAdminSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { serializeCompetition } from "@/utils/serializeCatalog";
 
@@ -14,7 +14,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await requireAdminSession();
+    const session = await requireSuperAdminSession();
     if (!session) {
       return createResponse({ error: "Unauthorized" }, 401);
     }
@@ -63,7 +63,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await requireAdminSession();
+    const session = await requireSuperAdminSession();
     if (!session) {
       return createResponse({ error: "Unauthorized" }, 401);
     }

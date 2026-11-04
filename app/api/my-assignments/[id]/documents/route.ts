@@ -11,6 +11,7 @@ import { safeFileName } from "@/utils/documentZip";
 import { judgeTypesForRoles } from "@/utils/judgeTypes";
 import { requireJudgeSession } from "@/utils/portalAuth";
 import { resolveJudgeUser } from "@/utils/resolveJudgeUser";
+import { canAccessEducationLevel } from "@/utils/trackAccess";
 
 /** Streams one private registration file for the judge who owns this assignment. */
 export async function GET(
@@ -48,7 +49,11 @@ export async function GET(
     });
     if (
       !registration ||
-      registrationCompetitionId(registration) !== session.competition_id
+      registrationCompetitionId(registration) !== session.competition_id ||
+      !canAccessEducationLevel(
+        session.role,
+        registration.participant.education_level
+      )
     ) {
       return createResponse({ error: "Forbidden" }, 403);
     }

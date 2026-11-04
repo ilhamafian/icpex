@@ -31,21 +31,13 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
-  ROLE_LABELS,
   roleToggleKey,
   UsersDataTable,
 } from "@/components/users-data-table";
 import type { CompetitionStatus } from "@/schemas/competitionSchema";
 import type { UserRole } from "@/schemas/userSchema";
+import { isGlobalRole, USER_ROLE_LABELS } from "@/schemas/userRole";
 import type { SerializedUser } from "@/types/user";
-
-const ROLE_OPTIONS: UserRole[] = [
-  "ADMIN",
-  "SECRETARY",
-  "JUDGE_LEADER",
-  "THESIS_JUDGE",
-  "JTEC_JUDGE",
-];
 
 export type UserCompetitionOption = {
   id: string;
@@ -59,8 +51,13 @@ type InviteFormState = {
   competitionId: string;
 };
 
-function emptyInviteForm(competitionId: string): InviteFormState {
-  return { email: "", role: "SECRETARY", competitionId };
+function emptyInviteForm(
+  competitionId: string,
+  roles: readonly UserRole[]
+): InviteFormState {
+  const role =
+    roles.find((item) => !isGlobalRole(item)) ?? roles[0] ?? "POSTGRAD_SECRETARIAT";
+  return { email: "", role, competitionId };
 }
 
 function competitionLabel(
@@ -87,10 +84,12 @@ export function UsersManager({
   initialUsers,
   competitions,
   currentCompetitionId,
+  assignableRoles,
 }: {
   initialUsers: SerializedUser[];
   competitions: UserCompetitionOption[];
   currentCompetitionId: string | null;
+  assignableRoles: UserRole[];
 }) {
   const [users, setUsers] = useState(initialUsers);
   const [competitionId, setCompetitionId] = useState(
@@ -98,9 +97,9 @@ export function UsersManager({
   );
   const [sheetOpen, setSheetOpen] = useState(false);
   const [form, setForm] = useState<InviteFormState>(() =>
-    emptyInviteForm(competitionId)
+    emptyInviteForm(competitionId, assignableRoles)
   );
-  const needsCompetition = form.role !== "ADMIN";
+  const needsCompetition = !isGlobalRole(form.role);
   const [submitting, setSubmitting] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -138,7 +137,7 @@ export function UsersManager({
         return [data.user, ...prev];
       });
       setSheetOpen(false);
-      setForm(emptyInviteForm(competitionId));
+      setForm(emptyInviteForm(competitionId, assignableRoles));
       toast.success(
         data.roleAdded
           ? `Added role to ${data.user.email}`
@@ -160,7 +159,7 @@ export function UsersManager({
     setBusyKey(key);
     try {
       if (assign) {
-        const needsCompetition = role !== "ADMIN";
+        const needsCompetition = !isGlobalRole(role);
         if (needsCompetition && !competitionId) {
           toast.error("Select a competition before assigning this role.");
           return;
@@ -184,13 +183,13 @@ export function UsersManager({
         );
         toast.success(
           user.status === "INVITED"
-            ? `Added ${ROLE_LABELS[role]} and resent the invite to ${user.email}`
-            : `Added ${ROLE_LABELS[role]} to ${user.email}`
+            ? `Added ${USER_ROLE_LABELS[role]} and resent the invite to ${user.email}`
+            : `Added ${USER_ROLE_LABELS[role]} to ${user.email}`
         );
         return;
       }
 
-      const grantCompetitionId = role === "ADMIN" ? undefined : competitionId;
+      const grantCompetitionId = isGlobalRole(role) ? undefined : competitionId;
       const res = await fetch(`/api/users/${user._id}/roles`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
@@ -207,7 +206,7 @@ export function UsersManager({
       setUsers((prev) =>
         prev.map((item) => (item._id === data.user._id ? data.user : item))
       );
-      toast.success(`Removed ${ROLE_LABELS[role]} from ${user.email}`);
+      toast.success(`Removed ${USER_ROLE_LABELS[role]} from ${user.email}`);
     } catch {
       toast.error(assign ? "Failed to add role." : "Failed to remove role.");
     } finally {
@@ -264,6 +263,7 @@ export function UsersManager({
       <UsersDataTable
         data={users}
         competitionId={competitionId || null}
+        assignableRoles={assignableRoles}
         toolbar={
           competitions.length > 0 ? (
             <Select value={competitionId} onValueChange={setCompetitionId}>
@@ -287,7 +287,7 @@ export function UsersManager({
         busyId={busyId}
         busyKey={busyKey}
         onAddUser={() => {
-          setForm(emptyInviteForm(competitionId));
+          setForm(emptyInviteForm(competitionId, assignableRoles));
           setSheetOpen(true);
         }}
         onToggleRole={handleToggleRole}
@@ -334,9 +334,9 @@ export function UsersManager({
                   <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
                 <SelectContent>
-                  {ROLE_OPTIONS.map((role) => (
+                  {assignableRoles.map((role) => (
                     <SelectItem key={role} value={role}>
-                      {ROLE_LABELS[role]}
+                      {USER_ROLE_LABELS[role]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -373,8 +373,8 @@ export function UsersManager({
             ) : null}
             <p className="text-muted-foreground text-sm">
               {needsCompetition
-                ? "Secretary and judge roles apply to one competition only. When a newer competition is published, staff need to be assigned again."
-                : "Administrators have access to every competition."}{" "}
+                ? "Track roles apply to one competition only. When a newer competition is published, staff need to be assigned again."
+                : "Super admins have access to every competition."}{" "}
               New users get an invite email; existing users just gain the role.
             </p>
           </form>

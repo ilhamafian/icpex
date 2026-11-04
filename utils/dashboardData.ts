@@ -9,6 +9,7 @@ import { UserModel } from "@/models/User";
 import type { JudgeAssignment } from "@/schemas/judgeAssignmentsSchema";
 import { toIdString } from "@/schemas/objectId";
 import type { Payment } from "@/schemas/paymentSchema";
+import type { EducationLevel } from "@/schemas/educationLevel";
 import type { Registration } from "@/schemas/registrationSchema";
 import { JUDGE_ROLES } from "@/utils/portalAuth";
 import type { Currency } from "@/utils/registrationFee";
@@ -119,8 +120,10 @@ function buildChart(
   return [...points.values()];
 }
 
-export async function loadDashboardData(): Promise<DashboardData> {
-  const [registrations, payments, assignments, judges, competitions, categories] =
+export async function loadDashboardData(
+  educationLevel?: EducationLevel | null
+): Promise<DashboardData> {
+  const [allRegistrations, allPayments, allAssignments, judges, competitions, categories] =
     await Promise.all([
       new RegistrationModel().find({}, { sort: { created_at: -1 } }),
       new PaymentModel().find({}, { sort: { created_at: -1 } }),
@@ -131,6 +134,29 @@ export async function loadDashboardData(): Promise<DashboardData> {
       new CompetitionModel().find({}),
       new CategoryModel().find({}),
     ]);
+
+  const registrations = educationLevel
+    ? allRegistrations.filter(
+        (registration) =>
+          registration.participant.education_level === educationLevel
+      )
+    : allRegistrations;
+  const registrationIds = new Set(
+    registrations.map((registration) => toIdString(registration._id))
+  );
+  const registrationNumbers = new Set(
+    registrations.map((registration) => registration.registration_number)
+  );
+  const payments = educationLevel
+    ? allPayments.filter((payment) =>
+        registrationIds.has(toIdString(payment.registration_id))
+      )
+    : allPayments;
+  const assignments = educationLevel
+    ? allAssignments.filter((assignment) =>
+        registrationNumbers.has(assignment.registration_number)
+      )
+    : allAssignments;
 
   const judgeNames = new Map(
     judges.map((judge) => [toIdString(judge._id), judge.name || judge.email])

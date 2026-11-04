@@ -6,7 +6,7 @@ import { bannerInputSchema } from "@/schemas/bannerSchema";
 import { toIdString } from "@/schemas/objectId";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { isBlobStoreUrl } from "@/utils/blobUrl";
-import { requireAdminSession } from "@/utils/portalAuth";
+import { requireSuperAdminSession } from "@/utils/portalAuth";
 import { serializeBanner } from "@/utils/serializeBanner";
 
 export async function PUT(
@@ -14,7 +14,7 @@ export async function PUT(
   { params }: { params: Promise<{ competitionId: string }> }
 ) {
   try {
-    const session = await requireAdminSession();
+    const session = await requireSuperAdminSession();
     if (!session) {
       return createResponse({ error: "Unauthorized" }, 401);
     }
@@ -53,7 +53,7 @@ export async function DELETE(
   { params }: { params: Promise<{ competitionId: string }> }
 ) {
   try {
-    const session = await requireAdminSession();
+    const session = await requireSuperAdminSession();
     if (!session) {
       return createResponse({ error: "Unauthorized" }, 401);
     }

@@ -8,17 +8,22 @@ import { judgeTypesForRoles } from "@/utils/judgeTypes";
 import { requirePortalSection } from "@/utils/requirePortalAccess";
 import { resolveJudgeUser } from "@/utils/resolveJudgeUser";
 import { serializeJudgeAssignment } from "@/utils/serializeJudgeAssignment";
+import { filterByEducationLevel } from "@/utils/trackAccess";
 import { redirect } from "next/navigation";
 
 async function loadMyAssignments(
   judgeId: string,
-  competitionId: string | null
+  competitionId: string | null,
+  role: Parameters<typeof filterByEducationLevel>[0]
 ) {
   try {
     const assignmentModel = new JudgeAssignmentModel();
     await assignmentModel.acceptPending();
 
-    const registrations = await findRegistrationsForCompetition(competitionId);
+    const registrations = filterByEducationLevel(
+      role,
+      await findRegistrationsForCompetition(competitionId)
+    );
     const assignments =
       registrations.length === 0
         ? []
@@ -61,7 +66,8 @@ export default async function MyAssignmentsPage() {
 
   const { assignments, registrations } = await loadMyAssignments(
     toIdString(judge._id),
-    session.competition_id
+    session.competition_id,
+    session.role
   );
   const competition = await getCurrentCompetition();
 

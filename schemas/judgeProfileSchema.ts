@@ -44,9 +44,15 @@ function knownUniversity<T extends { institution: { name: string; country: strin
     );
 }
 
-/** What the invite form sends. `institution_key` is added on the server. */
+/**
+ * What the invite form sends. `institution_key` is added on the server.
+ * Education level is taken from the judge role, not the form.
+ */
 export const judgeProfileInputSchema = knownUniversity(
-  z.object(judgeProfileFields)
+  z.object({
+    ...judgeProfileFields,
+    education_eligibility: competitionEligibilitySchema.optional(),
+  })
 );
 
 /** Stored on the user after the invitation is accepted. */

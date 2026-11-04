@@ -10,6 +10,7 @@ import { toIdString } from "@/schemas/objectId";
 import { requireJudgeLeaderSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { serializeJudgeAssignment } from "@/utils/serializeJudgeAssignment";
+import { canAccessEducationLevel } from "@/utils/trackAccess";
 import { validateAssignmentRefs } from "@/utils/validateJudgeAssignment";
 
 export async function PATCH(
@@ -27,6 +28,19 @@ export async function PATCH(
     const existing = await model.findById(id);
     if (!existing) {
       return createResponse({ error: "Assignment not found" }, 404);
+    }
+
+    const currentRegistration = await new RegistrationModel().findOne({
+      registration_number: existing.registration_number,
+    });
+    if (
+      !currentRegistration ||
+      !canAccessEducationLevel(
+        session.role,
+        currentRegistration.participant.education_level
+      )
+    ) {
+      return createResponse({ error: "Forbidden" }, 403);
     }
 
     const body = await req.json();
@@ -59,6 +73,7 @@ export async function PATCH(
         judge_id: nextJudgeId,
         registration_number: nextRegistration,
         type: nextType,
+        actorRole: session.role,
       });
       if ("error" in refs) {
         return createResponse({ error: refs.error }, refs.status);
@@ -119,6 +134,19 @@ export async function DELETE(
     const existing = await model.findById(id);
     if (!existing) {
       return createResponse({ error: "Assignment not found" }, 404);
+    }
+
+    const registration = await new RegistrationModel().findOne({
+      registration_number: existing.registration_number,
+    });
+    if (
+      !registration ||
+      !canAccessEducationLevel(
+        session.role,
+        registration.participant.education_level
+      )
+    ) {
+      return createResponse({ error: "Forbidden" }, 403);
     }
 
     await model.delete(id);

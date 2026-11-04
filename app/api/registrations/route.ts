@@ -4,6 +4,7 @@ import { toIdString } from "@/schemas/objectId";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { requireSecretarySession } from "@/utils/portalAuth";
 import { serializePayment } from "@/utils/serializePayment";
+import { filterByEducationLevel } from "@/utils/trackAccess";
 import {
   serializeRegistration,
   submissionNumbersFor,
@@ -17,10 +18,11 @@ export async function GET() {
       return createResponse({ error: "Unauthorized" }, 401);
     }
 
-    const [registrations, payments] = await Promise.all([
+    const [found, payments] = await Promise.all([
       new RegistrationModel().find({}, { sort: { created_at: -1 } }),
       new PaymentModel().find({}, { sort: { created_at: -1 } }),
     ]);
+    const registrations = filterByEducationLevel(session.role, found);
 
     const paymentByRegistrationId = new Map(
       payments.map((payment) => [

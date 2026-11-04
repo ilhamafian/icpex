@@ -287,12 +287,16 @@ function SortableHeader({
 
 export function PaymentVerificationManager({
   initialGroups = [],
+  lockedEducationLevel,
 }: {
   initialGroups?: SubmissionPaymentGroup[];
+  /** When set, the other education track is not shown. */
+  lockedEducationLevel?: EducationLevel;
 }) {
   const [groups, setGroups] = useState(initialGroups);
-  const [educationLevel, setEducationLevel] =
-    useState<EducationLevel>("UNDERGRADUATE");
+  const [educationLevel, setEducationLevel] = useState<EducationLevel>(
+    lockedEducationLevel ?? "UNDERGRADUATE"
+  );
   const [tab, setTab] = useState<PaymentTab>("REVIEW");
   const [query, setQuery] = useState("");
   const [sorting, setSorting] = useState<SortingState>([
@@ -301,6 +305,10 @@ export function PaymentVerificationManager({
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [adjustment, setAdjustment] = useState<AdjustmentDraft | null>(null);
+
+  const educationTabs = lockedEducationLevel
+    ? [lockedEducationLevel]
+    : EDUCATION_TABS;
 
   const allRows = useMemo(() => flattenGroups(groups), [groups]);
 
@@ -1044,20 +1052,22 @@ export function PaymentVerificationManager({
         }}
         className="gap-4"
       >
-        <TabsList>
-          {EDUCATION_TABS.map((level) => {
-            const count = allRows.filter(
-              (row) => row.education_level === level
-            ).length;
-            return (
-              <TabsTrigger key={level} value={level}>
-                {EDUCATION_LEVEL_LABELS[level]} ({count})
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
+        {educationTabs.length > 1 ? (
+          <TabsList>
+            {educationTabs.map((level) => {
+              const count = allRows.filter(
+                (row) => row.education_level === level
+              ).length;
+              return (
+                <TabsTrigger key={level} value={level}>
+                  {EDUCATION_LEVEL_LABELS[level]} ({count})
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        ) : null}
 
-        {EDUCATION_TABS.map((level) => (
+        {educationTabs.map((level) => (
           <TabsContent key={level} value={level} className="mt-0">
             <Tabs
               value={tab}
