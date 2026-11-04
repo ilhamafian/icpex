@@ -10,7 +10,6 @@ import {
   IconArrowsSort,
   IconDownload,
   IconFilter,
-  IconLayoutColumns,
   IconSearch,
   IconUserPlus,
 } from "@tabler/icons-react";
@@ -330,6 +329,9 @@ export function JudgeAssignmentsDataTable({
   const [fullPaperFilter, setFullPaperFilter] = React.useState<
     Set<FullPaperFilter>
   >(() => new Set());
+  const [categoryFilter, setCategoryFilter] = React.useState<Set<string>>(
+    () => new Set()
+  );
   const [sortBy, setSortBy] = React.useState<SortOption>("newest");
   const [columnVisibility, setColumnVisibility] =
     React.useState<ColumnVisibilityState>({});
@@ -343,6 +345,21 @@ export function JudgeAssignmentsDataTable({
     () => new Map(judges.map((judge) => [judge._id, judge])),
     [judges]
   );
+
+  const categories = React.useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const row of data) {
+      const id =
+        row.registration.category_id || row.registration.category_name;
+      if (!id) continue;
+      if (!byId.has(id)) {
+        byId.set(id, row.registration.category_name || "Uncategorized");
+      }
+    }
+    return [...byId.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [data]);
 
   const filtered = React.useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -370,6 +387,11 @@ export function JudgeAssignmentsDataTable({
         ) {
           return false;
         }
+        if (categoryFilter.size) {
+          const categoryId =
+            registration.category_id || registration.category_name;
+          if (!categoryFilter.has(categoryId)) return false;
+        }
         if (!needle) return true;
         return [
           registration.registration_number,
@@ -391,6 +413,7 @@ export function JudgeAssignmentsDataTable({
     paymentFilter,
     assignmentFilter,
     fullPaperFilter,
+    categoryFilter,
     sortBy,
   ]);
 
@@ -398,7 +421,8 @@ export function JudgeAssignmentsDataTable({
     statusFilter.size +
     paymentFilter.size +
     assignmentFilter.size +
-    fullPaperFilter.size;
+    fullPaperFilter.size +
+    categoryFilter.size;
 
   const columns = React.useMemo(
     () =>
@@ -718,7 +742,30 @@ export function JudgeAssignmentsDataTable({
                 <IconChevronDown />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuLabel>Category</DropdownMenuLabel>
+              {categories.length === 0 ? (
+                <p className="px-2 py-1.5 text-sm text-muted-foreground">
+                  No categories
+                </p>
+              ) : (
+                categories.map((category) => (
+                  <DropdownMenuCheckboxItem
+                    key={category.id}
+                    checked={categoryFilter.has(category.id)}
+                    onSelect={(event) => event.preventDefault()}
+                    onCheckedChange={(checked) => {
+                      setCategoryFilter((prev) =>
+                        toggleIn(prev, category.id, checked === true)
+                      );
+                      table.setPageIndex(0);
+                    }}
+                  >
+                    <span className="truncate">{category.name}</span>
+                  </DropdownMenuCheckboxItem>
+                ))
+              )}
+              <DropdownMenuSeparator />
               <DropdownMenuLabel>Judging progress</DropdownMenuLabel>
               {JUDGING_PROGRESS.map((status) => (
                 <DropdownMenuCheckboxItem
@@ -796,6 +843,7 @@ export function JudgeAssignmentsDataTable({
                       setPaymentFilter(new Set());
                       setAssignmentFilter(new Set());
                       setFullPaperFilter(new Set());
+                      setCategoryFilter(new Set());
                       table.setPageIndex(0);
                     }}
                   >
@@ -824,37 +872,6 @@ export function JudgeAssignmentsDataTable({
               ))}
             </SelectContent>
           </Select>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <IconLayoutColumns />
-                <span className="hidden lg:inline">Customize Columns</span>
-                <span className="lg:hidden">Columns</span>
-                <IconChevronDown />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              {table
-                .getAllColumns()
-                .filter(
-                  (column) =>
-                    typeof column.accessorFn !== "undefined" &&
-                    column.getCanHide()
-                )
-                .map((column) => (
-                  <DropdownMenuCheckboxItem
-                    key={column.id}
-                    className="capitalize"
-                    checked={column.getIsVisible()}
-                    onCheckedChange={(value) =>
-                      column.toggleVisibility(!!value)
-                    }
-                  >
-                    {column.id}
-                  </DropdownMenuCheckboxItem>
-                ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </div>
 
