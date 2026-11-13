@@ -43,6 +43,9 @@ export async function POST(req: NextRequest) {
     const allowedLevels = allowedEducationLevels(competition.eligibility);
     const categories = await new CategoryModel().find({});
     const categoryIds = new Set(categories.map((c) => toIdString(c._id)));
+    const categoryNameById = new Map(
+      categories.map((category) => [toIdString(category._id), category.name])
+    );
 
     for (const [index, project] of projects.entries()) {
       if (!allowedLevels.includes(project.participant.education_level)) {
@@ -109,7 +112,9 @@ export async function POST(req: NextRequest) {
             participant: { ...project.participant, institution },
             competition_id: competitionId,
             category_id: String(project.category_id),
-            registration_number: await registrationModel.nextRegistrationNumber(),
+            registration_number: await registrationModel.nextRegistrationNumber(
+              categoryNameById.get(String(project.category_id)) ?? ""
+            ),
             submission_id: submissionId,
             institution_key: institutionKey,
             fee,

@@ -6,6 +6,7 @@ import {
   Registration,
   registrationSchema,
 } from "@/schemas/registrationSchema";
+import { categoryRegistrationCode } from "@/utils/categoryCode";
 
 export class RegistrationModel extends ModelBase<Registration> {
   protected collectionName = "registrations";
@@ -34,12 +35,14 @@ export class RegistrationModel extends ModelBase<Registration> {
     } as Filter<Registration>);
   }
 
-  /** e.g. REG-2026-0001 — unique within the collection. */
-  async nextRegistrationNumber(): Promise<string> {
+  /** e.g. IOT-2026-0001 for Internet of Things — unique within the collection. */
+  async nextRegistrationNumber(categoryName: string): Promise<string> {
     const year = new Date().getFullYear();
-    const prefix = `REG-${year}-`;
+    const prefix = `${categoryRegistrationCode(categoryName)}-${year}-`;
     const count = await this.count({
-      registration_number: { $regex: `^${prefix}` },
+      registration_number: {
+        $regex: `^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
+      },
     } as Filter<Registration>);
     let suffix = count + 1;
 
