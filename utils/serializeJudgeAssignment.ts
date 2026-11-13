@@ -23,6 +23,7 @@ export type SerializedJudgeAssignment = {
   registration_number: string;
   status: JudgeAssignment["status"];
   scores: SerializedJudgeScore[];
+  comments: string;
   total_score: number;
   submitted_at?: string;
   created_at?: string;
@@ -43,6 +44,7 @@ export function serializeJudgeAssignment(
       ...(score.weight === undefined ? {} : { weight: score.weight }),
       comments: score.comments ?? "",
     })),
+    comments: assignment.comments ?? "",
     total_score: assignment.total_score ?? 0,
     submitted_at: toIso(assignment.submitted_at),
     created_at: toIso(assignment.created_at),

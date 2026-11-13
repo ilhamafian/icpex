@@ -1,4 +1,6 @@
 import { PaymentVerificationManager } from "@/components/PaymentVerificationManager";
+import { CategoryModel } from "@/models/Category";
+import { toIdString } from "@/schemas/objectId";
 import { educationLevelForRole } from "@/schemas/userRole";
 import { requirePortalSection } from "@/utils/requirePortalAccess";
 import { loadSubmissionPaymentGroups } from "@/utils/submissionPayments";
@@ -9,8 +11,17 @@ export default async function RegistrationsPage() {
   const track = educationLevelForRole(session.role);
 
   let groups: SubmissionPaymentGroup[] = [];
+  let categories: { id: string; name: string }[] = [];
   try {
-    groups = await loadSubmissionPaymentGroups();
+    const [loadedGroups, loadedCategories] = await Promise.all([
+      loadSubmissionPaymentGroups(),
+      new CategoryModel().getCategories(),
+    ]);
+    groups = loadedGroups;
+    categories = (loadedCategories ?? []).flatMap((category) => {
+      const id = toIdString(category._id);
+      return id ? [{ id, name: category.name }] : [];
+    });
   } catch {
     groups = [];
   }
@@ -29,6 +40,7 @@ export default async function RegistrationsPage() {
   return (
     <PaymentVerificationManager
       initialGroups={groups}
+      categories={categories}
       lockedEducationLevel={track ?? undefined}
     />
   );

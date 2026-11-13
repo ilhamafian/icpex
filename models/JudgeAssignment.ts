@@ -78,6 +78,7 @@ export class JudgeAssignmentModel extends ModelBase<JudgeAssignment> {
     return collection.updateOne(this.buildIdFilter(id), {
       $set: {
         scores: [],
+        comments: "",
         total_score: 0,
         updated_at: new Date(),
       },

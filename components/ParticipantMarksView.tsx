@@ -241,17 +241,17 @@ function JudgeMarks({ judge }: { judge: ParticipantMarkJudge }) {
             >
               <div className="min-w-0">
                 <div className="text-sm font-medium">{score.criteria_name}</div>
-                {score.comments ? (
-                  <p className="text-xs whitespace-pre-line text-muted-foreground">
-                    {score.comments}
-                  </p>
-                ) : null}
               </div>
               <span className="text-sm tabular-nums">
                 {formatScore(score.score)}
               </span>
             </div>
           ))}
+          {judge.comments ? (
+            <p className="text-xs whitespace-pre-line text-muted-foreground">
+              {judge.comments}
+            </p>
+          ) : null}
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">

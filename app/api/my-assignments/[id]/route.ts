@@ -41,6 +41,7 @@ const scoresUpdateSchema = z.object({
       comments: z.string(),
     })
   ),
+  comments: z.string(),
   total_score: z.number(),
   submitted_at: z.coerce.date(),
 });
@@ -203,7 +204,7 @@ export async function PATCH(
 
       const scoresPayload: Pick<
         JudgeAssignment,
-        "scores" | "total_score" | "submitted_at"
+        "scores" | "comments" | "total_score" | "submitted_at"
       > = {
         scores: parsed.data.scores.map((score) => {
           const componentId = toIdString(score.component_id);
@@ -211,9 +212,10 @@ export async function PATCH(
             component_id: componentId,
             score: score.score,
             weight: componentWeight.get(componentId) ?? 0,
-            comments: score.comments ?? "",
+            comments: "",
           };
         }),
+        comments: parsed.data.comments.trim(),
         total_score: totalScore,
         submitted_at: new Date(),
       };

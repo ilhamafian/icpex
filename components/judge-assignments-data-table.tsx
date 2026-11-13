@@ -31,6 +31,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
+import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
@@ -55,6 +60,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { COMPETITION_ELIGIBILITY_LABELS } from "@/schemas/educationLevel";
 import type { JudgeAssignmentStatus } from "@/schemas/judgeAssignmentsSchema";
 import type { PaymentStatus } from "@/schemas/paymentSchema";
 import { PAYMENT_STATUS_LABELS } from "@/utils/paymentStatusLabel";
@@ -277,9 +283,68 @@ export function judgeName(judge: SerializedUser | undefined, fallback: string) {
   return judge.name || judge.email;
 }
 
+const JUDGE_STATUS_LABELS: Record<SerializedUser["status"], string> = {
+  ACTIVE: "Active",
+  INVITED: "Invited",
+  DISABLED: "Disabled",
+};
+
+function JudgeProfilePreview({
+  judge,
+  categoryNameById,
+}: {
+  judge: SerializedUser;
+  categoryNameById: Map<string, string>;
+}) {
+  const profile = judge.judge_profile;
+  const categoryLabels = profile
+    ? profile.category_ids
+        .map((id) => categoryNameById.get(id))
+        .filter((name): name is string => Boolean(name))
+    : [];
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="min-w-0">
+        <p className="truncate font-medium">{judgeName(judge, judge.email)}</p>
+        {judge.name ? (
+          <p className="text-muted-foreground truncate text-xs">{judge.email}</p>
+        ) : null}
+        {judge.status !== "ACTIVE" ? (
+          <p className="text-muted-foreground text-xs">
+            {JUDGE_STATUS_LABELS[judge.status]}
+          </p>
+        ) : null}
+      </div>
+      {profile ? (
+        <dl className="grid gap-2.5">
+          <div className="grid gap-0.5">
+            <dt className="text-muted-foreground text-xs">University</dt>
+            <dd>{profile.institution.name}</dd>
+            <dd className="text-muted-foreground text-xs">
+              {profile.institution.country}
+            </dd>
+          </div>
+          <div className="grid gap-0.5">
+            <dt className="text-muted-foreground text-xs">Can judge</dt>
+            <dd>{COMPETITION_ELIGIBILITY_LABELS[profile.education_eligibility]}</dd>
+          </div>
+          <div className="grid gap-0.5">
+            <dt className="text-muted-foreground text-xs">Categories</dt>
+            <dd>{categoryLabels.length > 0 ? categoryLabels.join(", ") : "—"}</dd>
+          </div>
+        </dl>
+      ) : (
+        <p className="text-muted-foreground text-sm">No judge profile yet.</p>
+      )}
+    </div>
+  );
+}
+
 type JudgeAssignmentsDataTableProps = {
   data: JudgeAssignmentRow[];
   judges: SerializedUser[];
+  categories: { id: string; name: string }[];
   /** Judges are offered only for roles held in this competition. */
   competitionId: string | null;
   judgingDueDate?: string | null;
@@ -298,6 +363,7 @@ export function assignmentKey(registrationNumber: string, judgeId: string) {
 export function JudgeAssignmentsDataTable({
   data,
   judges,
+  categories: categoryCatalog,
   competitionId,
   judgingDueDate = null,
   busyKey,
@@ -332,6 +398,19 @@ export function JudgeAssignmentsDataTable({
     () => new Map(judges.map((judge) => [judge._id, judge])),
     [judges]
   );
+
+  const categoryNameById = React.useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const row of data) {
+      if (row.registration.category_id && row.registration.category_name) {
+        byId.set(row.registration.category_id, row.registration.category_name);
+      }
+    }
+    for (const category of categoryCatalog) {
+      byId.set(category.id, category.name);
+    }
+    return byId;
+  }, [categoryCatalog, data]);
 
   const categories = React.useMemo(() => {
     const byId = new Map<string, string>();
@@ -609,34 +688,56 @@ export function JudgeAssignmentsDataTable({
                               institution_name: registration.institution_name,
                             });
                         return (
-                          <DropdownMenuCheckboxItem
+                          <HoverCard
                             key={key}
-                            checked={assigned}
-                            disabled={busyKey === key || reason !== null}
-                            onSelect={(event) => event.preventDefault()}
-                            onCheckedChange={(checked) =>
-                              onToggleJudge(
-                                row.original,
-                                judge,
-                                checked === true
-                              )
-                            }
+                            openDelay={300}
+                            closeDelay={0}
                           >
-                            <div className="flex min-w-0 flex-col">
-                              <span className="truncate">
-                                {judgeName(judge, judge._id)}
-                              </span>
-                              {reason ? (
-                                <span className="text-muted-foreground text-xs font-normal">
-                                  {reason}
-                                </span>
-                              ) : judge.name ? (
-                                <span className="text-muted-foreground truncate text-xs font-normal">
-                                  {judge.email}
-                                </span>
-                              ) : null}
-                            </div>
-                          </DropdownMenuCheckboxItem>
+                            <HoverCardTrigger asChild>
+                              <DropdownMenuCheckboxItem
+                                checked={assigned}
+                                disabled={busyKey === key || reason !== null}
+                                className="data-disabled:pointer-events-auto"
+                                onSelect={(event) => event.preventDefault()}
+                                onCheckedChange={(checked) => {
+                                  if (reason) return;
+                                  onToggleJudge(
+                                    row.original,
+                                    judge,
+                                    checked === true
+                                  );
+                                }}
+                              >
+                                <div className="flex min-w-0 flex-col">
+                                  <span className="truncate">
+                                    {judgeName(judge, judge._id)}
+                                  </span>
+                                  {reason ? (
+                                    <span className="text-muted-foreground text-xs font-normal">
+                                      {reason}
+                                    </span>
+                                  ) : judge.name ? (
+                                    <span className="text-muted-foreground truncate text-xs font-normal">
+                                      {judge.email}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </DropdownMenuCheckboxItem>
+                            </HoverCardTrigger>
+                            <HoverCardContent
+                              side="left"
+                              align="start"
+                              className="w-72"
+                              onPointerDownOutside={(event) =>
+                                event.preventDefault()
+                              }
+                            >
+                              <JudgeProfilePreview
+                                judge={judge}
+                                categoryNameById={categoryNameById}
+                              />
+                            </HoverCardContent>
+                          </HoverCard>
                         );
                       });
                     })()}
@@ -649,6 +750,7 @@ export function JudgeAssignmentsDataTable({
       ]),
     [
       busyKey,
+      categoryNameById,
       competitionId,
       judges,
       judgesById,

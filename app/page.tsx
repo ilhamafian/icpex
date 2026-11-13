@@ -125,7 +125,7 @@ const STEPS: { icon: Icon; title: string; body: string }[] = [
   {
     icon: IconReceipt,
     title: "Receive payment instructions",
-    body: `${FEE_SUMMARY} Every ${FREE_PROJECT_EVERY}th project from your university is free. The secretariat emails you how to pay after reviewing your submission.`,
+    body: "The secretariat reviews your submission, then emails you the amount and how to pay.",
   },
   {
     icon: IconCircleCheck,
@@ -159,7 +159,7 @@ const FAQS = [
   },
   {
     q: "How do I pay?",
-    a: `${FEE_SUMMARY} Every ${FREE_PROJECT_EVERY}th project is free. The form shows your total on the last step, but don't pay yet — the secretariat will email you payment instructions after reviewing your submission.`,
+    a: `${FEE_SUMMARY} Every ${FREE_PROJECT_EVERY}th project is free. Don't pay during registration — the secretariat will email you the amount and payment instructions after reviewing your submission.`,
   },
   {
     q: "What file types can I upload?",

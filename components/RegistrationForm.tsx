@@ -13,12 +13,10 @@ import {
   Field,
   FieldError,
   inputClassName,
-  linkButtonClassName,
   mutedTextClassName,
   Section,
 } from "@/components/registrationFormUi";
 import type { EducationLevel } from "@/schemas/educationLevel";
-import { FREE_PROJECT_EVERY } from "@/schemas/registrationSchema";
 import {
   institutionSchema,
   submissionFormSchema,
@@ -31,32 +29,21 @@ import {
   MALAYSIA_UNIVERSITIES,
   type MalaysiaInstitutionType,
 } from "@/utils/institutions";
-import { formatMoney, type Currency } from "@/utils/registrationFee";
 
 type Option = { id: string; name: string };
 
 type FieldErrors = Record<string, string>;
 
-type FormStep = "university" | "projects" | "payment";
-
-type Quote = {
-  currency: Currency;
-  fees: number[];
-  freeCount: number;
-  total: number;
-};
+type FormStep = "university" | "projects";
 
 type SubmissionResult = {
   submission_number: string;
-  total: number;
-  currency: Currency;
-  projects: { registration_number: string; title: string; fee: number }[];
+  projects: { registration_number: string; title: string }[];
 };
 
 const STEPS: { id: FormStep; label: string }[] = [
   { id: "university", label: "1. University" },
   { id: "projects", label: "2. Project" },
-  { id: "payment", label: "3. Payment" },
 ];
 
 function issuesToErrors(issues: { path: PropertyKey[]; message: string }[]) {
@@ -108,9 +95,6 @@ export function RegistrationForm({
     MalaysiaInstitutionType | ""
   >("");
   const [projects, setProjects] = useState<ProjectState[]>(() => [newProject()]);
-
-  const [quote, setQuote] = useState<Quote | null>(null);
-  const [quoteLoading, setQuoteLoading] = useState(false);
 
   const [errors, setErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(false);
@@ -178,34 +162,6 @@ export function RegistrationForm({
     return true;
   }
 
-  async function loadQuote() {
-    setQuoteLoading(true);
-    setQuote(null);
-    try {
-      const params = new URLSearchParams({
-        institution: institutionName,
-        country: institutionCountry,
-        count: String(projects.length),
-      });
-      const response = await fetch(`/api/submissions/quote?${params}`);
-      const data = await response.json();
-      if (!response.ok) {
-        setErrors({
-          form:
-            typeof data.error === "string"
-              ? data.error
-              : "Could not calculate the registration fee.",
-        });
-        return;
-      }
-      setQuote(data.quote as Quote);
-    } catch {
-      setErrors({ form: "Network error. Please try again." });
-    } finally {
-      setQuoteLoading(false);
-    }
-  }
-
   function goTo(next: FormStep) {
     setErrors({});
     setStep(next);
@@ -220,22 +176,10 @@ export function RegistrationForm({
       return;
     }
 
-    if (step === "projects") {
-      if (validateProjects()) {
-        goTo("payment");
-        void loadQuote();
-      }
-      return;
-    }
-
-    if (!quote) return;
+    if (!validateProjects()) return;
 
     const parsed = submissionFormSchema.safeParse(buildPayload());
-    if (!parsed.success) {
-      goTo("projects");
-      validateProjects();
-      return;
-    }
+    if (!parsed.success) return;
 
     setErrors({});
     setLoading(true);
@@ -314,7 +258,7 @@ export function RegistrationForm({
       {step === "university" ? (
         <Section
           title="University"
-          description={`Enter your university details. Every ${FREE_PROJECT_EVERY}th project from the same university is free across separate submissions, so use your university's full official name each time.`}
+          description="Enter your university details. Use your university's full official name."
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
@@ -443,63 +387,13 @@ export function RegistrationForm({
         </div>
       ) : null}
 
-      {step === "payment" ? (
-        <Section
-          title="Payment"
-          description={`Review your registration fee. Every ${FREE_PROJECT_EVERY}th project from the same university is free.`}
-        >
-          <div className="flex flex-col gap-3 rounded-lg border border-black/10 px-4 py-5 dark:border-white/10">
-            <p className="text-sm font-medium">
-              {institutionName} · {project?.projectTitle || "Your project"}
-            </p>
-            {quoteLoading ? (
-              <p className={mutedTextClassName}>Calculating fee…</p>
-            ) : quote ? (
-              <>
-                <div className="flex items-center justify-between text-sm">
-                  <span>Registration fee</span>
-                  <span className="font-medium">
-                    {quote.fees[0] === 0
-                      ? `Free (${FREE_PROJECT_EVERY}th project)`
-                      : formatMoney(quote.fees[0], quote.currency)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between border-t border-black/10 pt-3 text-sm font-semibold dark:border-white/10">
-                  <span>Total</span>
-                  <span>{formatMoney(quote.total, quote.currency)}</span>
-                </div>
-              </>
-            ) : (
-              <button
-                type="button"
-                onClick={() => void loadQuote()}
-                className={`self-start ${linkButtonClassName}`}
-              >
-                Retry fee calculation
-              </button>
-            )}
-          </div>
-
-          {quote && quote.total > 0 ? (
-            <p className={mutedTextClassName}>
-              Don&apos;t pay yet. Once the secretariat has reviewed your
-              submission, they will email you the payment instructions.
-            </p>
-          ) : quote ? (
-            <p className={mutedTextClassName}>
-              No payment is needed for this submission — just submit to finish.
-            </p>
-          ) : null}
-        </Section>
-      ) : null}
-
       <FieldError message={errors.form} />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         {step !== "university" ? (
           <button
             type="button"
-            onClick={() => goTo(step === "payment" ? "projects" : "university")}
+            onClick={() => goTo("university")}
             disabled={loading}
             className="h-11 rounded-full border border-black/10 px-6 text-sm font-medium text-foreground transition-colors hover:bg-black/5 disabled:opacity-60 dark:border-white/15 dark:hover:bg-white/5"
           >
@@ -511,7 +405,6 @@ export function RegistrationForm({
           disabled={
             loading ||
             (step === "projects" && anyUploading) ||
-            (step === "payment" && (quoteLoading || !quote)) ||
             !competitionId ||
             categories.length === 0
           }
@@ -519,10 +412,10 @@ export function RegistrationForm({
         >
           {loading
             ? "Submitting…"
-            : step === "payment"
-              ? "Submit registration"
-              : step === "projects" && anyUploading
-                ? "Uploading documents…"
+            : step === "projects" && anyUploading
+              ? "Uploading documents…"
+              : step === "projects"
+                ? "Submit registration"
                 : "Next"}
         </button>
       </div>

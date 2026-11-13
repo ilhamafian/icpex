@@ -31,7 +31,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { educationLevelLabel } from "@/schemas/educationLevel";
@@ -80,8 +79,9 @@ type ScoreFormRow = {
   weight: number;
   bands: JudgeRubricBands;
   score: string;
-  comments: string;
 };
+
+const SCORE_OPTIONS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"] as const;
 
 const DOCUMENT_LABELS: Record<Registration["documents"][number]["type"], string> =
   {
@@ -124,8 +124,14 @@ function toScoreForm(
       score: existing.has(component._id)
         ? String(existing.get(component._id)!.score)
         : "",
-      comments: existing.get(component._id)?.comments ?? "",
     }))
+  );
+}
+
+function participantComment(assignment: SerializedJudgeAssignment) {
+  if (assignment.comments.trim()) return assignment.comments;
+  return (
+    assignment.scores.find((score) => score.comments.trim())?.comments ?? ""
   );
 }
 
@@ -193,6 +199,50 @@ function formatAverage(value: number) {
   return String(Math.round(value * 100) / 100);
 }
 
+function ScoreRadios({
+  componentId,
+  value,
+  disabled,
+  onChange,
+}: {
+  componentId: string;
+  value: string;
+  disabled: boolean;
+  onChange: (score: string) => void;
+}) {
+  return (
+    <fieldset className="flex flex-col gap-1.5" disabled={disabled}>
+      <legend className="text-sm font-medium">Score (1–10)</legend>
+      <div className="flex flex-wrap gap-x-3 gap-y-2">
+        {SCORE_OPTIONS.map((score) => {
+          const id = `score-${componentId}-${score}`;
+          const checked = value === score;
+          return (
+            <label
+              key={score}
+              htmlFor={id}
+              className={`flex items-center gap-1.5 text-sm tabular-nums ${
+                checked ? "font-medium" : "text-muted-foreground"
+              } ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+            >
+              <input
+                id={id}
+                type="radio"
+                name={`score-${componentId}`}
+                value={score}
+                checked={checked}
+                onChange={() => onChange(score)}
+                className="size-4 accent-primary"
+              />
+              {score}
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
 export function AssessmentWorkspace({
   initialAssignment,
   registration,
@@ -210,6 +260,9 @@ export function AssessmentWorkspace({
   const [assignment, setAssignment] = useState(initialAssignment);
   const [scoreForm, setScoreForm] = useState(() =>
     toScoreForm(rubrics, initialAssignment)
+  );
+  const [comments, setComments] = useState(() =>
+    participantComment(initialAssignment)
   );
   const [saving, setSaving] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -262,8 +315,7 @@ export function AssessmentWorkspace({
       toast.error(deadlineMessage);
       return;
     }
-    const scores: { component_id: string; score: number; comments: string }[] =
-      [];
+    const scores: { component_id: string; score: number }[] = [];
     for (const row of scoreForm) {
       const score = parsedScore(row.score);
       if (score === null) {
@@ -273,13 +325,16 @@ export function AssessmentWorkspace({
       scores.push({
         component_id: row.component_id,
         score,
-        comments: row.comments.trim(),
       });
     }
 
     setSaving(true);
     try {
-      const updated = await patch({ action: "scores", scores });
+      const updated = await patch({
+        action: "scores",
+        scores,
+        comments: comments.trim(),
+      });
       if (updated) {
         toast.success("Scores submitted.");
         router.push("/portal/my-assignments");
@@ -312,6 +367,7 @@ export function AssessmentWorkspace({
       if (data.assignment) {
         setAssignment(data.assignment);
         setScoreForm(toScoreForm(rubrics, data.assignment));
+        setComments(participantComment(data.assignment));
       }
       toast.success("Scores cleared.");
     } catch {
@@ -485,6 +541,7 @@ export function AssessmentWorkspace({
                 ) : (
                   groups.map((group, groupIndex) => (
                     <div key={group.rubric_id} className="flex flex-col gap-5">
+                      {groupIndex > 0 ? <Separator /> : null}
                       <div className="flex items-baseline justify-between gap-3">
                         <p className="text-sm font-semibold">{group.rubric_name}</p>
                         <span className="text-xs tabular-nums text-muted-foreground">
@@ -496,7 +553,7 @@ export function AssessmentWorkspace({
                       {group.rows.map(({ row, index }) => (
                         <div
                           key={row.component_id}
-                          className="flex flex-col gap-3 border-b pb-5 last:border-0 last:pb-0"
+                          className="flex flex-col gap-3"
                         >
                           <div>
                             <p className="text-sm font-medium">
@@ -526,43 +583,30 @@ export function AssessmentWorkspace({
                               </div>
                             ))}
                           </dl>
-                          <div className="flex flex-col gap-1.5">
-                            <Label htmlFor={`score-${row.component_id}`}>
-                              Score (1–10)
-                            </Label>
-                            <Input
-                              id={`score-${row.component_id}`}
-                              type="number"
-                              min={1}
-                              max={10}
-                              step={1}
-                              value={row.score}
-                              disabled={scoringClosed}
-                              onChange={(event) =>
-                                updateRow(index, { score: event.target.value })
-                              }
-                            />
-                          </div>
-                          <div className="flex flex-col gap-1.5">
-                            <Label htmlFor={`comments-${row.component_id}`}>
-                              Comments
-                            </Label>
-                            <textarea
-                              id={`comments-${row.component_id}`}
-                              value={row.comments}
-                              rows={3}
-                              disabled={scoringClosed}
-                              className="min-h-16 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
-                              onChange={(event) =>
-                                updateRow(index, { comments: event.target.value })
-                              }
-                            />
-                          </div>
+                          <ScoreRadios
+                            componentId={row.component_id}
+                            value={row.score}
+                            disabled={scoringClosed}
+                            onChange={(score) => updateRow(index, { score })}
+                          />
                         </div>
                       ))}
                     </div>
                   ))
                 )}
+                {!scoringBlocked && groups.length > 0 ? (
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="participant-comments">Comments</Label>
+                    <textarea
+                      id="participant-comments"
+                      value={comments}
+                      rows={3}
+                      disabled={scoringClosed}
+                      className="min-h-16 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+                      onChange={(event) => setComments(event.target.value)}
+                    />
+                  </div>
+                ) : null}
               </CardContent>
               {scoreForm.length > 0 ? (
                 <>

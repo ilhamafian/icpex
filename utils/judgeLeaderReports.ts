@@ -38,6 +38,7 @@ export type ParticipantMarkJudge = {
   status: JudgeAssignmentStatus;
   total_score: number;
   submitted: boolean;
+  comments: string;
   scores: ParticipantMarkScore[];
 };
 
@@ -116,6 +117,14 @@ async function findUsersByIds(ids: string[]) {
 
 function scoreComponentId(score: JudgeScore) {
   return toIdString(score.component_id ?? score.criteria_id);
+}
+
+function assignmentComment(
+  comments: string | undefined,
+  scores: JudgeScore[] | undefined
+) {
+  if (comments?.trim()) return comments;
+  return scores?.find((score) => score.comments?.trim())?.comments ?? "";
 }
 
 function scoresForAssignment(
@@ -248,6 +257,7 @@ export async function loadJudgeLeaderReport(
           status: assignment.status,
           total_score: assignment.total_score ?? 0,
           submitted,
+          comments: assignmentComment(assignment.comments, assignment.scores),
           scores: scoresForAssignment(
             assignment.scores ?? [],
             submitted,

@@ -36,12 +36,14 @@ async function readError(res: Response): Promise<string> {
 export function JudgeAssignmentsManager({
   initialAssignments,
   judges,
+  categories,
   competitionId,
   registrations,
   judgingDueDate = null,
 }: {
   initialAssignments: SerializedJudgeAssignment[];
   judges: SerializedUser[];
+  categories: { id: string; name: string }[];
   competitionId: string | null;
   registrations: AssignmentRegistrationOption[];
   judgingDueDate?: string | null;
@@ -152,6 +154,7 @@ export function JudgeAssignmentsManager({
       <JudgeAssignmentsDataTable
         data={rows}
         judges={judges}
+        categories={categories}
         competitionId={competitionId}
         judgingDueDate={judgingDueDate}
         busyKey={busyKey}

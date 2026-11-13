@@ -25,6 +25,8 @@ export const judgeAssignmentsSchema = z.object({
   registration_number: z.string().min(1),
   status: judgeAssignmentStatusSchema,
   scores: z.array(judgeScoreSchema).default([]),
+  /** One note for the participant. Older rows stored this on each score. */
+  comments: z.string().default(""),
   type: judgeAssignmentTypeSchema.optional(),
   total_score: z.number().default(0),
   submitted_at: z.coerce.date().optional(),
@@ -58,6 +60,7 @@ export const judgeAssignmentScoreSubmitSchema = z.object({
       })
     )
     .min(1),
+  comments: z.string().default(""),
 });
 
 export type JudgeAssignment = z.infer<typeof judgeAssignmentsSchema>;

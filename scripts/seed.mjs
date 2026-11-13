@@ -1,9 +1,9 @@
-// Seeds realistic sample data for local development.
+// Wipes and reseeds icpex_staging so every collection matches the current schemas.
 // Usage: npm run seed   (reads MONGODB_URI / DB_NAME from .env)
-//        npm run seed -- criteria   (judge rubrics only)
-// Idempotent: existing records (matched by slug, email, or project title) are left untouched.
+//        npm run seed -- criteria   (replace judge rubrics only; does not wipe)
+// Refuses to run a full reseed against any database other than icpex_staging.
 
-import { randomBytes, scrypt } from "crypto";
+import { createHash, randomBytes, scrypt } from "crypto";
 import { promisify } from "util";
 import { MongoClient, ObjectId } from "mongodb";
 
@@ -16,6 +16,21 @@ async function hashPassword(password) {
   const salt = randomBytes(16).toString("hex");
   const derived = await scryptAsync(password, salt, 64);
   return `${salt}:${derived.toString("hex")}`;
+}
+
+function categoryRegistrationCode(name) {
+  const words = name
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .split(/[^A-Za-z0-9.]+/)
+    .map((word) => word.replace(/^\.+|\.+$/g, ""))
+    .filter((word) => /[A-Za-z]/.test(word));
+  if (words.length === 0) return "REG";
+  if (words.length === 1) {
+    const letters = words[0].replace(/[^A-Za-z]/g, "");
+    return letters.slice(0, 3).toUpperCase() || "REG";
+  }
+  return words.map((word) => word[0]).join("").toUpperCase();
 }
 
 function slugify(value) {
@@ -35,6 +50,45 @@ function blobUrl(folder, fileName) {
   const ext = fileName.slice(dot);
   const suffix = randomBytes(15).toString("base64url").slice(0, 30);
   return `${BLOB_HOST}/${folder}/${encodeURIComponent(base)}-${suffix}${ext}`;
+}
+
+function sha256(value) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+/** Same key the app uses to count a university's projects. */
+function normalizeInstitution(name) {
+  return name
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function evenWeights(count) {
+  const tenths = Math.floor(1000 / count);
+  const remainder = 1000 - tenths * count;
+  return Array.from(
+    { length: count },
+    (_, index) => (tenths + (index < remainder ? 1 : 0)) / 10
+  );
+}
+
+function roundScore(value) {
+  return Math.round(value * 100) / 100;
+}
+
+function weightedRubricScore(parts) {
+  return roundScore(
+    parts.reduce((sum, part) => sum + (part.score * part.weight) / 100, 0)
+  );
+}
+
+function averageRubricScores(scores) {
+  if (scores.length === 0) return 0;
+  return roundScore(scores.reduce((sum, score) => sum + score, 0) / scores.length);
 }
 
 const HOUR = 60 * 60 * 1000;
@@ -339,74 +393,165 @@ const JUDGE_CRITERIA = [
 // Portal users (judges & secretariat)
 // ---------------------------------------------------------------------------
 
+const MY = "Malaysia";
+
 const USERS = [
+  {
+    name: "Dato' Ir. Dr. Khairul Anuar bin Abdullah",
+    email: "khairul.anuar@unikl.edu.my",
+    roles: ["SUPER_ADMIN"],
+    status: "ACTIVE",
+  },
+  {
+    name: "Dr. Norazlina binti Hassan",
+    email: "norazlina.hassan@unikl.edu.my",
+    roles: ["POSTGRAD_ADMIN"],
+    status: "ACTIVE",
+  },
+  {
+    name: "Ts. Dr. Hafizuddin bin Rahman",
+    email: "hafizuddin.rahman@unikl.edu.my",
+    roles: ["UNDERGRAD_ADMIN"],
+    status: "ACTIVE",
+  },
   {
     name: "Nurul Izzati binti Kamarudin",
     email: "nurulizzati.kamarudin@unikl.edu.my",
-    roles: ["SECRETARY"],
+    roles: ["POSTGRAD_SECRETARIAT"],
     status: "ACTIVE",
   },
   {
     name: "Farah Hanim binti Zulkifli",
     email: "farahhanim.zulkifli@unikl.edu.my",
-    roles: ["SECRETARY"],
-    status: "ACTIVE",
-  },
-  {
-    name: "Ts. Dr. Azlan bin Hashim",
-    email: "azlan.hashim@unikl.edu.my",
-    roles: ["THESIS_JUDGE"],
+    roles: ["UNDERGRAD_SECRETARIAT"],
     status: "ACTIVE",
   },
   {
     name: "Prof. Madya Dr. Siti Aishah binti Rahman",
     email: "sitiaishah.rahman@unikl.edu.my",
-    roles: ["THESIS_JUDGE", "JTEC_JUDGE"],
+    roles: ["POSTGRAD_JUDGE_LEADER"],
     status: "ACTIVE",
+  },
+  {
+    name: "Ts. Dr. Azman bin Yusof",
+    email: "azman.yusof@unikl.edu.my",
+    roles: ["UNDERGRAD_JUDGE_LEADER"],
+    status: "ACTIVE",
+  },
+  {
+    name: "Ts. Dr. Azlan bin Hashim",
+    email: "azlan.hashim@unikl.edu.my",
+    roles: ["POSTGRAD_JUDGE"],
+    status: "ACTIVE",
+    institution: { name: "IIUM", country: MY },
+    national_id: "750418105521",
   },
   {
     name: "Dr. Lim Wei Chen",
     email: "lim.weichen@utm.my",
-    roles: ["THESIS_JUDGE"],
+    roles: ["POSTGRAD_JUDGE"],
     status: "ACTIVE",
+    institution: { name: "UUM", country: MY },
+    national_id: "800922085433",
   },
   {
     name: "Dr. Priya a/p Ramasamy",
     email: "priya.ramasamy@um.edu.my",
-    roles: ["JTEC_JUDGE"],
+    roles: ["UNDERGRAD_JUDGE"],
     status: "ACTIVE",
+    institution: { name: "UniMAP", country: MY },
+    national_id: "820614025886",
   },
   {
     name: "Encik Mohd Hafiz bin Othman",
     email: "mhafiz.othman@unikl.edu.my",
-    roles: ["JTEC_JUDGE"],
+    roles: ["UNDERGRAD_JUDGE"],
     status: "ACTIVE",
+    institution: { name: "UniSZA", country: MY },
+    national_id: "790305015667",
   },
   {
     email: "rajeshkumar.s@usm.my",
-    roles: ["THESIS_JUDGE"],
+    roles: ["POSTGRAD_JUDGE"],
     status: "INVITED",
     inviteExpiresInDays: 5,
   },
   {
     email: "tan.meiling@upm.edu.my",
-    roles: ["JTEC_JUDGE"],
+    roles: ["UNDERGRAD_JUDGE"],
     status: "INVITED",
     inviteExpiresInDays: -2,
   },
   {
     name: "Mohd Faizal bin Ismail",
     email: "mfaizal.ismail@unikl.edu.my",
-    roles: ["SECRETARY"],
+    roles: ["UNDERGRAD_SECRETARIAT"],
     status: "DISABLED",
   },
+];
+
+// Official names from the registration form. The 6th UniKL MIIT project is free.
+const INSTITUTION_NAMES = {
+  "Universiti Kuala Lumpur": "UniKL MIIT",
+  "Universiti Teknologi Malaysia": "UTM",
+  "Universiti Teknologi MARA": "UiTM",
+  "Universiti Sains Malaysia": "USM",
+  "Universiti Kebangsaan Malaysia": "UKM",
+  "Universiti Pendidikan Sultan Idris": "UPSI",
+  "Politeknik Ungku Omar": "UTHM",
+  "Universiti Putra Malaysia": "UPM",
+  "Multimedia University": "MMU",
+  "Taylor's University": "UCSI",
+  "Universiti Teknikal Malaysia Melaka": "UTeM",
+  "Universiti Malaya": "UM",
+  "Universiti Teknologi PETRONAS": "UTP",
+};
+
+const UNIKL_FEE = 100;
+const MALAYSIA_FEE = 150;
+const INTERNATIONAL_FEE = 50;
+
+/**
+ * One stage per registration, in REGISTRATIONS order.
+ * Payment is requested after secretary review; judging starts once a project is accepted.
+ */
+const FLOWS = [
+  "completed",
+  "accepted",
+  "rejected",
+  "completed",
+  "accepted",
+  "reviewing",
+  "accepted",
+  "rejected",
+  "reviewing",
+  "underpaid",
+  "reviewing",
+  "accepted",
+  "reviewing",
+  "reviewing",
+  "rejected",
+  "pending_receipt",
+  "awaiting",
+  "review",
+  "reminded",
+  "reviewing",
+  "reviewing",
+  "failed",
+  "accepted",
+  "pending_receipt",
+];
+
+const VIDEO_LINKS = [
+  "https://youtu.be/aqz-KE-bpKQ",
+  "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+  "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs/view",
+  "https://www.youtube.com/watch?v=M7lc1UVf-VE",
 ];
 
 // ---------------------------------------------------------------------------
 // Registrations
 // ---------------------------------------------------------------------------
-
-const MY = "Malaysia";
 
 const REGISTRATIONS = [
   {
@@ -997,37 +1142,26 @@ const REGISTRATIONS = [
   },
 ];
 
-const DOCUMENT_FILES = {
-  PROJECT_REPORT: (slug) => `${slug}-Final-Report.pdf`,
-  PROJECT_PRESENTATION: (slug) => `${slug}-Slides.pdf`,
-  PROJECT_DEMO: (slug) => `${slug}-Demo.mp4`,
-  PROJECT_VIDEO: (slug) => `${slug}-Pitch-Video.mp4`,
-  PROJECT_PHOTO: (slug) => `${slug}-Prototype.jpg`,
-  PROJECT_OTHER: (slug) => `${slug}-Poster.pdf`,
-};
+const RECEIPT_FILES = [
+  (n) => `MC-Receipt-${n}.jpg`,
+  (n) => `Maybank2u-Transfer-${n}.pdf`,
+  (n) => `CIMB-Clicks-Receipt-${n}.pdf`,
+  (n) => `DuitNow-${n}.png`,
+  (n) => `Bank-Transfer-Slip-${n}.jpg`,
+  (n) => `Wise-Transfer-Receipt-${n}.pdf`,
+];
 
-// ---------------------------------------------------------------------------
-
-async function seedCategories(db) {
-  const col = db.collection("categories");
-  const idBySlug = new Map();
-  let inserted = 0;
-
-  for (const name of CATEGORIES) {
-    const category_id = slugify(name);
-    const res = await col.updateOne(
-      { category_id },
-      { $setOnInsert: { category_id, name } },
-      { upsert: true }
-    );
-    if (res.upsertedCount) inserted += 1;
-    const doc = await col.findOne({ category_id });
-    idBySlug.set(category_id, doc._id.toString());
-  }
-
-  console.log(`categories: +${inserted} (total ${await col.countDocuments()})`);
-  return idBySlug;
-}
+const ROLES = new Set([
+  "SUPER_ADMIN",
+  "POSTGRAD_ADMIN",
+  "UNDERGRAD_ADMIN",
+  "POSTGRAD_SECRETARIAT",
+  "UNDERGRAD_SECRETARIAT",
+  "POSTGRAD_JUDGE_LEADER",
+  "UNDERGRAD_JUDGE_LEADER",
+  "POSTGRAD_JUDGE",
+  "UNDERGRAD_JUDGE",
+]);
 
 function rubricBands(bands) {
   return {
@@ -1039,21 +1173,100 @@ function rubricBands(bands) {
   };
 }
 
-async function seedJudgeRubrics(db) {
-  const [competition] = await db
-    .collection("competitions")
-    .find({ status: "PUBLISHED" })
-    .sort({ start_date: -1 })
-    .limit(1)
-    .toArray();
-  if (!competition) {
-    console.log("judge_rubrics: skipped (no published competition)");
-    return;
+function feeForInstitution(institution) {
+  if (institution.country !== MY) {
+    return { amount: INTERNATIONAL_FEE, currency: "USD" };
+  }
+  return institution.name.startsWith("UniKL")
+    ? { amount: UNIKL_FEE, currency: "MYR" }
+    : { amount: MALAYSIA_FEE, currency: "MYR" };
+}
+
+async function resetDatabase(db) {
+  const existing = await db.listCollections().toArray();
+  for (const { name } of existing) {
+    if (name.startsWith("system.")) continue;
+    await db.collection(name).drop();
+  }
+  console.log(`Dropped ${existing.length} collection(s).`);
+}
+
+async function seedCategories(db) {
+  const col = db.collection("categories");
+  const idBySlug = new Map();
+  const now = new Date();
+
+  for (const name of CATEGORIES) {
+    const _id = new ObjectId();
+    const category_id = slugify(name);
+    await col.insertOne({ _id, category_id, name, created_at: now, updated_at: now });
+    idBySlug.set(category_id, _id.toHexString());
   }
 
-  const competitionId = competition._id.toString();
-  const col = db.collection("judge_rubrics");
-  const groups = [
+  console.log(`categories: ${await col.countDocuments()}`);
+  return idBySlug;
+}
+
+async function seedCompetitions(db) {
+  const col = db.collection("competitions");
+  const now = new Date();
+  const rows = [
+    {
+      _id: new ObjectId(),
+      competition_id: "icpex-2025",
+      name: "ICPEX 2025",
+      start_date: new Date("2025-09-01T00:00:00.000Z"),
+      end_date: new Date("2025-11-30T00:00:00.000Z"),
+      judging_due_date: new Date("2025-12-15T00:00:00.000Z"),
+      status: "COMPLETED",
+      eligibility: "BOTH",
+    },
+    {
+      _id: new ObjectId(),
+      competition_id: "icpex-2026",
+      name: "ICPEX 2026",
+      start_date: new Date("2026-09-01T00:00:00.000Z"),
+      end_date: new Date("2026-12-15T00:00:00.000Z"),
+      judging_due_date: new Date("2026-12-31T00:00:00.000Z"),
+      status: "PUBLISHED",
+      eligibility: "BOTH",
+    },
+    {
+      _id: new ObjectId(),
+      competition_id: "icpex-2027",
+      name: "ICPEX 2027",
+      start_date: new Date("2027-09-01T00:00:00.000Z"),
+      end_date: new Date("2027-11-30T00:00:00.000Z"),
+      judging_due_date: new Date("2027-12-15T00:00:00.000Z"),
+      status: "DRAFT",
+      eligibility: "BOTH",
+    },
+  ];
+
+  await col.insertMany(rows.map((row) => ({ ...row, created_at: now, updated_at: now })));
+  const current = rows.find((row) => row.status === "PUBLISHED");
+  console.log(`competitions: ${rows.length} (current ${current.competition_id})`);
+  return current._id.toHexString();
+}
+
+async function seedBanner(db, competitionId) {
+  const now = new Date();
+  await db.collection("banners").insertOne({
+    _id: new ObjectId(),
+    competition_id: competitionId,
+    eyebrow: "ICPEX 2026",
+    headline: "Innovation, Commercialisation and Entrepreneurship Exhibition",
+    subheadline:
+      "Undergraduate and postgraduate projects from Malaysia and abroad.",
+    image_url: "",
+    created_at: now,
+    updated_at: now,
+  });
+  console.log("banners: 1");
+}
+
+function rubricGroups() {
+  return [
     {
       name: "Thesis",
       items: JUDGE_CRITERIA.filter((item) => item.type === "THESIS"),
@@ -1063,227 +1276,473 @@ async function seedJudgeRubrics(db) {
       items: JUDGE_CRITERIA.filter((item) => item.type === "JTEC"),
     },
   ];
-  let inserted = 0;
-  let updated = 0;
+}
+
+async function seedJudgeRubrics(db, competitionId) {
+  const col = db.collection("judge_rubrics");
+  await col.deleteMany({ competition_id: competitionId });
+  const now = new Date();
+  const byLevel = new Map();
 
   for (const education_level of ["UNDERGRADUATE", "POSTGRADUATE"]) {
-    for (const [sort_order, group] of groups.entries()) {
-      const existing = await col.findOne({
-        competition_id: competitionId,
-        education_level,
-        name: group.name,
-      });
-      const previous = new Map(
-        (existing?.components ?? []).map((component) => [
-          component.name,
-          component._id,
-        ])
-      );
-      const weight = 100 / group.items.length;
-      const components = group.items.map((item, index) => ({
-        _id: previous.get(item.name) ?? new ObjectId().toHexString(),
+    const components = [];
+    for (const [sort_order, group] of rubricGroups().entries()) {
+      const weights = evenWeights(group.items.length);
+      const rubricComponents = group.items.map((item, index) => ({
+        _id: new ObjectId().toHexString(),
         name: item.name,
         description: item.component,
-        weight,
+        weight: weights[index],
         sort_order: index,
         bands: rubricBands(item.bands),
       }));
-      const now = new Date();
-      const res = await col.updateOne(
-        { competition_id: competitionId, education_level, name: group.name },
-        {
-          $set: { components, sort_order, updated_at: now },
-          $setOnInsert: {
-            competition_id: competitionId,
-            education_level,
-            name: group.name,
-            created_at: now,
-          },
-        },
-        { upsert: true }
-      );
-      if (res.upsertedCount) inserted += 1;
-      else if (res.modifiedCount) updated += 1;
+      await col.insertOne({
+        _id: new ObjectId(),
+        competition_id: competitionId,
+        education_level,
+        name: group.name,
+        sort_order,
+        components: rubricComponents,
+        created_at: now,
+        updated_at: now,
+      });
+      for (const component of rubricComponents) {
+        components.push({ ...component, rubric: group.name });
+      }
     }
+    byLevel.set(education_level, components);
   }
 
-  console.log(
-    `judge_rubrics: +${inserted}, updated ${updated} (total ${await col.countDocuments()})`
-  );
+  console.log(`judge_rubrics: ${await col.countDocuments()}`);
+  return byLevel;
 }
 
-async function seedUsers(db) {
+async function seedUsers(db, competitionId, categoryIds) {
   const col = db.collection("users");
-
-  // Staff roles are scoped to the current competition (latest published).
-  const [competition] = await db
-    .collection("competitions")
-    .find({ status: "PUBLISHED" })
-    .sort({ start_date: -1 })
-    .limit(1)
-    .toArray();
-  if (!competition) {
-    console.log("users: skipped (no published competition to assign roles to)");
-    return;
-  }
-  const competitionId = competition._id.toString();
-
   const passwordHash = await hashPassword(DEV_PASSWORD);
   const now = Date.now();
-  let inserted = 0;
+  const invites = [];
+  const judges = { POSTGRADUATE: [], UNDERGRADUATE: [] };
 
-  for (const [i, u] of USERS.entries()) {
-    const created = new Date(Date.UTC(2026, 8, 22, 15) + i * 3 * HOUR);
+  for (const [i, user] of USERS.entries()) {
+    for (const role of user.roles) {
+      if (!ROLES.has(role)) throw new Error(`Unknown role ${role}`);
+    }
+    const created = new Date(Date.UTC(2026, 8, 1, 2) + i * 3 * HOUR);
     const doc = {
-      email: u.email.toLowerCase(),
-      roles: u.roles.map((role) =>
-        role === "ADMIN" ? { role } : { role, competition_id: competitionId }
+      _id: new ObjectId(),
+      email: user.email.toLowerCase(),
+      roles: user.roles.map((role) =>
+        role === "SUPER_ADMIN" ? { role } : { role, competition_id: competitionId }
       ),
-      status: u.status,
-      email_verified: u.status !== "INVITED",
+      status: user.status,
+      email_verified: user.status !== "INVITED",
       created_at: created,
       updated_at: created,
     };
-    if (u.name) doc.name = u.name;
-    if (u.status !== "INVITED") doc.password_hash = passwordHash;
-    if (u.status === "INVITED") {
-      doc.invite_token_hash = randomBytes(32).toString("hex");
-      doc.invite_expires_at = new Date(now + u.inviteExpiresInDays * DAY);
+    if (user.name) doc.name = user.name;
+    if (user.status !== "INVITED") doc.password_hash = passwordHash;
+    if (user.status === "INVITED") {
+      const token = randomBytes(32).toString("base64url");
+      doc.invite_token_hash = sha256(token);
+      doc.invite_expires_at = new Date(now + user.inviteExpiresInDays * DAY);
+      invites.push({ email: doc.email, token, expired: user.inviteExpiresInDays < 0 });
     }
-    if (u.status === "DISABLED") {
+    if (user.status === "DISABLED") {
       doc.updated_at = new Date(created.getTime() + 3 * DAY);
     }
+    if (user.institution) {
+      const level = user.roles.includes("POSTGRAD_JUDGE")
+        ? "POSTGRADUATE"
+        : "UNDERGRADUATE";
+      doc.judge_profile = {
+        institution: user.institution,
+        institution_key: normalizeInstitution(user.institution.name),
+        national_id: user.national_id,
+        category_ids: categoryIds,
+        education_eligibility: level,
+      };
+      if (user.status === "ACTIVE") judges[level].push(doc);
+    }
 
-    const res = await col.updateOne(
-      { email: doc.email },
-      { $setOnInsert: doc },
-      { upsert: true }
-    );
-    if (res.upsertedCount) inserted += 1;
+    await col.insertOne(doc);
   }
 
-  console.log(`users: +${inserted} (total ${await col.countDocuments()})`);
+  console.log(`users: ${await col.countDocuments()}`);
+  return { judges, invites };
 }
 
-async function seedRegistrations(db, categoryIdBySlug) {
-  const col = db.collection("registrations");
+function projectDocuments(title, index, educationLevel) {
+  const fileSlug = title
+    .split(/\s+/)
+    .slice(0, 4)
+    .join("-")
+    .replace(/[^A-Za-z0-9-]/g, "");
+  const documents = [
+    {
+      type: "ABSTRACT",
+      file_name: `${fileSlug}-Abstract.pdf`,
+      file_url: blobUrl("registrations", `${fileSlug}-Abstract.pdf`),
+    },
+  ];
+  if (educationLevel === "POSTGRADUATE" || index % 3 === 0) {
+    documents.push({
+      type: "FULL_PAPER",
+      file_name: `${fileSlug}-Full-Paper.pdf`,
+      file_url: blobUrl("registrations", `${fileSlug}-Full-Paper.pdf`),
+    });
+  }
+  documents.push({
+    type: "VIDEO_LINK",
+    file_name: "Video link",
+    file_url: VIDEO_LINKS[index % VIDEO_LINKS.length],
+  });
+  return documents;
+}
 
-  const competition =
-    (await db.collection("competitions").findOne({ status: "PUBLISHED" })) ??
-    (await db.collection("competitions").findOne({}));
-  if (!competition) {
-    console.log("registrations: skipped (no competition exists yet)");
-    return;
+function settlement(flow, { fee, currency, created, updated, submissionNumber, index }) {
+  const paid =
+    fee === 0 ||
+    flow === "reviewing" ||
+    flow === "accepted" ||
+    flow === "completed" ||
+    flow === "rejected" ||
+    flow === "overpaid";
+  const receipt =
+    fee > 0 &&
+    (paid || flow === "pending_receipt" || flow === "failed" || flow === "underpaid");
+  const receiptUrl = receipt
+    ? blobUrl(
+        "payments/receipts",
+        RECEIPT_FILES[index % RECEIPT_FILES.length](submissionNumber)
+      )
+    : undefined;
+  const token = randomBytes(32).toString("base64url");
+  const requested = new Date(created.getTime() + 2 * DAY);
+  const link =
+    flow === "review" && fee > 0
+      ? {}
+      : {
+          payment_token: token,
+          payment_token_hash: sha256(token),
+          payment_requested_at: requested,
+        };
+
+  let paymentStatus = "REVIEW";
+  let registrationStatus = "SUBMITTED";
+  const submission = { ...link };
+
+  if (flow === "awaiting") paymentStatus = "AWAITING";
+  if (flow === "reminded") {
+    paymentStatus = "AWAITING";
+    submission.payment_reminded_at = updated;
+  }
+  if (flow === "pending_receipt") paymentStatus = "PENDING";
+  if (flow === "failed") paymentStatus = "FAILED";
+  if (flow === "underpaid") {
+    const balance = Math.max(20, Math.round(fee * 0.3));
+    paymentStatus = "AWAITING";
+    submission.balance_due = balance;
+    submission.balance_currency = currency;
+    submission.payment_adjustments = [
+      {
+        type: "UNDERPAID",
+        amount: balance,
+        currency,
+        receipt_url: receiptUrl,
+        created_at: updated,
+      },
+    ];
+  }
+  if (paid) {
+    paymentStatus = "PAID";
+    submission.balance_due = null;
+    submission.paid_at = updated;
+    submission.invoice_number = `INV-${submissionNumber.replace(/^SUB-/, "")}`;
+    if (flow === "overpaid") {
+      registrationStatus = "ACCEPTED";
+      submission.payment_adjustments = [
+        {
+          type: "OVERPAID",
+          amount: 20,
+          currency,
+          receipt_url: receiptUrl,
+          created_at: updated,
+        },
+      ];
+    } else if (flow === "reviewing" || fee === 0 && flow === "review") {
+      registrationStatus = "REVIEWING";
+    } else if (flow === "rejected") {
+      registrationStatus = "REJECTED";
+    } else if (flow === "completed") {
+      registrationStatus = "COMPLETED";
+    } else if (flow === "accepted" || flow === "overpaid") {
+      registrationStatus = "ACCEPTED";
+    } else {
+      registrationStatus = "REVIEWING";
+    }
   }
 
-  const year = new Date(competition.start_date ?? Date.now()).getUTCFullYear();
-  const prefix = `REG-${year}-`;
-  const existingNumbers = await col
-    .find({ registration_number: { $regex: `^${prefix}` } })
-    .project({ registration_number: 1 })
-    .toArray();
-  let next =
-    existingNumbers.reduce(
-      (max, r) => Math.max(max, Number(r.registration_number.slice(prefix.length)) || 0),
-      0
-    ) + 1;
+  return { paymentStatus, registrationStatus, receiptUrl, submission };
+}
 
-  const start = Date.UTC(2026, 8, 22, 10);
-  const end = Date.now() - 2 * HOUR;
+function buildScores(components, seed) {
+  const scores = components.map((component, index) => ({
+    component_id: component._id,
+    score: 6 + ((seed + index * 3) % 5),
+    weight: component.weight,
+    comments: "",
+  }));
+  const byRubric = new Map();
+  for (const component of components) {
+    const score = scores.find((item) => item.component_id === component._id);
+    const parts = byRubric.get(component.rubric) ?? [];
+    parts.push({ score: score.score, weight: component.weight });
+    byRubric.set(component.rubric, parts);
+  }
+  return {
+    scores,
+    total_score: averageRubricScores(
+      [...byRubric.values()].map((parts) => weightedRubricScore(parts))
+    ),
+  };
+}
+
+async function seedProjects(db, categoryIdBySlug, competitionId, users, rubricsByLevel) {
+  if (FLOWS.length !== REGISTRATIONS.length) {
+    throw new Error(
+      `FLOWS has ${FLOWS.length} entries but there are ${REGISTRATIONS.length} registrations.`
+    );
+  }
+
+  const submissions = [];
+  const registrations = [];
+  const payments = [];
+  const assignments = [];
+  const priorCount = new Map();
+  const start = Date.UTC(2026, 8, 8, 2);
+  const end = Date.UTC(2026, 10, 3, 8);
   const step = (end - start) / REGISTRATIONS.length;
-  let inserted = 0;
+  let assignmentSeed = 1;
 
-  for (const [i, r] of REGISTRATIONS.entries()) {
-    const exists = await col.findOne({ "project.title": r.project.title });
-    if (exists) continue;
+  REGISTRATIONS.forEach((source, index) => {
+    const institutionName =
+      INSTITUTION_NAMES[source.participant.institution.name] ??
+      source.participant.institution.name;
+    const institution = {
+      name: institutionName,
+      country: source.participant.institution.country,
+    };
+    const institutionKey = normalizeInstitution(institutionName);
+    const seen = priorCount.get(institutionKey) ?? 0;
+    const price = feeForInstitution(institution);
+    const fee = (seen + 1) % 6 === 0 ? 0 : price.amount;
+    priorCount.set(institutionKey, seen + 1);
 
-    const categoryId = categoryIdBySlug.get(slugify(r.category));
-    const jitter = ((i * 7919) % 97) / 97;
-    const created = new Date(start + i * step + jitter * step * 0.6);
-    const reviewDelay = r.status === "SUBMITTED" ? 0 : (1 + ((i * 31) % 40) / 10) * DAY;
-    const updated = new Date(Math.min(created.getTime() + reviewDelay, end));
+    const created = new Date(start + index * step);
+    const updated = new Date(
+      Math.min(created.getTime() + (1 + (index % 5)) * DAY, end)
+    );
+    const submissionId = new ObjectId();
+    const registrationId = new ObjectId();
+    const year = 2026;
+    const submissionNumber = `SUB-${year}-${String(index + 1).padStart(4, "0")}`;
+    const registrationNumber = `${categoryRegistrationCode(source.category)}-${year}-${String(index + 1).padStart(4, "0")}`;
+    const categoryId = categoryIdBySlug.get(slugify(source.category));
+    if (!categoryId) throw new Error(`Unknown category ${source.category}`);
 
-    const fileSlug = r.project.title
-      .split(/\s+/)
-      .slice(0, 4)
-      .join("-")
-      .replace(/[^A-Za-z0-9-]/g, "");
+    const flow = fee === 0 && ["review", "awaiting", "reminded", "pending_receipt", "failed", "underpaid"].includes(FLOWS[index])
+      ? "accepted"
+      : FLOWS[index];
+    const settled = settlement(flow, {
+      fee,
+      currency: price.currency,
+      created,
+      updated,
+      submissionNumber,
+      index,
+    });
 
-    await col.insertOne({
-      _id: ObjectId.createFromTime(Math.floor(created.getTime() / 1000)),
-      registration_number: `${prefix}${String(next).padStart(4, "0")}`,
-      competition_id: competition._id.toString(),
-      category_id: categoryId,
-      participant: r.participant,
-      project: r.project,
-      team: {
-        lead: { name: r.participant.name, email: r.participant.email },
-        members: r.members,
-      },
-      supervisors: r.supervisors,
-      documents: r.documents.map((type) => {
-        const file_name = DOCUMENT_FILES[type](fileSlug);
-        return { type, file_name, file_url: blobUrl("registrations", file_name) };
-      }),
-      status: r.status,
+    submissions.push({
+      _id: submissionId,
+      submission_number: submissionNumber,
+      competition_id: competitionId,
+      institution,
+      institution_key: institutionKey,
+      registration_ids: [registrationId.toHexString()],
+      project_count: 1,
+      free_count: fee === 0 ? 1 : 0,
+      amount: fee,
+      currency: price.currency,
+      ...settled.submission,
       created_at: created,
       updated_at: updated,
     });
-    next += 1;
-    inserted += 1;
-  }
 
-  console.log(`registrations: +${inserted} (total ${await col.countDocuments()})`);
-}
-
-const RECEIPT_FILES = [
-  (n) => `MC-Receipt-${n}.jpg`,
-  (n) => `Maybank2u-Transfer-${n}.pdf`,
-  (n) => `CIMB-Clicks-Receipt-${n}.pdf`,
-  (n) => `DuitNow-${n}.png`,
-  (n) => `Bank-Transfer-Slip-${n}.jpg`,
-  (n) => `Wise-Transfer-Receipt-${n}.pdf`,
-];
-
-function paymentStatusFor(registration, index) {
-  if (registration.status === "SUBMITTED") {
-    return index % 4 === 0 ? "FAILED" : "PENDING";
-  }
-  return "PAID";
-}
-
-async function seedPayments(db) {
-  const regCol = db.collection("registrations");
-  const payCol = db.collection("payments");
-
-  const paidIds = new Set(
-    (await payCol.find().project({ registration_id: 1 }).toArray()).map((p) =>
-      p.registration_id.toString()
-    )
-  );
-  const registrations = await regCol.find().sort({ registration_number: 1 }).toArray();
-  let inserted = 0;
-
-  for (const [i, r] of registrations.entries()) {
-    const regId = r._id.toString();
-    if (paidIds.has(regId)) continue;
-
-    const international = r.participant.institution.country !== MY;
-    const receipt = RECEIPT_FILES[i % RECEIPT_FILES.length](r.registration_number);
-    const created = new Date(new Date(r.created_at).getTime() + 400 + (i % 5) * 1000);
-
-    await payCol.insertOne({
-      registration_id: regId,
-      amount: international ? 250 : 150,
-      status: paymentStatusFor(r, i),
-      receipt_url: blobUrl("payments/receipts", receipt),
+    registrations.push({
+      _id: registrationId,
+      registration_number: registrationNumber,
+      submission_id: submissionId.toHexString(),
+      institution_key: institutionKey,
+      fee,
+      competition_id: competitionId,
+      category_id: categoryId,
+      participant: { ...source.participant, institution },
+      project: source.project,
+      team: {
+        lead: { name: source.participant.name, email: source.participant.email },
+        members: source.members,
+      },
+      supervisors: source.supervisors,
+      documents: projectDocuments(
+        source.project.title,
+        index,
+        source.participant.education_level
+      ),
+      status: settled.registrationStatus,
       created_at: created,
-      updated_at: r.updated_at ?? created,
+      updated_at: updated,
     });
-    inserted += 1;
+
+    const payment = {
+      _id: new ObjectId(),
+      registration_id: registrationId.toHexString(),
+      submission_id: submissionId.toHexString(),
+      amount: fee,
+      currency: price.currency,
+      status: settled.paymentStatus,
+      created_at: new Date(created.getTime() + 1000),
+      updated_at: updated,
+    };
+    if (settled.receiptUrl) payment.receipt_url = settled.receiptUrl;
+    payments.push(payment);
+
+    const level = source.participant.education_level;
+    const judges = users.judges[level] ?? [];
+    const scored =
+      settled.registrationStatus === "ACCEPTED" ||
+      settled.registrationStatus === "COMPLETED";
+    if (scored && judges.length >= 2) {
+      judges.forEach((judge, judgeIndex) => {
+        const submitted =
+          settled.registrationStatus === "COMPLETED" || judgeIndex === 0;
+        const scoredFields = submitted
+          ? buildScores(rubricsByLevel.get(level), assignmentSeed++)
+          : { scores: [], total_score: 0 };
+        const row = {
+          _id: new ObjectId(),
+          judge_id: judge._id.toHexString(),
+          registration_number: registrationNumber,
+          status: "ACCEPTED",
+          scores: scoredFields.scores,
+          comments: submitted
+            ? "Clear problem statement and a credible result. A wider trial would strengthen the claims."
+            : "",
+          total_score: scoredFields.total_score,
+          created_at: updated,
+          updated_at: updated,
+        };
+        if (submitted) row.submitted_at = updated;
+        assignments.push(row);
+      });
+    }
+  });
+
+  const reviewing = registrations.filter((row) => row.status === "REVIEWING");
+  const pendingTarget = reviewing.find(
+    (row) => row.participant.education_level === "UNDERGRADUATE"
+  );
+  const rejectedTarget = reviewing.find(
+    (row) => row.participant.education_level === "POSTGRADUATE"
+  );
+  if (pendingTarget && users.judges.UNDERGRADUATE[0]) {
+    assignments.push({
+      _id: new ObjectId(),
+      judge_id: users.judges.UNDERGRADUATE[0]._id.toHexString(),
+      registration_number: pendingTarget.registration_number,
+      status: "PENDING",
+      scores: [],
+      comments: "",
+      total_score: 0,
+      created_at: pendingTarget.updated_at,
+      updated_at: pendingTarget.updated_at,
+    });
+  }
+  if (rejectedTarget && users.judges.POSTGRADUATE[0]) {
+    assignments.push({
+      _id: new ObjectId(),
+      judge_id: users.judges.POSTGRADUATE[0]._id.toHexString(),
+      registration_number: rejectedTarget.registration_number,
+      status: "REJECTED",
+      scores: [],
+      comments: "",
+      total_score: 0,
+      created_at: rejectedTarget.updated_at,
+      updated_at: rejectedTarget.updated_at,
+    });
   }
 
-  console.log(`payments: +${inserted} (total ${await payCol.countDocuments()})`);
+  await db.collection("submissions").insertMany(submissions);
+  await db.collection("registrations").insertMany(registrations);
+  await db.collection("payments").insertMany(payments);
+  if (assignments.length) {
+    await db.collection("judge_assignments").insertMany(assignments);
+  }
+
+  console.log(
+    `submissions: ${submissions.length}, registrations: ${registrations.length}, payments: ${payments.length}, judge_assignments: ${assignments.length}`
+  );
+}
+
+async function ensureIndexes(db) {
+  await db.collection("categories").createIndex({ category_id: 1 }, { unique: true });
+  await db.collection("competitions").createIndex({ competition_id: 1 }, { unique: true });
+  await db.collection("competitions").createIndex({ status: 1, start_date: -1 });
+  await db.collection("banners").createIndex({ competition_id: 1 }, { unique: true });
+  await db.collection("users").createIndex({ email: 1 }, { unique: true });
+  await db.collection("users").createIndex({ invite_token_hash: 1 }, { sparse: true });
+  await db.collection("judge_rubrics").createIndex({
+    competition_id: 1,
+    education_level: 1,
+    sort_order: 1,
+  });
+  await db.collection("registrations").createIndex(
+    { registration_number: 1 },
+    { unique: true }
+  );
+  await db.collection("registrations").createIndex({
+    competition_id: 1,
+    institution_key: 1,
+  });
+  await db.collection("submissions").createIndex(
+    { submission_number: 1 },
+    { unique: true }
+  );
+  await db.collection("submissions").createIndex(
+    { payment_token_hash: 1 },
+    { unique: true, sparse: true }
+  );
+  await db.collection("payments").createIndex({ registration_id: 1 }, { unique: true });
+  await db.collection("payments").createIndex({ submission_id: 1 });
+  await db.collection("judge_assignments").createIndex(
+    { judge_id: 1, registration_number: 1 },
+    { unique: true }
+  );
+}
+
+function assertSeed(categoryCount) {
+  if (categoryCount !== CATEGORIES.length) {
+    throw new Error("Category count does not match the seed list.");
+  }
+  for (const level of ["UNDERGRADUATE", "POSTGRADUATE"]) {
+    for (const group of rubricGroups()) {
+      const weights = evenWeights(group.items.length);
+      const tenths = weights.reduce((sum, weight) => sum + Math.round(weight * 10), 0);
+      if (tenths !== 1000) {
+        throw new Error(`${group.name} weights for ${level} do not add up to 100.`);
+      }
+    }
+  }
 }
 
 async function main() {
@@ -1294,22 +1753,48 @@ async function main() {
   const uri = process.env.MONGODB_URI;
   if (!uri) throw new Error("MONGODB_URI is not set");
   const dbName = process.env.MONGODB_DATABASE ?? process.env.DB_NAME ?? "test";
+  if (dbName !== "icpex_staging") {
+    throw new Error(
+      `Refusing to reseed "${dbName}". This script only wipes icpex_staging.`
+    );
+  }
 
   const client = await new MongoClient(uri).connect();
   try {
     const db = client.db(dbName);
-    console.log(`Seeding database "${dbName}"...`);
+    console.log(`Reseeding database "${dbName}"...`);
+
     if (only === "criteria") {
-      await seedJudgeRubrics(db);
+      const [competition] = await db
+        .collection("competitions")
+        .find({ status: "PUBLISHED" })
+        .sort({ start_date: -1 })
+        .limit(1)
+        .toArray();
+      if (!competition) throw new Error("No published competition to attach rubrics to.");
+      await seedJudgeRubrics(db, competition._id.toHexString());
       console.log("Done.");
       return;
     }
+
+    await resetDatabase(db);
     const categoryIdBySlug = await seedCategories(db);
-    await seedJudgeRubrics(db);
-    await seedUsers(db);
-    await seedRegistrations(db, categoryIdBySlug);
-    await seedPayments(db);
-    console.log(`Done. Active seeded portal users can log in with password: ${DEV_PASSWORD}`);
+    const competitionId = await seedCompetitions(db);
+    await seedBanner(db, competitionId);
+    const rubricsByLevel = await seedJudgeRubrics(db, competitionId);
+    const users = await seedUsers(db, competitionId, [...categoryIdBySlug.values()]);
+    await seedProjects(db, categoryIdBySlug, competitionId, users, rubricsByLevel);
+    await ensureIndexes(db);
+    assertSeed(categoryIdBySlug.size);
+
+    console.log(`Done. Active portal users can log in with password: ${DEV_PASSWORD}`);
+    if (users.invites.length) {
+      console.log("Invite links:");
+      for (const invite of users.invites) {
+        const note = invite.expired ? " (expired)" : "";
+        console.log(`  ${invite.email}${note}: /invite/${invite.token}`);
+      }
+    }
   } finally {
     await client.close();
   }

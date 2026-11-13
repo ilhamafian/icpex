@@ -23,7 +23,7 @@ async function loadAssignmentData(
   role: Parameters<typeof educationLevelForRole>[0]
 ) {
   if (!competitionId) {
-    return { assignments: [], judges: [], registrations: [] };
+    return { assignments: [], judges: [], registrations: [], categories: [] };
   }
 
   try {
@@ -75,6 +75,10 @@ async function loadAssignmentData(
     return {
       assignments: assignments.map(serializeJudgeAssignment),
       judges: users.map(serializeUser),
+      categories: categories.map((category) => ({
+        id: toIdString(category._id),
+        name: category.name,
+      })),
       registrations: registrations.map((registration) =>
         toAssignmentRegistrationOption(
           registration,
@@ -84,7 +88,7 @@ async function loadAssignmentData(
       ),
     };
   } catch {
-    return { assignments: [], judges: [], registrations: [] };
+    return { assignments: [], judges: [], registrations: [], categories: [] };
   }
 }
 
@@ -92,15 +96,14 @@ export default async function JudgeAssignmentsPage() {
   const session = await requirePortalSection("judge-assignments");
   const competition = await getCurrentCompetition();
   const competitionId = competition ? toIdString(competition._id) : null;
-  const { assignments, judges, registrations } = await loadAssignmentData(
-    competitionId,
-    session.role
-  );
+  const { assignments, judges, registrations, categories } =
+    await loadAssignmentData(competitionId, session.role);
 
   return (
     <JudgeAssignmentsManager
       initialAssignments={assignments}
       judges={judges}
+      categories={categories}
       competitionId={competitionId}
       registrations={registrations}
       judgingDueDate={

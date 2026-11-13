@@ -8,6 +8,8 @@ import {
   IconArrowsSort,
   IconBell,
   IconCheck,
+  IconChevronDown,
+  IconChevronRight,
   IconDeviceFloppy,
   IconDotsVertical,
   IconMail,
@@ -18,13 +20,19 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import {
+  columnGroupingFeature,
   columnVisibilityFeature,
   createColumnHelper,
+  createExpandedRowModel,
+  createGroupedRowModel,
   createSortedRowModel,
   FlexRender,
+  rowExpandingFeature,
   rowSortingFeature,
   tableFeatures,
   useTable,
+  type ExpandedState,
+  type GroupingState,
   type SortingState,
 } from "@tanstack/react-table";
 import { toast } from "sonner";
@@ -93,6 +101,7 @@ type PaymentRow = {
   payment: SubmissionPaymentGroup["projects"][number]["payment"];
   institution: string;
   education_level: EducationLevel;
+  category_name: string;
   created_at: string;
   paymentTab: PaymentTab;
 };
@@ -108,7 +117,11 @@ const TAB_LABELS: Record<PaymentTab, string> = {
 const EDUCATION_TABS: EducationLevel[] = ["UNDERGRADUATE", "POSTGRADUATE"];
 
 const features = tableFeatures({
+  columnGroupingFeature,
   columnVisibilityFeature,
+  groupedRowModel: createGroupedRowModel(),
+  expandedRowModel: createExpandedRowModel(),
+  rowExpandingFeature,
   rowSortingFeature,
   sortedRowModel: createSortedRowModel(),
 });
@@ -233,7 +246,10 @@ function formatCreated(iso?: string) {
   });
 }
 
-function flattenGroups(groups: SubmissionPaymentGroup[]): PaymentRow[] {
+function flattenGroups(
+  groups: SubmissionPaymentGroup[],
+  categoryNameById: Map<string, string>
+): PaymentRow[] {
   const rows: PaymentRow[] = [];
   for (const group of groups) {
     const paymentTab = groupTab(group);
@@ -247,6 +263,9 @@ function flattenGroups(groups: SubmissionPaymentGroup[]): PaymentRow[] {
           group.submission?.institution_name ??
           project.registration.participant.institution.name,
         education_level: project.registration.participant.education_level,
+        category_name:
+          categoryNameById.get(project.registration.category_id) ??
+          "Uncategorized",
         created_at: project.registration.created_at ?? "",
         paymentTab,
       });
@@ -287,9 +306,11 @@ function SortableHeader({
 
 export function PaymentVerificationManager({
   initialGroups = [],
+  categories = [],
   lockedEducationLevel,
 }: {
   initialGroups?: SubmissionPaymentGroup[];
+  categories?: { id: string; name: string }[];
   /** When set, the other education track is not shown. */
   lockedEducationLevel?: EducationLevel;
 }) {
@@ -299,6 +320,8 @@ export function PaymentVerificationManager({
   );
   const [tab, setTab] = useState<PaymentTab>("REVIEW");
   const [query, setQuery] = useState("");
+  const [grouping, setGrouping] = useState<GroupingState>([]);
+  const [expanded, setExpanded] = useState<ExpandedState>(true);
   const [sorting, setSorting] = useState<SortingState>([
     { id: "university", desc: false },
   ]);
@@ -310,7 +333,15 @@ export function PaymentVerificationManager({
     ? [lockedEducationLevel]
     : EDUCATION_TABS;
 
-  const allRows = useMemo(() => flattenGroups(groups), [groups]);
+  const categoryNameById = useMemo(
+    () => new Map(categories.map((category) => [category.id, category.name])),
+    [categories]
+  );
+
+  const allRows = useMemo(
+    () => flattenGroups(groups, categoryNameById),
+    [groups, categoryNameById]
+  );
 
   const eduRows = useMemo(
     () => allRows.filter((row) => row.education_level === educationLevel),
@@ -340,6 +371,7 @@ export function PaymentVerificationManager({
         row.registration.participant.name,
         row.registration.participant.email,
         row.institution,
+        row.category_name,
         row.group.submission?.submission_number ?? "",
       ].some((value) => value.toLowerCase().includes(needle));
     });
@@ -639,11 +671,22 @@ export function PaymentVerificationManager({
           id: "index",
           header: "#",
           enableSorting: false,
-          cell: ({ row, table }) => (
-            <span className="tabular-nums text-muted-foreground">
-              {table.getRowModel().rows.findIndex((r) => r.id === row.id) + 1}
-            </span>
-          ),
+          cell: ({ row, table }) => {
+            const leaves = table
+              .getRowModel()
+              .rows.filter((item) => !item.getIsGrouped());
+            return (
+              <span className="tabular-nums text-muted-foreground">
+                {leaves.findIndex((item) => item.id === row.id) + 1}
+              </span>
+            );
+          },
+        }),
+        columnHelper.accessor("category_name", {
+          id: "category",
+          header: "Category",
+          enableGrouping: true,
+          getGroupingValue: (row) => row.category_name,
         }),
         columnHelper.accessor((row) => row.registration.registration_number, {
           id: "registration",
@@ -1028,10 +1071,24 @@ export function PaymentVerificationManager({
     features,
     data: filteredRows,
     columns,
-    state: { sorting },
+    state: {
+      sorting,
+      grouping,
+      expanded,
+      columnVisibility: { category: false },
+    },
+    groupedColumnMode: "remove",
+    autoResetExpanded: false,
     getRowId: (row) => row.id,
     onSortingChange: setSorting,
+    onGroupingChange: setGrouping,
+    onExpandedChange: setExpanded,
   });
+
+  function changeGrouping(value: string) {
+    setGrouping(value === "category" ? ["category"] : []);
+    setExpanded(true);
+  }
 
   return (
     <div className="flex flex-col gap-4 px-4 lg:px-6">
@@ -1092,14 +1149,32 @@ export function PaymentVerificationManager({
               {(Object.keys(TAB_LABELS) as PaymentTab[]).map((key) => (
                 <TabsContent key={key} value={key} className="mt-0">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <div className="relative">
-                      <IconSearch className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        value={query}
-                        onChange={(event) => setQuery(event.target.value)}
-                        placeholder="Search registrations…"
-                        className="h-8 w-56 pl-8 lg:w-72"
-                      />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="relative">
+                        <IconSearch className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          value={query}
+                          onChange={(event) => setQuery(event.target.value)}
+                          placeholder="Search registrations…"
+                          className="h-8 w-56 pl-8 lg:w-72"
+                        />
+                      </div>
+                      <Select
+                        value={grouping[0] ?? "none"}
+                        onValueChange={changeGrouping}
+                      >
+                        <SelectTrigger
+                          size="sm"
+                          aria-label="Group by"
+                          className="h-8 w-44"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No grouping</SelectItem>
+                          <SelectItem value="category">Category</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {filteredRows.length} registration
@@ -1124,15 +1199,44 @@ export function PaymentVerificationManager({
                       </TableHeader>
                       <TableBody>
                         {table.getRowModel().rows.length ? (
-                          table.getRowModel().rows.map((row) => (
-                            <TableRow key={row.id}>
-                              {row.getVisibleCells().map((cell) => (
-                                <TableCell key={cell.id}>
-                                  <FlexRender cell={cell} />
+                          table.getRowModel().rows.map((row) =>
+                            row.getIsGrouped() ? (
+                              <TableRow key={row.id} className="bg-muted/40">
+                                <TableCell
+                                  colSpan={row.getVisibleCells().length}
+                                  className="py-2"
+                                >
+                                  <button
+                                    type="button"
+                                    className="flex items-center gap-2 text-sm font-medium"
+                                    onClick={row.getToggleExpandedHandler()}
+                                    aria-expanded={row.getIsExpanded()}
+                                  >
+                                    {row.getIsExpanded() ? (
+                                      <IconChevronDown className="size-4 text-muted-foreground" />
+                                    ) : (
+                                      <IconChevronRight className="size-4 text-muted-foreground" />
+                                    )}
+                                    <span>{String(row.groupingValue)}</span>
+                                    <span className="font-normal text-muted-foreground">
+                                      {row.subRows.length}{" "}
+                                      {row.subRows.length === 1
+                                        ? "registration"
+                                        : "registrations"}
+                                    </span>
+                                  </button>
                                 </TableCell>
-                              ))}
-                            </TableRow>
-                          ))
+                              </TableRow>
+                            ) : (
+                              <TableRow key={row.id}>
+                                {row.getVisibleCells().map((cell) => (
+                                  <TableCell key={cell.id}>
+                                    <FlexRender cell={cell} />
+                                  </TableCell>
+                                ))}
+                              </TableRow>
+                            )
+                          )
                         ) : (
                           <TableRow>
                             <TableCell
