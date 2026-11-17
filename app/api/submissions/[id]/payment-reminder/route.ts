@@ -1,9 +1,14 @@
 import { NextRequest } from "next/server";
 
-import { sendPaymentReminderEmail } from "@/lib/email";
+import {
+  competitionEmailCopy,
+  sendPaymentReminderEmail,
+} from "@/lib/email";
+import { CompetitionModel } from "@/models/Competition";
 import { PaymentModel } from "@/models/Payment";
 import { RegistrationModel } from "@/models/Registration";
 import { SubmissionModel } from "@/models/Submission";
+import { toIdString } from "@/schemas/objectId";
 import { submissionSettlementSchema } from "@/schemas/submissionSchema";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { requireSecretarySession } from "@/utils/portalAuth";
@@ -11,6 +16,7 @@ import {
   emailEach,
   ensurePaymentUrl,
   loadSubmissionPaymentGroup,
+  submissionLetterDetails,
   submissionRecipients,
 } from "@/utils/submissionPayments";
 import { denyUnlessSubmission } from "@/utils/trackAccess";
@@ -45,13 +51,20 @@ export async function POST(
       );
     }
 
-    const recipients = submissionRecipients(
-      await new RegistrationModel().find({ submission_id: id })
-    );
+    const registrations = await new RegistrationModel().find({ submission_id: id });
+    const recipients = submissionRecipients(registrations);
+    const letter = {
+      ...submissionLetterDetails(registrations),
+      institutionName: submission.institution.name,
+    };
     if (recipients.length === 0) {
       return createResponse({ error: "This submission has no participant email." }, 400);
     }
 
+    const competition = await new CompetitionModel().findById(
+      toIdString(submission.competition_id)
+    );
+    const copy = competitionEmailCopy(competition ?? { name: "ICPEX" });
     const isBalance = Boolean(submission.balance_due);
     const payUrl = await ensurePaymentUrl(submission);
     const delivery = await emailEach(recipients, (to) =>
@@ -64,6 +77,8 @@ export async function POST(
           : (submission.currency ?? "MYR"),
         payUrl,
         isBalance,
+        letter,
+        copy,
       })
     );
 

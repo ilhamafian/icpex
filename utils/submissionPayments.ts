@@ -8,6 +8,7 @@ import { createPaymentToken } from "@/lib/paymentToken";
 import { PaymentModel } from "@/models/Payment";
 import { RegistrationModel } from "@/models/Registration";
 import { SubmissionModel } from "@/models/Submission";
+import { competitionCategoryLabel } from "@/schemas/educationLevel";
 import { toIdString } from "@/schemas/objectId";
 import { paymentUpdateSchema, type PaymentStatus } from "@/schemas/paymentSchema";
 import {
@@ -180,6 +181,24 @@ function serializeSubmission(
     })),
     paid_at: toIso(submission.paid_at),
     invoice_number: submission.invoice_number,
+  };
+}
+
+/** Name, category, and registration id for a payment letter. One project is the usual case. */
+export function submissionLetterDetails(registrations: WithId<Registration>[]) {
+  const names = [
+    ...new Set(
+      registrations.map((registration) => registration.participant.name.trim()).filter(Boolean)
+    ),
+  ];
+  const levels = [
+    ...new Set(registrations.map((registration) => registration.participant.education_level)),
+  ];
+  const numbers = registrations.map((registration) => registration.registration_number);
+  return {
+    participantName: names.length === 1 ? names[0] : "Participant",
+    categoryLabel: levels.map((level) => competitionCategoryLabel(level)).join(" / "),
+    registrationNumber: numbers.length === 1 ? numbers[0] : numbers.join(", "),
   };
 }
 

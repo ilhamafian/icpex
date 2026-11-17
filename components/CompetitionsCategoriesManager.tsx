@@ -40,7 +40,12 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { CompetitionStatus } from "@/schemas/competitionSchema";
+import {
+  CLOSING_CEREMONY_MODE_LABELS,
+  closingCeremonyModeSchema,
+  type ClosingCeremonyMode,
+  type CompetitionStatus,
+} from "@/schemas/competitionSchema";
 import {
   COMPETITION_ELIGIBILITY_LABELS,
   competitionEligibilitySchema,
@@ -55,9 +60,16 @@ type Tab = "competitions" | "categories";
 
 type CompetitionFormState = {
   name: string;
+  formal_name: string;
+  theme: string;
   start_date: string;
   end_date: string;
+  payment_deadline: string;
+  judging_start_date: string;
   judging_due_date: string;
+  closing_ceremony_date: string;
+  closing_ceremony_mode: ClosingCeremonyMode;
+  closing_ceremony_time: string;
   status: CompetitionStatus;
   eligibility: CompetitionEligibility;
 };
@@ -80,9 +92,16 @@ function toDateInputValue(iso: string) {
 function emptyCompetitionForm(): CompetitionFormState {
   return {
     name: "",
+    formal_name: "",
+    theme: "",
     start_date: "",
     end_date: "",
+    payment_deadline: "",
+    judging_start_date: "",
     judging_due_date: "",
+    closing_ceremony_date: "",
+    closing_ceremony_mode: "ONLINE",
+    closing_ceremony_time: "",
     status: "DRAFT",
     eligibility: "BOTH",
   };
@@ -93,9 +112,18 @@ function competitionToForm(
 ): CompetitionFormState {
   return {
     name: competition.name,
+    formal_name: competition.formal_name ?? "",
+    theme: competition.theme ?? "",
     start_date: toDateInputValue(competition.start_date),
     end_date: toDateInputValue(competition.end_date),
+    payment_deadline: toDateInputValue(competition.payment_deadline ?? ""),
+    judging_start_date: toDateInputValue(competition.judging_start_date ?? ""),
     judging_due_date: toDateInputValue(competition.judging_due_date ?? ""),
+    closing_ceremony_date: toDateInputValue(
+      competition.closing_ceremony_date ?? ""
+    ),
+    closing_ceremony_mode: competition.closing_ceremony_mode ?? "ONLINE",
+    closing_ceremony_time: competition.closing_ceremony_time ?? "",
     status: competition.status,
     eligibility: competition.eligibility,
   };
@@ -235,20 +263,47 @@ export function CompetitionsCategoriesManager({
       setError("Competition name is required.");
       return;
     }
+    if (!competitionForm.formal_name.trim()) {
+      setError("Formal name is required for emails.");
+      return;
+    }
+    if (!competitionForm.theme.trim()) {
+      setError("Theme is required for emails.");
+      return;
+    }
     if (!competitionForm.start_date || !competitionForm.end_date) {
       setError("Start and end dates are required.");
+      return;
+    }
+    if (!competitionForm.payment_deadline) {
+      setError("Payment deadline is required.");
+      return;
+    }
+    if (!competitionForm.judging_start_date) {
+      setError("Judging start date is required.");
       return;
     }
     if (!competitionForm.judging_due_date) {
       setError("Scoring due date is required.");
       return;
     }
+    if (!competitionForm.closing_ceremony_date) {
+      setError("Closing ceremony date is required.");
+      return;
+    }
 
     const payload = {
       name: competitionForm.name.trim(),
+      formal_name: competitionForm.formal_name.trim(),
+      theme: competitionForm.theme.trim(),
       start_date: competitionForm.start_date,
       end_date: competitionForm.end_date,
+      payment_deadline: competitionForm.payment_deadline,
+      judging_start_date: competitionForm.judging_start_date,
       judging_due_date: competitionForm.judging_due_date,
+      closing_ceremony_date: competitionForm.closing_ceremony_date,
+      closing_ceremony_mode: competitionForm.closing_ceremony_mode,
+      closing_ceremony_time: competitionForm.closing_ceremony_time || null,
       status: competitionForm.status,
       eligibility: competitionForm.eligibility,
     };
@@ -521,7 +576,7 @@ export function CompetitionsCategoriesManager({
       </Tabs>
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent className="flex flex-col gap-4 sm:max-w-md">
+        <SheetContent className="flex flex-col gap-4 sm:max-w-lg">
           <SheetHeader>
             <SheetTitle>
               {isCompetitionSheet
@@ -547,7 +602,7 @@ export function CompetitionsCategoriesManager({
                       name: event.target.value,
                     }))
                   }
-                  placeholder="e.g. ICPEX 2026"
+                  placeholder="e.g. I-CRIVE 2027"
                 />
               </Field>
               {editingCompetitionId ? (
@@ -563,10 +618,34 @@ export function CompetitionsCategoriesManager({
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  ID is generated from the name (e.g. &quot;ICPEX 2026&quot; →
-                  icpex-2026).
+                  ID is generated from the name (e.g. &quot;I-CRIVE 2027&quot; →
+                  i-crive-2027). Used in email subjects and the sign-off.
                 </p>
               )}
+              <Field label="Formal name (emails)">
+                <Input
+                  value={competitionForm.formal_name}
+                  onChange={(event) =>
+                    setCompetitionForm((current) => ({
+                      ...current,
+                      formal_name: event.target.value,
+                    }))
+                  }
+                  placeholder="e.g. International Competition for Research, Innovation & Value Excellence (I-CRIVE 2027)"
+                />
+              </Field>
+              <Field label="Theme (emails)">
+                <Input
+                  value={competitionForm.theme}
+                  onChange={(event) =>
+                    setCompetitionForm((current) => ({
+                      ...current,
+                      theme: event.target.value,
+                    }))
+                  }
+                  placeholder="e.g. Innovating for a Smarter, Sustainable Future"
+                />
+              </Field>
               <Field label="Start date">
                 <Input
                   type="date"
@@ -591,6 +670,30 @@ export function CompetitionsCategoriesManager({
                   }
                 />
               </Field>
+              <Field label="Payment deadline">
+                <Input
+                  type="date"
+                  value={competitionForm.payment_deadline}
+                  onChange={(event) =>
+                    setCompetitionForm((current) => ({
+                      ...current,
+                      payment_deadline: event.target.value,
+                    }))
+                  }
+                />
+              </Field>
+              <Field label="Judging start date">
+                <Input
+                  type="date"
+                  value={competitionForm.judging_start_date}
+                  onChange={(event) =>
+                    setCompetitionForm((current) => ({
+                      ...current,
+                      judging_start_date: event.target.value,
+                    }))
+                  }
+                />
+              </Field>
               <Field label="Scoring due date">
                 <Input
                   type="date"
@@ -602,6 +705,55 @@ export function CompetitionsCategoriesManager({
                     }))
                   }
                 />
+              </Field>
+              <Field label="Closing ceremony date">
+                <Input
+                  type="date"
+                  value={competitionForm.closing_ceremony_date}
+                  onChange={(event) =>
+                    setCompetitionForm((current) => ({
+                      ...current,
+                      closing_ceremony_date: event.target.value,
+                    }))
+                  }
+                />
+              </Field>
+              <Field label="Closing ceremony mode">
+                <Select
+                  value={competitionForm.closing_ceremony_mode}
+                  onValueChange={(value) =>
+                    setCompetitionForm((current) => ({
+                      ...current,
+                      closing_ceremony_mode: value as ClosingCeremonyMode,
+                    }))
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select mode" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {closingCeremonyModeSchema.options.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {CLOSING_CEREMONY_MODE_LABELS[option]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Closing ceremony time (optional)">
+                <Input
+                  type="time"
+                  value={competitionForm.closing_ceremony_time}
+                  onChange={(event) =>
+                    setCompetitionForm((current) => ({
+                      ...current,
+                      closing_ceremony_time: event.target.value,
+                    }))
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Leave blank to show &quot;time to be confirmed&quot; in emails.
+                </p>
               </Field>
               <Field label="Status">
                 <Select

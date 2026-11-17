@@ -1,6 +1,11 @@
 import { NextRequest } from "next/server";
 
-import { sendNoPaymentDueEmail, sendPaymentRequestEmail } from "@/lib/email";
+import {
+  competitionEmailCopy,
+  sendNoPaymentDueEmail,
+  sendPaymentRequestEmail,
+} from "@/lib/email";
+import { CompetitionModel } from "@/models/Competition";
 import { RegistrationModel } from "@/models/Registration";
 import { PaymentModel } from "@/models/Payment";
 import { SubmissionModel } from "@/models/Submission";
@@ -15,6 +20,7 @@ import {
   ensurePaymentUrl,
   loadSubmissionPaymentGroup,
   setSubmissionPaymentsStatus,
+  submissionLetterDetails,
   submissionRecipients,
 } from "@/utils/submissionPayments";
 import { denyUnlessSubmission } from "@/utils/trackAccess";
@@ -66,6 +72,16 @@ export async function POST(
     if (recipients.length === 0) {
       return createResponse({ error: "This submission has no participant email." }, 400);
     }
+    const letter = {
+      ...submissionLetterDetails(registrations),
+      institutionName: submission.institution.name,
+    };
+    const competition = await new CompetitionModel().findById(
+      toIdString(submission.competition_id)
+    );
+    const copy = competitionEmailCopy(
+      competition ?? { name: "ICPEX" }
+    );
 
     const statuses = new Set(payments.map((payment) => payment.status));
     const currency = (submission.currency ?? "MYR") as Currency;
@@ -84,6 +100,8 @@ export async function POST(
         sendNoPaymentDueEmail({
           to,
           submissionNumber: submission.submission_number,
+          participantName: letter.participantName,
+          copy,
         })
       );
       const group = await loadSubmissionPaymentGroup(id);
@@ -133,6 +151,8 @@ export async function POST(
         currency,
         payUrl,
         projects,
+        letter,
+        copy,
       })
     );
 

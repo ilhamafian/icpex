@@ -1,10 +1,12 @@
 import { NextRequest } from "next/server";
 
 import {
+  competitionEmailCopy,
   sendPaymentReceivedEmail,
   sendUnderpaidEmail,
 } from "@/lib/email";
 import { createInvoicePdf } from "@/lib/invoicePdf";
+import { CompetitionModel } from "@/models/Competition";
 import { PaymentModel } from "@/models/Payment";
 import { RegistrationModel } from "@/models/Registration";
 import { SubmissionModel } from "@/models/Submission";
@@ -24,6 +26,7 @@ import {
   invoiceNumberFor,
   loadSubmissionPaymentGroup,
   setSubmissionPaymentsStatus,
+  submissionLetterDetails,
   submissionRecipients,
 } from "@/utils/submissionPayments";
 import { denyUnlessSubmission } from "@/utils/trackAccess";
@@ -80,6 +83,11 @@ export async function POST(
       submission_id: id,
     });
     const recipients = submissionRecipients(registrations);
+    const participantName = submissionLetterDetails(registrations).participantName;
+    const competition = await new CompetitionModel().findById(
+      toIdString(submission.competition_id)
+    );
+    const copy = competitionEmailCopy(competition ?? { name: "ICPEX" });
     const currency = (submission.currency ?? "MYR") as Currency;
     const receiptUrl = payments.find((payment) => payment.receipt_url)?.receipt_url;
     const now = new Date();
@@ -114,9 +122,11 @@ export async function POST(
         sendUnderpaidEmail({
           to,
           submissionNumber: submission.submission_number,
+          participantName,
           balance: decision.amount,
           currency: decision.currency,
           payUrl,
+          copy,
         })
       );
 
@@ -179,10 +189,12 @@ export async function POST(
         sendPaymentReceivedEmail({
           to,
           submissionNumber: submission.submission_number,
+          participantName,
           invoiceNumber,
           amount: submission.amount,
           currency,
           invoicePdf,
+          copy,
           overpaid,
         })
       );

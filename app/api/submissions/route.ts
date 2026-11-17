@@ -15,7 +15,10 @@ import {
   submissionFormSchema,
   submissionSchema,
 } from "@/schemas/submissionSchema";
-import { sendRegistrationSubmittedEmail } from "@/lib/email";
+import {
+  competitionEmailCopy,
+  sendRegistrationSubmittedEmail,
+} from "@/lib/email";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { getCurrentCompetition } from "@/utils/currentCompetition";
 import { normalizeInstitution, quoteSubmission } from "@/utils/pricing";
@@ -103,7 +106,12 @@ export async function POST(req: NextRequest) {
       const submissionId = toIdString(submission._id);
       created.submissionId = submissionId;
 
-      const results = [];
+      const results: {
+        _id: string;
+        registration_number: string;
+        title: string;
+        fee: number;
+      }[] = [];
       for (const [index, project] of projects.entries()) {
         const fee = quote.fees[index];
         const registration = await registrationModel.create(
@@ -152,20 +160,20 @@ export async function POST(req: NextRequest) {
         submissionSchema.pick({ registration_ids: true })
       );
 
-      const recipients = [
-        ...new Set(
-          projects.map((project) => project.participant.email.trim().toLowerCase())
-        ),
-      ];
+      const copy = competitionEmailCopy(competition);
       try {
         await Promise.all(
-          recipients.map((to) =>
+          projects.map((project, index) =>
             sendRegistrationSubmittedEmail({
-              to,
-              submissionNumber: submission.submission_number,
+              to: project.participant.email.trim().toLowerCase(),
+              participantName: project.participant.name,
+              registrationNumber: results[index].registration_number,
               institutionName: institution.name,
-              projectCount: projects.length,
-              paymentDue: quote.total > 0,
+              educationLevel: project.participant.education_level,
+              trackName: categoryNameById.get(String(project.category_id)) ?? "",
+              projectTitle: project.project.title,
+              paymentDue: results[index].fee > 0,
+              copy,
             })
           )
         );

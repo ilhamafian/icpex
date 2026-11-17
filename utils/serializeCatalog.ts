@@ -16,9 +16,16 @@ export type SerializedCompetition = {
   _id: string;
   competition_id: string;
   name: string;
+  formal_name?: string;
+  theme?: string;
   start_date: string;
   end_date: string;
+  payment_deadline?: string;
+  judging_start_date?: string;
   judging_due_date?: string;
+  closing_ceremony_date?: string;
+  closing_ceremony_mode?: Competition["closing_ceremony_mode"];
+  closing_ceremony_time?: string;
   status: Competition["status"];
   eligibility: Competition["eligibility"];
   created_at?: string;
@@ -38,9 +45,16 @@ export function serializeCompetition(
     _id: toIdString(competition._id),
     competition_id: competition.competition_id,
     name: competition.name,
+    formal_name: competition.formal_name,
+    theme: competition.theme,
     start_date: toIso(competition.start_date)!,
     end_date: toIso(competition.end_date)!,
+    payment_deadline: toIso(competition.payment_deadline),
+    judging_start_date: toIso(competition.judging_start_date),
     judging_due_date: toIso(competition.judging_due_date),
+    closing_ceremony_date: toIso(competition.closing_ceremony_date),
+    closing_ceremony_mode: competition.closing_ceremony_mode,
+    closing_ceremony_time: competition.closing_ceremony_time ?? undefined,
     status: competition.status,
     eligibility: competition.eligibility ?? DEFAULT_COMPETITION_ELIGIBILITY,
     created_at: toIso(competition.created_at),

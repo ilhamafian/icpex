@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { getAppOrigin } from "@/lib/appOrigin";
-import { sendUserInviteEmail } from "@/lib/email";
+import { competitionEmailCopy, sendUserInviteEmail } from "@/lib/email";
 import { createInviteToken } from "@/lib/inviteToken";
 import { CompetitionModel } from "@/models/Competition";
 import { UserModel } from "@/models/User";
@@ -57,6 +57,8 @@ export async function POST(
         to: existing.email,
         role: grant.role,
         competitionName: competition?.name,
+        copy: competition ? competitionEmailCopy(competition) : undefined,
+        name: existing.name,
         inviteUrl,
       });
     } catch (emailError) {

@@ -38,6 +38,13 @@ const LEGACY_EDUCATION_LEVEL_LABELS: Record<string, string> = {
   PHD: "PhD",
 };
 
+/** Competition category named in participant and judge emails. */
+export function competitionCategoryLabel(level: string): string {
+  if (level === "UNDERGRADUATE") return "Undergraduate Innovation Competition";
+  if (level === "POSTGRADUATE") return "Postgraduate 5MT (Master's / PhD)";
+  return educationLevelLabel(level);
+}
+
 /** Label for a stored education level, including pre-migration values. */
 export function educationLevelLabel(level: string): string {
   return (

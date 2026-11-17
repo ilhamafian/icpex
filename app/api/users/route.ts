@@ -1,13 +1,15 @@
 import { NextRequest } from "next/server";
 
 import { getAppOrigin } from "@/lib/appOrigin";
-import { sendUserInviteEmail } from "@/lib/email";
+import { competitionEmailCopy, sendUserInviteEmail } from "@/lib/email";
 import { createInviteToken } from "@/lib/inviteToken";
 import { CompetitionModel } from "@/models/Competition";
 import { UserModel } from "@/models/User";
 import { toIdString } from "@/schemas/objectId";
+import type { Competition } from "@/schemas/competitionSchema";
 import { inviteUserSchema, userSchema, type RoleGrant } from "@/schemas/userSchema";
 import { isGlobalRole } from "@/schemas/userRole";
+import type { WithId } from "mongodb";
 import { requireAdminSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { grantDenied } from "@/utils/roleAccess";
@@ -59,6 +61,7 @@ export async function POST(req: NextRequest) {
 
     let grant: RoleGrant = { role };
     let competitionName: string | undefined;
+    let competition: WithId<Competition> | null = null;
     if (!isGlobalRole(role)) {
       if (!parsed.data.competition_id) {
         return createResponse(
@@ -66,7 +69,7 @@ export async function POST(req: NextRequest) {
           400
         );
       }
-      const competition = await new CompetitionModel().findById(
+      competition = await new CompetitionModel().findById(
         toIdString(parsed.data.competition_id)
       );
       if (!competition) {
@@ -110,6 +113,8 @@ export async function POST(req: NextRequest) {
             to: email,
             role,
             competitionName,
+            copy: competition ? competitionEmailCopy(competition) : undefined,
+            name: existing.name,
             inviteUrl,
           });
         } catch (emailError) {
@@ -158,6 +163,7 @@ export async function POST(req: NextRequest) {
         to: email,
         role,
         competitionName,
+        copy: competition ? competitionEmailCopy(competition) : undefined,
         inviteUrl,
       });
     } catch (emailError) {
