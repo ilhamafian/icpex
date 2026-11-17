@@ -74,6 +74,11 @@ export function isGlobalRole(role: UserRole): boolean {
   return role === "SUPER_ADMIN";
 }
 
+/** Postgraduate judge leader and super admin nominate 5MT live presenters. */
+export function canManageLivePresentation(role: UserRole): boolean {
+  return role === "SUPER_ADMIN" || role === "POSTGRAD_JUDGE_LEADER";
+}
+
 export function isScoringJudgeRole(role: string): role is UserRole {
   return (SCORING_JUDGE_ROLES as readonly string[]).includes(role);
 }

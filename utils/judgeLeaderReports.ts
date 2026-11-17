@@ -11,6 +11,11 @@ import type {
   JudgeAssignmentStatus,
   JudgeScore,
 } from "@/schemas/judgeAssignmentsSchema";
+import {
+  emptyLivePresentationDraft,
+  livePresentationDraft,
+  type LivePresentationDraft,
+} from "@/schemas/competitionSchema";
 import { toIdString } from "@/schemas/objectId";
 import type { User } from "@/schemas/userSchema";
 import {
@@ -43,6 +48,7 @@ export type ParticipantMarkJudge = {
 };
 
 export type ParticipantMarkRow = {
+  registration_id: string;
   registration_number: string;
   participant_name: string;
   institution_name: string;
@@ -51,6 +57,11 @@ export type ParticipantMarkRow = {
   education_level: EducationLevel;
   judges: ParticipantMarkJudge[];
   average_score: number | null;
+  /** True once a judge leader has nominated this participant. */
+  nominated: boolean;
+  /** True after the live-presentation invitation has been sent. */
+  invited: boolean;
+  live_presentation_order: number | null;
 };
 
 export type JudgeDistributionParticipant = {
@@ -81,6 +92,7 @@ export type JudgeLeaderReport = {
   marks: ParticipantMarkRow[];
   distribution: JudgeDistributionRow[];
   unassigned_participants: number;
+  live_presentation: LivePresentationDraft;
 };
 
 export function emptyJudgeLeaderReport(): JudgeLeaderReport {
@@ -89,6 +101,7 @@ export function emptyJudgeLeaderReport(): JudgeLeaderReport {
     marks: [],
     distribution: [],
     unassigned_participants: 0,
+    live_presentation: emptyLivePresentationDraft(),
   };
 }
 
@@ -270,6 +283,7 @@ export async function loadJudgeLeaderReport(
       (judge) => judge.submitted && isActive(judge.status)
     );
     return {
+      registration_id: toIdString(registration._id),
       registration_number: registration.registration_number,
       participant_name: registration.participant.name,
       institution_name: registration.participant.institution.name,
@@ -284,6 +298,9 @@ export async function loadJudgeLeaderReport(
             scored.length
           )
         : null,
+      nominated: Boolean(registration.live_presentation_nominated_at),
+      invited: Boolean(registration.live_presentation_invited_at),
+      live_presentation_order: registration.live_presentation_order ?? null,
     };
   });
 
@@ -370,5 +387,6 @@ export async function loadJudgeLeaderReport(
     marks,
     distribution,
     unassigned_participants,
+    live_presentation: livePresentationDraft(competition),
   };
 }

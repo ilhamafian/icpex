@@ -55,4 +55,36 @@ export class RegistrationModel extends ModelBase<Registration> {
       suffix += 1;
     }
   }
+
+  /** Nominate or clear a 5MT live-presentation nomination. Does not send email. */
+  async setLivePresentationNomination(id: string, nominated: boolean) {
+    const collection = await this.getCollection();
+    const updated_at = new Date();
+    if (nominated) {
+      await collection.updateOne(this.buildIdFilter(id), {
+        $set: {
+          live_presentation_nominated_at: updated_at,
+          updated_at,
+        },
+      } as never);
+      return;
+    }
+    await collection.updateOne(this.buildIdFilter(id), {
+      $unset: { live_presentation_nominated_at: "" },
+      $set: { updated_at },
+    } as never);
+  }
+
+  /** Record that the live-presentation invitation was sent. */
+  async stampLivePresentationInvite(id: string, order: number) {
+    const collection = await this.getCollection();
+    const updated_at = new Date();
+    await collection.updateOne(this.buildIdFilter(id), {
+      $set: {
+        live_presentation_invited_at: updated_at,
+        live_presentation_order: order,
+        updated_at,
+      },
+    } as never);
+  }
 }

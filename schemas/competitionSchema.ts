@@ -66,6 +66,16 @@ export const competitionSchema = z.object({
   judge_start_reminder_sent_at: z.coerce.date().optional(),
   /** Set after the one-time email 3 days before the scoring due date. */
   judge_due_reminder_sent_at: z.coerce.date().optional(),
+  /** Shared 5MT live-session details, filled when invitations are sent. */
+  live_presentation_date: z.coerce.date().optional(),
+  live_presentation_time: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:mm")
+    .optional(),
+  live_presentation_platform: z.string().min(1).optional(),
+  live_presentation_meeting_url: z.string().url().optional(),
+  live_presentation_reply_by: z.coerce.date().optional(),
+  live_presentation_join_minutes: z.number().int().min(1).max(180).optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional(),
 });
@@ -77,6 +87,12 @@ export const competitionInputSchema = competitionSchema
     competition_id: true,
     judge_start_reminder_sent_at: true,
     judge_due_reminder_sent_at: true,
+    live_presentation_date: true,
+    live_presentation_time: true,
+    live_presentation_platform: true,
+    live_presentation_meeting_url: true,
+    live_presentation_reply_by: true,
+    live_presentation_join_minutes: true,
     created_at: true,
     updated_at: true,
   })
@@ -100,6 +116,84 @@ export const competitionReminderStampSchema = z
     judge_due_reminder_sent_at: z.coerce.date(),
   })
   .partial();
+
+const livePresentationTimeSchema = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:mm");
+
+/** Body of the send-invitations request. */
+export const livePresentationSessionSchema = z.object({
+  date: z.coerce.date(),
+  time: livePresentationTimeSchema,
+  platform: z.string().trim().min(1),
+  meeting_url: z.string().trim().url(),
+  reply_by: z.coerce.date(),
+  join_minutes: z.coerce.number().int().min(1).max(180),
+});
+
+/** Stored on the competition when invitations are sent. */
+export const competitionLivePresentationSchema = z.object({
+  live_presentation_date: z.date(),
+  live_presentation_time: livePresentationTimeSchema,
+  live_presentation_platform: z.string().min(1),
+  live_presentation_meeting_url: z.string().url(),
+  live_presentation_reply_by: z.date(),
+  live_presentation_join_minutes: z.number().int().min(1).max(180),
+});
+
+export type LivePresentationSession = z.infer<
+  typeof livePresentationSessionSchema
+>;
+
+/** Values for the send dialog. Empty strings until a session has been saved. */
+export type LivePresentationDraft = {
+  date: string;
+  time: string;
+  platform: string;
+  meeting_url: string;
+  reply_by: string;
+  join_minutes: number;
+};
+
+export function emptyLivePresentationDraft(): LivePresentationDraft {
+  return {
+    date: "",
+    time: "",
+    platform: "",
+    meeting_url: "",
+    reply_by: "",
+    join_minutes: 15,
+  };
+}
+
+function calendarDate(value: Date | string | undefined) {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 10);
+}
+
+export function livePresentationDraft(
+  competition: Pick<
+    Competition,
+    | "live_presentation_date"
+    | "live_presentation_time"
+    | "live_presentation_platform"
+    | "live_presentation_meeting_url"
+    | "live_presentation_reply_by"
+    | "live_presentation_join_minutes"
+  > | null
+): LivePresentationDraft {
+  if (!competition) return emptyLivePresentationDraft();
+  return {
+    date: calendarDate(competition.live_presentation_date),
+    time: competition.live_presentation_time ?? "",
+    platform: competition.live_presentation_platform ?? "",
+    meeting_url: competition.live_presentation_meeting_url ?? "",
+    reply_by: calendarDate(competition.live_presentation_reply_by),
+    join_minutes: competition.live_presentation_join_minutes ?? 15,
+  };
+}
 
 export type Competition = z.infer<typeof competitionSchema>;
 export type CompetitionInput = z.infer<typeof competitionInputSchema>;

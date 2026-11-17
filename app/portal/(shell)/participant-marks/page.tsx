@@ -1,5 +1,8 @@
 import { ParticipantMarksView } from "@/components/ParticipantMarksView";
-import { educationLevelForRole } from "@/schemas/userRole";
+import {
+  canManageLivePresentation,
+  educationLevelForRole,
+} from "@/schemas/userRole";
 import {
   emptyJudgeLeaderReport,
   loadJudgeLeaderReport,
@@ -17,6 +20,8 @@ export default async function ParticipantMarksPage() {
       competitionName={report.competition_name}
       rows={report.marks}
       showTrack={educationLevelForRole(session.role) === null}
+      canNominate={canManageLivePresentation(session.role)}
+      liveSession={report.live_presentation}
     />
   );
 }

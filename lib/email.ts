@@ -1067,3 +1067,112 @@ export async function sendPaymentReminderEmail(options: {
     ]),
   });
 }
+
+export async function sendLivePresentationInviteEmail(options: {
+  to: string;
+  participantName: string;
+  registrationNumber: string;
+  trackName: string;
+  projectTitle: string;
+  presentationOrder: number;
+  sessionDate: Date;
+  sessionTime: string;
+  platform: string;
+  meetingUrl: string;
+  replyBy: Date;
+  joinMinutes: number;
+  copy: CompetitionEmailCopy;
+}) {
+  const { copy } = options;
+  const greet = greeting(options.participantName);
+  const contact = contactSentence();
+  const secretariatEmail = optionalEnv("SECRETARIAT_EMAIL");
+  const sessionDate = formatEmailDate(options.sessionDate);
+  const sessionTime = formatEmailTime(options.sessionTime);
+  const replyBy = formatEmailDate(options.replyBy);
+  const opening = `Congratulations! We are pleased to invite you to present live at the Five-Minute Thesis (5MT) Competition as part of the ${themedCompetition(copy)}.`;
+  const details = detailList([
+    ["Registration ID", options.registrationNumber],
+    ["Level", "Postgraduate"],
+    ["Track", options.trackName],
+    ["Research Title", options.projectTitle],
+  ]);
+  const session = detailList([
+    ["Date", sessionDate],
+    ["Time", sessionTime ? `${sessionTime} (Malaysia Time, GMT+8)` : ""],
+    ["Platform", options.platform],
+    ["Meeting Link", options.meetingUrl],
+    ["Presentation order", String(options.presentationOrder)],
+  ]);
+  const guidelines = [
+    "Your presentation must not exceed five (5) minutes.",
+    "Use only the single slide you have submitted; no additional slides, videos or props are allowed.",
+    "Explain your research and its significance in a way that a non-specialist audience can understand.",
+    "Master's and PhD participants will be assessed separately.",
+  ];
+  const joinMinutes = options.joinMinutes;
+  const technical = [
+    `Please join the session at least ${joinMinutes} minute${joinMinutes === 1 ? "" : "s"} before your slot to allow for a technical check.`,
+    "Use a stable internet connection, a working camera, and a usable microphone in a quiet location.",
+    `Please rename your display name to: ${options.registrationNumber} – ${options.participantName.trim() || "Participant"}.`,
+  ];
+  const confirm = secretariatEmail
+    ? `Please confirm your attendance by replying to this email before ${replyBy}. If you are unable to attend the live session, please inform us as soon as possible at ${secretariatEmail}.`
+    : `Please confirm your attendance by replying to this email before ${replyBy}. If you are unable to attend the live session, please inform the secretariat as soon as possible.`;
+  const results = copy.closingCeremony
+    ? `The results will be announced at the Closing Ceremony on ${copy.closingCeremony}.`
+    : "The results will be announced at the Closing Ceremony.";
+  const close =
+    "We look forward to your research presentation and wish you the best of luck.";
+  const meetingLink = {
+    text: options.meetingUrl,
+    html: `<p><a href="${escapeHtml(options.meetingUrl)}">Join the live session</a></p>`,
+  };
+  const guidelinesText = guidelines.map((line) => `- ${line}`).join("\n");
+  const technicalText = technical.map((line) => `- ${line}`).join("\n");
+  const guidelinesHtml = `<ul>${guidelines
+    .map((line) => `<li>${escapeHtml(line)}</li>`)
+    .join("")}</ul>`;
+  const technicalHtml = `<ul>${technical
+    .map((line) => `<li>${escapeHtml(line)}</li>`)
+    .join("")}</ul>`;
+
+  await sendMail({
+    to: options.to,
+    subject: `Invitation: ${copy.name} 5MT Live Presentation (Postgraduate)`,
+    html: joinHtml([
+      greet.html,
+      INTRO_HTML,
+      `<p>${escapeHtml(opening)}</p>`,
+      "<p>Your presentation details:</p>",
+      details.html,
+      "<p>Live session details:</p>",
+      session.html,
+      meetingLink.html,
+      "<p><strong>Presentation guidelines</strong></p>",
+      guidelinesHtml,
+      "<p><strong>Technical requirements</strong></p>",
+      technicalHtml,
+      `<p>${escapeHtml(confirm)}</p>`,
+      `<p>${escapeHtml(results)}</p>`,
+      contact ? `<p>${escapeHtml(contact)}</p>` : "",
+      `<p>${escapeHtml(close)}</p>`,
+      signOffHtml(copy),
+    ]),
+    text: joinText([
+      greet.text,
+      INTRO_TEXT,
+      opening,
+      `Your presentation details:\n${details.text}`,
+      `Live session details:\n${session.text}`,
+      meetingLink.text,
+      `Presentation guidelines\n${guidelinesText}`,
+      `Technical requirements\n${technicalText}`,
+      confirm,
+      results,
+      contact,
+      close,
+      signOffText(copy),
+    ]),
+  });
+}

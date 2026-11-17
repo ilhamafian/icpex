@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import {
   IconChevronDown,
   IconLayoutColumns,
@@ -20,9 +21,12 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 
+import { toast } from "sonner";
+
 import { PortalTableFooter } from "@/components/portal-table-footer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardDescription,
@@ -30,6 +34,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Drawer,
   DrawerClose,
@@ -66,6 +78,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useIsMobile } from "@/hooks/use-mobile";
+import type { LivePresentationDraft } from "@/schemas/competitionSchema";
 import { educationLevelLabel } from "@/schemas/educationLevel";
 import type { JudgeAssignmentStatus } from "@/schemas/judgeAssignmentsSchema";
 import { formatScore } from "@/utils/formatScore";
@@ -85,7 +98,7 @@ const features = tableFeatures({
 const columnHelper = createColumnHelper<typeof features, ParticipantMarkRow>();
 
 type Progress = "unassigned" | "awaiting" | "partial" | "scored";
-type View = "all" | "scored" | "in-progress" | "unassigned";
+type View = "all" | "scored" | "in-progress" | "unassigned" | "nominated";
 
 const VIEWS: { value: View; label: string; match: (row: ParticipantMarkRow) => boolean }[] =
   [
@@ -107,6 +120,11 @@ const VIEWS: { value: View; label: string; match: (row: ParticipantMarkRow) => b
       value: "unassigned",
       label: "Unassigned",
       match: (row) => progressOf(row) === "unassigned",
+    },
+    {
+      value: "nominated",
+      label: "Nominated",
+      match: (row) => row.nominated,
     },
   ];
 
@@ -345,18 +363,31 @@ function ParticipantDrawer({ item }: { item: ParticipantMarkRow }) {
   );
 }
 
-function createColumns(pageIndex: number, pageSize: number, showTrack: boolean) {
+function createColumns(
+  pageIndex: number,
+  pageSize: number,
+  showTrack: boolean,
+  live: {
+    pendingId: string | null;
+    onToggle: (row: ParticipantMarkRow, nominated: boolean) => void;
+  } | null
+) {
   return columnHelper.columns([
     columnHelper.display({
       id: "index",
       header: "#",
       enableSorting: false,
       enableHiding: false,
-      cell: ({ row }) => (
-        <span className="tabular-nums text-muted-foreground">
-          {pageIndex * pageSize + row.index + 1}
-        </span>
-      ),
+      cell: ({ row, table }) => {
+        const position = table
+          .getRowModel()
+          .rows.findIndex((item) => item.id === row.id);
+        return (
+          <span className="tabular-nums text-muted-foreground">
+            {pageIndex * pageSize + position + 1}
+          </span>
+        );
+      },
     }),
     columnHelper.accessor("registration_number", {
       header: "Registration",
@@ -448,6 +479,48 @@ function createColumns(pageIndex: number, pageSize: number, showTrack: boolean) 
         </div>
       ),
     }),
+    ...(live
+      ? [
+          columnHelper.display({
+            id: "live presentation",
+            header: "Live presentation",
+            enableSorting: false,
+            enableHiding: false,
+            cell: ({ row }) => {
+              const item = row.original;
+              if (item.education_level !== "POSTGRADUATE") {
+                return <span className="text-muted-foreground">—</span>;
+              }
+              return (
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    checked={item.invited || item.nominated}
+                    disabled={
+                      item.invited || live.pendingId === item.registration_id
+                    }
+                    onCheckedChange={(checked) =>
+                      live.onToggle(item, checked === true)
+                    }
+                    aria-label={`Nominate ${item.registration_number} for the live presentation`}
+                  />
+                  {item.invited ? (
+                    <>
+                      <Badge variant="secondary">Invited</Badge>
+                      {item.live_presentation_order ? (
+                        <span className="text-xs text-muted-foreground">
+                          Order {item.live_presentation_order}
+                        </span>
+                      ) : null}
+                    </>
+                  ) : item.nominated ? (
+                    <Badge variant="outline">Nominated</Badge>
+                  ) : null}
+                </div>
+              );
+            },
+          }),
+        ]
+      : []),
   ]);
 }
 
@@ -455,33 +528,183 @@ export function ParticipantMarksView({
   competitionName,
   rows,
   showTrack,
+  canNominate,
+  liveSession,
 }: {
   competitionName: string | null;
   rows: ParticipantMarkRow[];
   showTrack: boolean;
+  canNominate: boolean;
+  liveSession: LivePresentationDraft;
 }) {
+  const router = useRouter();
   const [view, setView] = React.useState<View>("all");
   const [query, setQuery] = React.useState("");
   const [columnVisibility, setColumnVisibility] =
     React.useState<ColumnVisibilityState>({});
-  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [sorting, setSorting] = React.useState<SortingState>([
+    { id: "average", desc: true },
+  ]);
   const [pagination, setPagination] = React.useState({
     pageIndex: 0,
     pageSize: 10,
   });
+  const [nominatedOverride, setNominatedOverride] = React.useState<
+    Record<string, boolean>
+  >({});
+  const [pendingId, setPendingId] = React.useState<string | null>(null);
+  const [inviteOpen, setInviteOpen] = React.useState(false);
+  const [sending, setSending] = React.useState(false);
+  const [sessionForm, setSessionForm] =
+    React.useState<LivePresentationDraft>(liveSession);
+
+  const views = React.useMemo(
+    () =>
+      canNominate
+        ? VIEWS
+        : VIEWS.filter((item) => item.value !== "nominated"),
+    [canNominate]
+  );
+
+  const resolved = React.useMemo(
+    () =>
+      rows.map((row) => {
+        const override = nominatedOverride[row.registration_id];
+        if (override === undefined || override === row.nominated) return row;
+        return { ...row, nominated: override };
+      }),
+    [rows, nominatedOverride]
+  );
+
+  const waiting = resolved.filter(
+    (row) =>
+      row.education_level === "POSTGRADUATE" && row.nominated && !row.invited
+  ).length;
+
+  const toggleNomination = React.useCallback(
+    async (row: ParticipantMarkRow, nominated: boolean) => {
+      if (row.invited || row.education_level !== "POSTGRADUATE") return;
+      setPendingId(row.registration_id);
+      setNominatedOverride((prev) => ({
+        ...prev,
+        [row.registration_id]: nominated,
+      }));
+      try {
+        const res = await fetch(
+          `/api/registrations/${row.registration_id}/live-presentation`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ nominated }),
+          }
+        );
+        const data = (await res.json()) as { error?: unknown };
+        if (!res.ok) {
+          setNominatedOverride((prev) => {
+            const next = { ...prev };
+            delete next[row.registration_id];
+            return next;
+          });
+          toast.error(
+            typeof data.error === "string"
+              ? data.error
+              : "Could not update the nomination."
+          );
+          return;
+        }
+        router.refresh();
+      } catch {
+        setNominatedOverride((prev) => {
+          const next = { ...prev };
+          delete next[row.registration_id];
+          return next;
+        });
+        toast.error("Could not update the nomination.");
+      } finally {
+        setPendingId(null);
+      }
+    },
+    [router]
+  );
+
+  const sendInvitations = React.useCallback(async () => {
+    const joinMinutes = Number(sessionForm.join_minutes);
+    if (
+      !sessionForm.date ||
+      !sessionForm.time ||
+      !sessionForm.platform.trim() ||
+      !sessionForm.meeting_url.trim() ||
+      !sessionForm.reply_by ||
+      !Number.isInteger(joinMinutes) ||
+      joinMinutes < 1
+    ) {
+      toast.error(
+        "Enter the date, time, platform, meeting link, reply-by date, and how early to join."
+      );
+      return;
+    }
+
+    setSending(true);
+    try {
+      const res = await fetch("/api/live-presentation/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: sessionForm.date,
+          time: sessionForm.time.slice(0, 5),
+          platform: sessionForm.platform.trim(),
+          meeting_url: sessionForm.meeting_url.trim(),
+          reply_by: sessionForm.reply_by,
+          join_minutes: joinMinutes,
+        }),
+      });
+      const data = (await res.json()) as {
+        error?: unknown;
+        sent?: number;
+        failed?: number;
+        total?: number;
+        message?: string;
+      };
+      if (!res.ok) {
+        toast.error(
+          typeof data.error === "string"
+            ? data.error
+            : "Could not send invitations."
+        );
+        return;
+      }
+      if (!data.sent) {
+        toast.message(
+          data.message ?? "No nominated participants are waiting for an invitation."
+        );
+        return;
+      }
+      toast.success(
+        data.failed
+          ? `Invitation sent to ${data.sent} of ${data.total} participants.`
+          : `Invitation sent to ${data.sent} participant${data.sent === 1 ? "" : "s"}.`
+      );
+      setInviteOpen(false);
+      router.refresh();
+    } catch {
+      toast.error("Could not send invitations.");
+    } finally {
+      setSending(false);
+    }
+  }, [router, sessionForm]);
 
   const counts = React.useMemo(
     () =>
       Object.fromEntries(
-        VIEWS.map((item) => [item.value, rows.filter(item.match).length])
+        views.map((item) => [item.value, resolved.filter(item.match).length])
       ) as Record<View, number>,
-    [rows]
+    [resolved, views]
   );
 
   const filtered = React.useMemo(() => {
-    const match = VIEWS.find((item) => item.value === view)!.match;
+    const match = views.find((item) => item.value === view)?.match ?? (() => true);
     const needle = query.trim().toLowerCase();
-    return rows.filter(
+    return resolved.filter(
       (row) =>
         match(row) &&
         (!needle ||
@@ -494,11 +717,24 @@ export function ParticipantMarksView({
             ...row.judges.map((judge) => judge.judge_name),
           ].some((value) => value.toLowerCase().includes(needle)))
     );
-  }, [rows, view, query]);
+  }, [resolved, view, query, views]);
 
   const columns = React.useMemo(
-    () => createColumns(pagination.pageIndex, pagination.pageSize, showTrack),
-    [pagination.pageIndex, pagination.pageSize, showTrack]
+    () =>
+      createColumns(
+        pagination.pageIndex,
+        pagination.pageSize,
+        showTrack,
+        canNominate ? { pendingId, onToggle: toggleNomination } : null
+      ),
+    [
+      pagination.pageIndex,
+      pagination.pageSize,
+      showTrack,
+      canNominate,
+      pendingId,
+      toggleNomination,
+    ]
   );
 
   const table = useTable({
@@ -548,7 +784,7 @@ export function ParticipantMarksView({
               <SelectValue placeholder="Select a view" />
             </SelectTrigger>
             <SelectContent>
-              {VIEWS.map((item) => (
+              {views.map((item) => (
                 <SelectItem key={item.value} value={item.value}>
                   {item.label} ({counts[item.value]})
                 </SelectItem>
@@ -556,7 +792,7 @@ export function ParticipantMarksView({
             </SelectContent>
           </Select>
           <TabsList className="hidden **:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:bg-muted-foreground/30 **:data-[slot=badge]:px-1 @4xl/main:flex">
-            {VIEWS.map((item) => (
+            {views.map((item) => (
               <TabsTrigger key={item.value} value={item.value}>
                 {item.label}
                 {item.value !== "all" && counts[item.value] > 0 ? (
@@ -566,6 +802,19 @@ export function ParticipantMarksView({
             ))}
           </TabsList>
           <div className="flex items-center gap-2">
+            {canNominate ? (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={waiting === 0 || sending || pendingId !== null}
+                onClick={() => {
+                  setSessionForm(liveSession);
+                  setInviteOpen(true);
+                }}
+              >
+                {sending ? "Sending…" : "Send invitations"}
+              </Button>
+            ) : null}
             <div className="relative">
               <IconSearch className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -672,6 +921,139 @@ export function ParticipantMarksView({
           />
         </div>
       </Tabs>
+      {canNominate ? (
+        <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Send live presentation invitations</DialogTitle>
+              <DialogDescription>
+                Emails go to {waiting} nominated postgraduate participant
+                {waiting === 1 ? "" : "s"} who {waiting === 1 ? "has" : "have"}{" "}
+                not been invited yet. Presentation order follows the current
+                average, highest first.
+              </DialogDescription>
+            </DialogHeader>
+            <form
+              className="grid gap-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void sendInvitations();
+              }}
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="live-date">Date</Label>
+                  <Input
+                    id="live-date"
+                    type="date"
+                    required
+                    value={sessionForm.date}
+                    onChange={(event) =>
+                      setSessionForm((prev) => ({
+                        ...prev,
+                        date: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="live-time">Time (Malaysia, GMT+8)</Label>
+                  <Input
+                    id="live-time"
+                    type="time"
+                    required
+                    value={sessionForm.time}
+                    onChange={(event) =>
+                      setSessionForm((prev) => ({
+                        ...prev,
+                        time: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="live-platform">Platform</Label>
+                <Input
+                  id="live-platform"
+                  required
+                  placeholder="Zoom or Microsoft Teams"
+                  value={sessionForm.platform}
+                  onChange={(event) =>
+                    setSessionForm((prev) => ({
+                      ...prev,
+                      platform: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="live-link">Meeting link</Label>
+                <Input
+                  id="live-link"
+                  type="url"
+                  required
+                  placeholder="https://"
+                  value={sessionForm.meeting_url}
+                  onChange={(event) =>
+                    setSessionForm((prev) => ({
+                      ...prev,
+                      meeting_url: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="live-reply">Reply by</Label>
+                  <Input
+                    id="live-reply"
+                    type="date"
+                    required
+                    value={sessionForm.reply_by}
+                    onChange={(event) =>
+                      setSessionForm((prev) => ({
+                        ...prev,
+                        reply_by: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="live-join">Join early (minutes)</Label>
+                  <Input
+                    id="live-join"
+                    type="number"
+                    required
+                    min={1}
+                    max={180}
+                    value={sessionForm.join_minutes}
+                    onChange={(event) =>
+                      setSessionForm((prev) => ({
+                        ...prev,
+                        join_minutes: Number(event.target.value),
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setInviteOpen(false)}
+                  disabled={sending}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={sending || waiting === 0}>
+                  {sending ? "Sending…" : "Send invitations"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      ) : null}
     </div>
   );
 }

@@ -86,6 +86,12 @@ export const registrationSchema = z.object({
     "ACCEPTED",
     "COMPLETED",
   ]),
+  /** Set when a judge leader nominates this postgraduate for the 5MT live session. */
+  live_presentation_nominated_at: z.coerce.date().optional(),
+  /** Set after the live-presentation invitation email is sent. */
+  live_presentation_invited_at: z.coerce.date().optional(),
+  /** Presentation order written into that invitation. */
+  live_presentation_order: z.number().int().positive().optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional(),
 });
@@ -94,6 +100,9 @@ export type Registration = z.infer<typeof registrationSchema>;
 
 export const createRegistrationSchema = registrationSchema.omit({
   _id: true,
+  live_presentation_nominated_at: true,
+  live_presentation_invited_at: true,
+  live_presentation_order: true,
   created_at: true,
   updated_at: true,
 });
@@ -121,4 +130,13 @@ export const registrationStatusUpdateSchema = z.object({
 
 export type RegistrationStatusUpdate = z.infer<
   typeof registrationStatusUpdateSchema
+>;
+
+/** Judge leader toggles 5MT live-presentation nomination. Does not send email. */
+export const livePresentationNominationSchema = z.object({
+  nominated: z.boolean(),
+});
+
+export type LivePresentationNomination = z.infer<
+  typeof livePresentationNominationSchema
 >;
