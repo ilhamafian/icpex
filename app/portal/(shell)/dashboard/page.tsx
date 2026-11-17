@@ -1,4 +1,5 @@
 import { BannerManager } from "@/components/BannerManager";
+import { CampusInvitationShortcut } from "@/components/CampusInvitationShortcut";
 import { ChartAreaInteractive } from "@/components/chart-area-interactive";
 import { DataTable } from "@/components/data-table";
 import { SectionCards } from "@/components/section-cards";
@@ -40,11 +41,17 @@ export default async function AdminDashboardPage() {
     <>
       <SectionCards stats={stats} />
       {session.role === "SUPER_ADMIN" ? (
-        <BannerManager
-          competitions={bannerData.competitions}
-          initialBanners={bannerData.banners}
-          currentCompetitionId={bannerData.currentCompetitionId}
-        />
+        <>
+          <BannerManager
+            competitions={bannerData.competitions}
+            initialBanners={bannerData.banners}
+            currentCompetitionId={bannerData.currentCompetitionId}
+          />
+          <CampusInvitationShortcut
+            competitions={bannerData.competitions}
+            currentCompetitionId={bannerData.currentCompetitionId}
+          />
+        </>
       ) : null}
       <div className="px-4 lg:px-6">
         <ChartAreaInteractive data={chart} />

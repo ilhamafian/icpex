@@ -2,6 +2,13 @@
 
 import { upload } from "@vercel/blob/client";
 import {
+  acceptAttrForFormats,
+  formatLabels,
+  requirementsForLevel,
+  storageTypeForRequirement,
+  type DocumentRequirement,
+} from "@/schemas/documentRequirement";
+import {
   EDUCATION_LEVEL_LABELS,
   type EducationLevel,
 } from "@/schemas/educationLevel";
@@ -19,7 +26,12 @@ import {
 } from "@/components/registrationFormUi";
 import { DEFAULT_PHONE_CODE, DIAL_CODES } from "@/utils/phoneCodes";
 
-type Option = { id: string; name: string };
+type Option = {
+  id: string;
+  name: string;
+  /** When set, the category is only offered for that education stream. */
+  educationLevel?: EducationLevel;
+};
 type Person = { name: string; email: string };
 type IdType = SubmissionProject["participant"]["government_id"]["type"];
 export type UploadState = {
@@ -28,8 +40,6 @@ export type UploadState = {
   uploading?: boolean;
   uploadError?: string;
 };
-
-type UploadKey = "abstract" | "fullPaper";
 
 export type ProjectState = {
   /** Stable React key — projects can be removed from the middle. */
@@ -49,12 +59,11 @@ export type ProjectState = {
   leadEmail: string;
   members: Person[];
   supervisors: Person[];
-  abstract: UploadState;
-  fullPaper: UploadState;
-  videoLink: string;
+  /** File uploads keyed by document requirement id. */
+  uploads: Record<string, UploadState>;
+  /** Link values keyed by document requirement id. */
+  links: Record<string, string>;
 };
-
-const DOCUMENT_ACCEPT = ".pdf,.doc,.docx";
 
 function emptyUpload(): UploadState {
   return { file_name: "", file_url: "" };
@@ -80,36 +89,53 @@ export function emptyProject(
     leadEmail: "",
     members: [],
     supervisors: [{ name: "", email: "" }],
-    abstract: emptyUpload(),
-    fullPaper: emptyUpload(),
-    videoLink: "",
+    uploads: {},
+    links: {},
   };
 }
 
-function projectDocuments(project: ProjectState): SubmissionProject["documents"] {
+function projectDocuments(
+  project: ProjectState,
+  requirements: DocumentRequirement[]
+): SubmissionProject["documents"] {
   const documents: SubmissionProject["documents"] = [];
-  if (project.abstract.file_url) {
+  const levelRequirements = requirementsForLevel(
+    requirements,
+    project.educationLevel
+  );
+
+  for (const requirement of levelRequirements) {
+    if (requirement.input_type === "LINK") {
+      const url = project.links[requirement.id]?.trim() ?? "";
+      if (!url) continue;
+      documents.push({
+        type: storageTypeForRequirement(requirement),
+        requirement_id: requirement.id,
+        label: requirement.name,
+        file_name: requirement.name,
+        file_url: url,
+      });
+      continue;
+    }
+
+    const uploadState = project.uploads[requirement.id];
+    if (!uploadState?.file_url) continue;
     documents.push({
-      type: "ABSTRACT",
-      file_name: project.abstract.file_name,
-      file_url: project.abstract.file_url,
+      type: storageTypeForRequirement(requirement),
+      requirement_id: requirement.id,
+      label: requirement.name,
+      file_name: uploadState.file_name,
+      file_url: uploadState.file_url,
     });
   }
-  if (project.fullPaper.file_url) {
-    documents.push({
-      type: "FULL_PAPER",
-      file_name: project.fullPaper.file_name,
-      file_url: project.fullPaper.file_url,
-    });
-  }
-  const videoLink = project.videoLink.trim();
-  if (videoLink) {
-    documents.push({ type: "VIDEO_LINK", file_name: "Video link", file_url: videoLink });
-  }
+
   return documents;
 }
 
-export function projectToPayload(project: ProjectState): SubmissionProject {
+export function projectToPayload(
+  project: ProjectState,
+  requirements: DocumentRequirement[]
+): SubmissionProject {
   const phoneNumber = project.phone.trim();
   return {
     category_id: project.categoryId,
@@ -133,12 +159,14 @@ export function projectToPayload(project: ProjectState): SubmissionProject {
     supervisors: project.supervisors.filter(
       (s) => s.name.trim() || s.email.trim()
     ),
-    documents: projectDocuments(project),
+    documents: projectDocuments(project, requirements),
   };
 }
 
 export function projectIsUploading(project: ProjectState) {
-  return Boolean(project.abstract.uploading || project.fullPaper.uploading);
+  return Object.values(project.uploads).some((uploadState) =>
+    Boolean(uploadState.uploading)
+  );
 }
 
 type ProjectFieldsProps = {
@@ -149,6 +177,7 @@ type ProjectFieldsProps = {
   errors: Record<string, string>;
   categories: Option[];
   educationLevels: EducationLevel[];
+  documentRequirements: DocumentRequirement[];
   /** When true (e.g. landed via ?level=), the education select cannot be changed. */
   educationLevelLocked?: boolean;
   disabled?: boolean;
@@ -161,13 +190,42 @@ export function ProjectFields({
   errors,
   categories,
   educationLevels,
+  documentRequirements,
   educationLevelLocked,
   disabled,
 }: ProjectFieldsProps) {
   const id = (path: string) => `projects.${index}.${path}`;
+  const levelCategories = categories.filter(
+    (category) =>
+      !category.educationLevel ||
+      category.educationLevel === project.educationLevel
+  );
+  const levelRequirements = requirementsForLevel(
+    documentRequirements,
+    project.educationLevel
+  );
 
   function set<K extends keyof ProjectState>(key: K, value: ProjectState[K]) {
     onChange((current) => ({ ...current, [key]: value }));
+  }
+
+  function setEducationLevel(level: EducationLevel) {
+    onChange((current) => {
+      const nextCategories = categories.filter(
+        (category) =>
+          !category.educationLevel || category.educationLevel === level
+      );
+      const categoryStillValid = nextCategories.some(
+        (category) => category.id === current.categoryId
+      );
+      return {
+        ...current,
+        educationLevel: level,
+        categoryId: categoryStillValid
+          ? current.categoryId
+          : (nextCategories[0]?.id ?? ""),
+      };
+    });
   }
 
   function updatePeople(
@@ -177,13 +235,32 @@ export function ProjectFields({
     onChange((current) => ({ ...current, [key]: update(current[key]) }));
   }
 
-  function updateUpload(key: UploadKey, patch: Partial<UploadState>) {
-    onChange((current) => ({ ...current, [key]: { ...current[key], ...patch } }));
+  function updateUpload(requirementId: string, patch: Partial<UploadState>) {
+    onChange((current) => ({
+      ...current,
+      uploads: {
+        ...current.uploads,
+        [requirementId]: {
+          ...(current.uploads[requirementId] ?? emptyUpload()),
+          ...patch,
+        },
+      },
+    }));
   }
 
-  async function handleDocumentUpload(key: UploadKey, file: File | undefined) {
+  function updateLink(requirementId: string, value: string) {
+    onChange((current) => ({
+      ...current,
+      links: { ...current.links, [requirementId]: value },
+    }));
+  }
+
+  async function handleDocumentUpload(
+    requirementId: string,
+    file: File | undefined
+  ) {
     if (!file) return;
-    updateUpload(key, {
+    updateUpload(requirementId, {
       uploading: true,
       uploadError: undefined,
       file_name: file.name,
@@ -195,13 +272,13 @@ export function ProjectFields({
         access: "private",
         handleUploadUrl: "/api/blob/upload",
       });
-      updateUpload(key, {
+      updateUpload(requirementId, {
         uploading: false,
         file_name: file.name,
         file_url: blob.url,
       });
     } catch (error) {
-      updateUpload(key, {
+      updateUpload(requirementId, {
         uploading: false,
         file_url: "",
         uploadError:
@@ -210,19 +287,27 @@ export function ProjectFields({
     }
   }
 
-  function renderUpload(key: UploadKey, label: string, error?: string) {
-    const state = project[key];
-    const inputId = id(`documents.${key}`);
+  function renderFileRequirement(requirement: DocumentRequirement) {
+    const state = project.uploads[requirement.id] ?? emptyUpload();
+    const inputId = id(`documents.${requirement.id}`);
+    const label = requirement.required
+      ? requirement.name
+      : `${requirement.name} (optional)`;
     return (
-      <Field id={inputId} label={label} error={state.uploadError || error}>
+      <Field
+        key={requirement.id}
+        id={inputId}
+        label={label}
+        error={state.uploadError || errors[`documents.${requirement.id}`]}
+      >
         <div className="flex items-center gap-3">
           <input
             id={inputId}
             type="file"
-            accept={DOCUMENT_ACCEPT}
+            accept={acceptAttrForFormats(requirement.accepted_formats)}
             disabled={state.uploading || disabled}
             onChange={(e) => {
-              void handleDocumentUpload(key, e.target.files?.[0]);
+              void handleDocumentUpload(requirement.id, e.target.files?.[0]);
               e.target.value = "";
             }}
             className={fileInputClassName}
@@ -230,19 +315,61 @@ export function ProjectFields({
           {state.file_url && !state.uploading ? (
             <button
               type="button"
-              onClick={() => set(key, emptyUpload())}
+              onClick={() =>
+                updateUpload(requirement.id, emptyUpload())
+              }
               className={`shrink-0 ${mutedTextClassName} underline-offset-4 hover:underline`}
             >
               Remove
             </button>
           ) : null}
         </div>
+        <p className={mutedTextClassName}>
+          Accepted: {formatLabels(requirement.accepted_formats)} (up to 100 MB).
+        </p>
         {state.uploading ? <p className={mutedTextClassName}>Uploading…</p> : null}
         {state.file_url && !state.uploading ? (
           <p className={`truncate ${mutedTextClassName}`}>
             Uploaded: {state.file_name}
           </p>
         ) : null}
+      </Field>
+    );
+  }
+
+  function renderLinkRequirement(requirement: DocumentRequirement) {
+    const inputId = id(`documents.${requirement.id}`);
+    const label = requirement.required
+      ? requirement.name
+      : `${requirement.name} (optional)`;
+    const value = project.links[requirement.id] ?? "";
+    return (
+      <Field
+        key={requirement.id}
+        id={inputId}
+        label={label}
+        error={errors[`documents.${requirement.id}`]}
+      >
+        <input
+          id={inputId}
+          type="url"
+          inputMode="url"
+          value={value}
+          onChange={(e) => updateLink(requirement.id, e.target.value)}
+          placeholder="https://youtube.com/… or https://drive.google.com/…"
+          className={inputClassName}
+          aria-invalid={Boolean(errors[`documents.${requirement.id}`])}
+          aria-describedby={id(`documents.${requirement.id}.hint`)}
+          disabled={disabled}
+        />
+        <p
+          id={id(`documents.${requirement.id}.hint`)}
+          className={mutedTextClassName}
+        >
+          Paste a {formatLabels(requirement.accepted_formats)} link. Make sure
+          it is set to public (on Google Drive, &ldquo;Anyone with the
+          link&rdquo;) so the judges can open it.
+        </p>
       </Field>
     );
   }
@@ -257,12 +384,12 @@ export function ProjectFields({
             onChange={(e) => set("categoryId", e.target.value)}
             className={inputClassName}
             aria-invalid={Boolean(errors.category_id)}
-            disabled={categories.length === 0}
+            disabled={levelCategories.length === 0}
           >
-            {categories.length === 0 ? (
+            {levelCategories.length === 0 ? (
               <option value="">No categories available</option>
             ) : (
-              categories.map((c) => (
+              levelCategories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
@@ -334,7 +461,7 @@ export function ProjectFields({
               id={id("participant.education_level")}
               value={project.educationLevel}
               onChange={(e) =>
-                set("educationLevel", e.target.value as EducationLevel)
+                setEducationLevel(e.target.value as EducationLevel)
               }
               className={inputClassName}
               disabled={
@@ -579,32 +706,24 @@ export function ProjectFields({
 
       <Section
         title="Documents"
-        description="Upload your abstract and, optionally, your full paper (PDF or Word, up to 100 MB each), and share a link to your project video."
+        description={
+          levelRequirements.length > 0
+            ? `Upload the required files for the ${EDUCATION_LEVEL_LABELS[project.educationLevel].toLowerCase()} stream.`
+            : "No documents are required for this stream."
+        }
       >
-        {renderUpload("abstract", "Abstract", errors["documents.abstract"])}
-        {renderUpload("fullPaper", "Full paper (optional)", errors["documents.full_paper"])}
-        <Field
-          id={id("documents.video_link")}
-          label="Video link"
-          error={errors["documents.video_link"]}
-        >
-          <input
-            id={id("documents.video_link")}
-            type="url"
-            inputMode="url"
-            value={project.videoLink}
-            onChange={(e) => set("videoLink", e.target.value)}
-            placeholder="https://youtube.com/… or https://drive.google.com/…"
-            className={inputClassName}
-            aria-invalid={Boolean(errors["documents.video_link"])}
-            aria-describedby={id("documents.video_link.hint")}
-          />
-          <p id={id("documents.video_link.hint")} className={mutedTextClassName}>
-            Paste a Google Drive or YouTube link. Make sure the video is set to
-            public (on Google Drive, &ldquo;Anyone with the link&rdquo;) so the
-            judges can watch it.
+        {levelRequirements.length === 0 ? (
+          <p className={mutedTextClassName}>
+            This competition has no document uploads configured for your
+            education level.
           </p>
-        </Field>
+        ) : (
+          levelRequirements.map((requirement) =>
+            requirement.input_type === "LINK"
+              ? renderLinkRequirement(requirement)
+              : renderFileRequirement(requirement)
+          )
+        )}
       </Section>
     </div>
   );

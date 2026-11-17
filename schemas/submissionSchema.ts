@@ -34,47 +34,16 @@ export function isAllowedVideoLink(value: string) {
   }
 }
 
-/** Abstract (required), full paper (optional) and video link (required). */
-const submissionDocumentsSchema = z
-  .array(
-    registrationSchema.shape.documents.element.extend({
-      type: z.enum(["ABSTRACT", "FULL_PAPER", "VIDEO_LINK"]),
-    })
-  )
-  .superRefine((documents, ctx) => {
-    const count = (type: string) =>
-      documents.filter((d) => d.type === type).length;
-
-    if (count("ABSTRACT") !== 1) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["abstract"],
-        message: "Please upload your abstract.",
-      });
-    }
-    if (count("FULL_PAPER") > 1) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["full_paper"],
-        message: "Only one full paper can be uploaded.",
-      });
-    }
-
-    const videos = documents.filter((d) => d.type === "VIDEO_LINK");
-    if (videos.length !== 1) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["video_link"],
-        message: "Video link is required.",
-      });
-    } else if (!isAllowedVideoLink(videos[0].file_url)) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["video_link"],
-        message: "Enter a valid Google Drive or YouTube link.",
-      });
-    }
-  });
+/**
+ * Documents attached to a project. Required/optional rules come from the
+ * competition's `document_requirements` and are enforced in the API.
+ */
+const submissionDocumentsSchema = z.array(
+  registrationSchema.shape.documents.element.extend({
+    requirement_id: z.string().min(1).optional(),
+    label: z.string().min(1).optional(),
+  })
+);
 
 /** One project inside a submission — the university is shared, so it is omitted. */
 export const submissionProjectSchema = z.object({

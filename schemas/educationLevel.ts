@@ -38,11 +38,20 @@ const LEGACY_EDUCATION_LEVEL_LABELS: Record<string, string> = {
   PHD: "PhD",
 };
 
-/** Competition category named in participant and judge emails. */
+/**
+ * Fallback category labels when a competition has not set stream names yet.
+ * Prefer competition.undergraduate_stream_name / postgraduate_stream_name.
+ */
 export function competitionCategoryLabel(level: string): string {
   if (level === "UNDERGRADUATE") return "Undergraduate Innovation Competition";
   if (level === "POSTGRADUATE") return "Postgraduate 5MT (Master's / PhD)";
   return educationLevelLabel(level);
+}
+
+/** Track-list heading for invitation emails. */
+export function trackSectionLabel(level: EducationLevel): string {
+  if (level === "UNDERGRADUATE") return "Tracks (Undergraduate)";
+  return "Tracks (Postgraduate, Master's and PhD)";
 }
 
 /** Label for a stored education level, including pre-migration values. */

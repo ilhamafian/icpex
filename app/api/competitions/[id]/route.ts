@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { CompetitionModel } from "@/models/Competition";
 import {
   competitionUpdateSchema,
+  missingStreamNameError,
   type Competition,
 } from "@/schemas/competitionSchema";
 import { requireSuperAdminSession } from "@/utils/portalAuth";
@@ -39,6 +40,19 @@ export async function PATCH(
         { error: "End date must be on or after start date." },
         400
       );
+    }
+
+    const streamError = missingStreamNameError({
+      eligibility: parsed.data.eligibility ?? existing.eligibility,
+      undergraduate_stream_name:
+        parsed.data.undergraduate_stream_name ??
+        existing.undergraduate_stream_name,
+      postgraduate_stream_name:
+        parsed.data.postgraduate_stream_name ??
+        existing.postgraduate_stream_name,
+    });
+    if (streamError) {
+      return createResponse({ error: streamError }, 400);
     }
 
     await model.update(

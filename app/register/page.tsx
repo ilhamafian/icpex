@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { RegistrationForm } from "@/components/RegistrationForm";
+import { effectiveDocumentRequirements } from "@/schemas/documentRequirement";
 import { allowedEducationLevels } from "@/schemas/educationLevel";
 import { toIdString } from "@/schemas/objectId";
 import { CategoryModel } from "@/models/Category";
@@ -17,9 +18,11 @@ async function loadOptions() {
       competitionId: competition ? toIdString(competition._id) : "",
       competitionName: competition?.name ?? "",
       educationLevels: allowedEducationLevels(competition?.eligibility),
+      documentRequirements: effectiveDocumentRequirements(competition),
       categories: (categories ?? []).map((c) => ({
         id: toIdString(c._id),
         name: c.name,
+        educationLevel: c.education_level,
       })),
     };
   } catch {
@@ -27,6 +30,7 @@ async function loadOptions() {
       competitionId: "",
       competitionName: "",
       educationLevels: allowedEducationLevels(undefined),
+      documentRequirements: effectiveDocumentRequirements(null),
       categories: [],
     };
   }
@@ -35,8 +39,16 @@ async function loadOptions() {
 export default async function RegisterPage({
   searchParams,
 }: PageProps<"/register">) {
-  const [{ competitionId, competitionName, educationLevels, categories }, { level }] =
-    await Promise.all([loadOptions(), searchParams]);
+  const [
+    {
+      competitionId,
+      competitionName,
+      educationLevels,
+      documentRequirements,
+      categories,
+    },
+    { level },
+  ] = await Promise.all([loadOptions(), searchParams]);
   const requestedLevel = parseLevelParam(level);
   const initialEducationLevel =
     requestedLevel && educationLevels.includes(requestedLevel)
@@ -73,6 +85,7 @@ export default async function RegisterPage({
           <RegistrationForm
             competitionId={competitionId}
             educationLevels={educationLevels}
+            documentRequirements={documentRequirements}
             initialEducationLevel={initialEducationLevel}
             educationLevelLocked={Boolean(initialEducationLevel)}
             categories={categories}

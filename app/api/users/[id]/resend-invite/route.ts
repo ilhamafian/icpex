@@ -5,6 +5,7 @@ import { competitionEmailCopy, sendUserInviteEmail } from "@/lib/email";
 import { createInviteToken } from "@/lib/inviteToken";
 import { CompetitionModel } from "@/models/Competition";
 import { UserModel } from "@/models/User";
+import { effectiveDocumentRequirements } from "@/schemas/documentRequirement";
 import { requireAdminSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { targetUserDenied } from "@/utils/roleAccess";
@@ -58,6 +59,9 @@ export async function POST(
         role: grant.role,
         competitionName: competition?.name,
         copy: competition ? competitionEmailCopy(competition) : undefined,
+        documentRequirements: competition
+          ? effectiveDocumentRequirements(competition)
+          : undefined,
         name: existing.name,
         inviteUrl,
       });

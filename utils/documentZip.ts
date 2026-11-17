@@ -57,11 +57,11 @@ async function* registrationEntries(
   };
 
   for (const doc of registration.documents) {
-    const label = DOCUMENT_LABELS[doc.type];
+    const label = doc.label?.trim() || DOCUMENT_LABELS[doc.type];
 
     if (doc.type === "VIDEO_LINK") {
       yield {
-        name: `${prefix}${uniqueName("Video link.txt")}`,
+        name: `${prefix}${uniqueName(`${label}.txt`)}`,
         input: `${doc.file_url}\r\n`,
       };
       continue;

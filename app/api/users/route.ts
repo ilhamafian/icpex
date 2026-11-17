@@ -5,8 +5,9 @@ import { competitionEmailCopy, sendUserInviteEmail } from "@/lib/email";
 import { createInviteToken } from "@/lib/inviteToken";
 import { CompetitionModel } from "@/models/Competition";
 import { UserModel } from "@/models/User";
-import { toIdString } from "@/schemas/objectId";
 import type { Competition } from "@/schemas/competitionSchema";
+import { effectiveDocumentRequirements } from "@/schemas/documentRequirement";
+import { toIdString } from "@/schemas/objectId";
 import { inviteUserSchema, userSchema, type RoleGrant } from "@/schemas/userSchema";
 import { isGlobalRole } from "@/schemas/userRole";
 import type { WithId } from "mongodb";
@@ -114,6 +115,9 @@ export async function POST(req: NextRequest) {
             role,
             competitionName,
             copy: competition ? competitionEmailCopy(competition) : undefined,
+            documentRequirements: competition
+              ? effectiveDocumentRequirements(competition)
+              : undefined,
             name: existing.name,
             inviteUrl,
           });
@@ -164,6 +168,9 @@ export async function POST(req: NextRequest) {
         role,
         competitionName,
         copy: competition ? competitionEmailCopy(competition) : undefined,
+        documentRequirements: competition
+          ? effectiveDocumentRequirements(competition)
+          : undefined,
         inviteUrl,
       });
     } catch (emailError) {

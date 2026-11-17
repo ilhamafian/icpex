@@ -16,6 +16,11 @@ import {
   mutedTextClassName,
   Section,
 } from "@/components/registrationFormUi";
+import {
+  requirementsForLevel,
+  validateDocumentsAgainstRequirements,
+  type DocumentRequirement,
+} from "@/schemas/documentRequirement";
 import type { EducationLevel } from "@/schemas/educationLevel";
 import {
   institutionSchema,
@@ -30,7 +35,11 @@ import {
   type MalaysiaInstitutionType,
 } from "@/utils/institutions";
 
-type Option = { id: string; name: string };
+type Option = {
+  id: string;
+  name: string;
+  educationLevel?: EducationLevel;
+};
 
 type FieldErrors = Record<string, string>;
 
@@ -70,6 +79,8 @@ type RegistrationFormProps = {
   competitionId: string;
   /** Education levels the competition accepts. */
   educationLevels: EducationLevel[];
+  /** Document uploads configured on the competition (per education stream). */
+  documentRequirements: DocumentRequirement[];
   /** Preselected from the landing page's level-specific registration link. */
   initialEducationLevel?: EducationLevel;
   /** When set from ?level=, education level cannot be changed on the form. */
@@ -80,13 +91,21 @@ type RegistrationFormProps = {
 export function RegistrationForm({
   competitionId,
   educationLevels,
+  documentRequirements,
   initialEducationLevel,
   educationLevelLocked = false,
   categories = [],
 }: RegistrationFormProps) {
   const defaultLevel =
     initialEducationLevel ?? educationLevels[0] ?? "UNDERGRADUATE";
-  const newProject = () => emptyProject(categories[0]?.id ?? "", defaultLevel);
+  const categoryForLevel = (level: EducationLevel) =>
+    categories.find(
+      (category) =>
+        !category.educationLevel || category.educationLevel === level
+    )?.id ??
+    categories[0]?.id ??
+    "";
+  const newProject = () => emptyProject(categoryForLevel(defaultLevel), defaultLevel);
 
   const [step, setStep] = useState<FormStep>("university");
   const [institutionName, setInstitutionName] = useState("");
@@ -120,7 +139,9 @@ export function RegistrationForm({
     return {
       competition_id: competitionId,
       institution,
-      projects: projects.map(projectToPayload),
+      projects: projects.map((item) =>
+        projectToPayload(item, documentRequirements)
+      ),
     };
   }
 
@@ -158,6 +179,24 @@ export function RegistrationForm({
       setErrors({ form: "Please wait for document uploads to finish." });
       return false;
     }
+
+    const documentErrors: FieldErrors = {};
+    for (const [index, item] of projects.entries()) {
+      const levelDocs = requirementsForLevel(
+        documentRequirements,
+        item.educationLevel
+      );
+      const payloadDocs = projectToPayload(item, documentRequirements).documents;
+      const next = validateDocumentsAgainstRequirements(payloadDocs, levelDocs);
+      for (const [key, message] of Object.entries(next)) {
+        documentErrors[`projects.${index}.${key}`] = message;
+      }
+    }
+    if (Object.keys(documentErrors).length) {
+      setErrors(documentErrors);
+      return false;
+    }
+
     setErrors({});
     return true;
   }
@@ -381,6 +420,7 @@ export function RegistrationForm({
             errors={projectErrors(errors, 0)}
             categories={categories}
             educationLevels={educationLevels}
+            documentRequirements={documentRequirements}
             educationLevelLocked={educationLevelLocked}
             disabled={loading}
           />

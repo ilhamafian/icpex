@@ -4,7 +4,11 @@ import { WithId } from "mongodb";
 
 import type { Category } from "@/schemas/categorySchema";
 import type { Competition } from "@/schemas/competitionSchema";
-import { DEFAULT_COMPETITION_ELIGIBILITY } from "@/schemas/educationLevel";
+import type { DocumentRequirement } from "@/schemas/documentRequirement";
+import {
+  DEFAULT_COMPETITION_ELIGIBILITY,
+  type EducationLevel,
+} from "@/schemas/educationLevel";
 import { toIdString } from "@/schemas/objectId";
 
 function toIso(value: Date | string | undefined) {
@@ -18,6 +22,8 @@ export type SerializedCompetition = {
   name: string;
   formal_name?: string;
   theme?: string;
+  undergraduate_stream_name?: string;
+  postgraduate_stream_name?: string;
   start_date: string;
   end_date: string;
   payment_deadline?: string;
@@ -28,6 +34,7 @@ export type SerializedCompetition = {
   closing_ceremony_time?: string;
   status: Competition["status"];
   eligibility: Competition["eligibility"];
+  document_requirements?: DocumentRequirement[];
   created_at?: string;
   updated_at?: string;
 };
@@ -36,6 +43,7 @@ export type SerializedCategory = {
   _id: string;
   category_id: string;
   name: string;
+  education_level?: EducationLevel;
 };
 
 export function serializeCompetition(
@@ -47,6 +55,8 @@ export function serializeCompetition(
     name: competition.name,
     formal_name: competition.formal_name,
     theme: competition.theme,
+    undergraduate_stream_name: competition.undergraduate_stream_name,
+    postgraduate_stream_name: competition.postgraduate_stream_name,
     start_date: toIso(competition.start_date)!,
     end_date: toIso(competition.end_date)!,
     payment_deadline: toIso(competition.payment_deadline),
@@ -57,6 +67,7 @@ export function serializeCompetition(
     closing_ceremony_time: competition.closing_ceremony_time ?? undefined,
     status: competition.status,
     eligibility: competition.eligibility ?? DEFAULT_COMPETITION_ELIGIBILITY,
+    document_requirements: competition.document_requirements,
     created_at: toIso(competition.created_at),
     updated_at: toIso(competition.updated_at),
   };
@@ -69,5 +80,6 @@ export function serializeCategory(
     _id: toIdString(category._id),
     category_id: category.category_id,
     name: category.name,
+    education_level: category.education_level,
   };
 }

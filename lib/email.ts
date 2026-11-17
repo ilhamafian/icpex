@@ -7,7 +7,16 @@ import {
   CLOSING_CEREMONY_MODE_LABELS,
   type Competition,
 } from "@/schemas/competitionSchema";
-import { competitionCategoryLabel, type EducationLevel } from "@/schemas/educationLevel";
+import {
+  documentDeadlineLines,
+  documentReviewPhrase,
+  requirementsForLevel,
+  type DocumentRequirement,
+} from "@/schemas/documentRequirement";
+import {
+  competitionCategoryLabel,
+  type EducationLevel,
+} from "@/schemas/educationLevel";
 import {
   educationLevelForRole,
   USER_ROLE_LABELS,
@@ -21,6 +30,8 @@ export type CompetitionEmailCopy = {
   name: string;
   formalName: string;
   theme: string;
+  undergraduateStreamName: string;
+  postgraduateStreamName: string;
   paymentDeadline: string;
   judgingPeriod: string;
   closingCeremony: string;
@@ -69,6 +80,8 @@ export function competitionEmailCopy(
     | "name"
     | "formal_name"
     | "theme"
+    | "undergraduate_stream_name"
+    | "postgraduate_stream_name"
     | "payment_deadline"
     | "judging_start_date"
     | "judging_due_date"
@@ -97,10 +110,26 @@ export function competitionEmailCopy(
     name,
     formalName,
     theme,
+    undergraduateStreamName:
+      competition.undergraduate_stream_name?.trim() ||
+      competitionCategoryLabel("UNDERGRADUATE"),
+    postgraduateStreamName:
+      competition.postgraduate_stream_name?.trim() ||
+      competitionCategoryLabel("POSTGRADUATE"),
     paymentDeadline,
     judgingPeriod,
     closingCeremony: formatClosingCeremony(competition),
   };
+}
+
+/** Stream / category display name for an education level. */
+export function streamNameForLevel(
+  copy: CompetitionEmailCopy,
+  level: EducationLevel
+) {
+  return level === "UNDERGRADUATE"
+    ? copy.undergraduateStreamName
+    : copy.postgraduateStreamName;
 }
 
 function themedCompetition(copy: CompetitionEmailCopy) {
@@ -327,10 +356,11 @@ function isJudgeInviteRole(role: UserRole) {
   return JUDGE_INVITE_ROLES.has(role);
 }
 
-function judgeCategory(role: UserRole) {
-  return educationLevelForRole(role) === "POSTGRADUATE"
-    ? competitionCategoryLabel("POSTGRADUATE")
-    : competitionCategoryLabel("UNDERGRADUATE");
+function judgeCategory(role: UserRole, copy: CompetitionEmailCopy) {
+  const level = educationLevelForRole(role);
+  if (level === "POSTGRADUATE") return copy.postgraduateStreamName;
+  if (level === "UNDERGRADUATE") return copy.undergraduateStreamName;
+  return competitionCategoryLabel("UNDERGRADUATE");
 }
 
 export async function sendUserInviteEmail(options: {
@@ -340,6 +370,8 @@ export async function sendUserInviteEmail(options: {
   competitionName?: string;
   /** Required for judge invites so dates and theme come from the competition. */
   copy?: CompetitionEmailCopy;
+  /** Document names listed in the judge invite review sentence. */
+  documentRequirements?: DocumentRequirement[];
   /** Absent until the person accepts the invite and sets a name. */
   name?: string;
   inviteUrl: string;
@@ -350,6 +382,7 @@ export async function sendUserInviteEmail(options: {
       copy:
         options.copy ??
         competitionEmailCopy({ name: options.competitionName ?? "ICPEX" }),
+      documentRequirements: options.documentRequirements,
     });
     return;
   }
@@ -377,12 +410,13 @@ async function sendJudgeInviteEmail(options: {
   copy: CompetitionEmailCopy;
   name?: string;
   inviteUrl: string;
+  documentRequirements?: DocumentRequirement[];
 }) {
   const { copy } = options;
   const greet = greeting(options.name?.trim() || "Judge");
   const contact = contactSentence();
   const link = uploadLink(options.inviteUrl, "Accept invitation");
-  const category = judgeCategory(options.role);
+  const category = judgeCategory(options.role, copy);
   const details = detailList([
     ["Category", category],
     ["Judging Period", copy.judgingPeriod],
@@ -391,9 +425,12 @@ async function sendJudgeInviteEmail(options: {
   ]);
   const opening = `On behalf of the organising committee, we are pleased to invite you to serve as a Judge for the ${themedCompetition(copy)}.`;
   const about = `${copy.name} is a virtual competition that brings together undergraduate and postgraduate participants from UniKL and other local and international institutions. It builds on the Kuala Lumpur Idea & Innovation Competition (KLIIC) and I-CPEX and now includes undergraduate innovation projects and postgraduate research communication through the Five-Minute Thesis (5MT) Competition. Your expertise and industry/academic perspectives would be valuable in evaluating the participants.`;
+  const reviewLine = documentReviewPhrase(
+    options.documentRequirements ?? []
+  );
   const roleText = [
     "Your role as a judge:",
-    "Review the assigned submissions (abstract, video, 5MT slide, and full paper where available).",
+    reviewLine,
     "Evaluate each submission using the official judging and evaluation form, which will be provided online.",
     "Submit your scores and comments by the end of the judging period.",
   ].join("\n");
@@ -445,6 +482,7 @@ export async function sendRegistrationSubmittedEmail(options: {
   /** When false, the registration is free and no payment email will follow. */
   paymentDue: boolean;
   copy: CompetitionEmailCopy;
+  documentRequirements?: DocumentRequirement[];
 }) {
   const { copy } = options;
   const greet = greeting(options.participantName);
@@ -453,7 +491,7 @@ export async function sendRegistrationSubmittedEmail(options: {
     ["Registration ID", options.registrationNumber],
     ["Name", options.participantName],
     ["Institution", options.institutionName],
-    ["Category", competitionCategoryLabel(options.educationLevel)],
+    ["Category", streamNameForLevel(copy, options.educationLevel)],
     ["Track", options.trackName],
     ["Abstract Title", options.projectTitle],
   ]);
@@ -487,14 +525,16 @@ export async function sendRegistrationSubmittedEmail(options: {
 ${instructions?.html ?? ""}
 <p>${escapeHtml(paymentNote)}</p>`
     : `<p>${escapeHtml(paymentNote)}</p>`;
+  const levelRequirements = requirementsForLevel(
+    options.documentRequirements ?? [],
+    options.educationLevel
+  );
+  const documentDeadlines = copy.paymentDeadline
+    ? documentDeadlineLines(levelRequirements, copy.paymentDeadline)
+    : [];
   const nextSteps = [
     "Next steps and important dates:",
-    copy.paymentDeadline
-      ? `Video Submission Deadline: ${copy.paymentDeadline}`
-      : undefined,
-    copy.paymentDeadline
-      ? `Full Paper Submission Deadline (optional): ${copy.paymentDeadline}`
-      : undefined,
+    ...documentDeadlines,
     copy.judgingPeriod ? `Judging Period: ${copy.judgingPeriod}` : undefined,
     copy.closingCeremony
       ? `Closing Ceremony & Result Announcement: ${copy.closingCeremony}`
@@ -748,6 +788,142 @@ export async function sendUnderpaidEmail(options: {
       contact,
       signOffText(copy),
     ]),
+  });
+}
+
+export async function sendCampusInvitationEmail(options: {
+  to: string;
+  copy: CompetitionEmailCopy;
+  /** Absolute registration / landing URL. */
+  registerUrl: string;
+  /** Registration window shown as "start – end". */
+  registrationPeriod: string;
+  /** Named competition streams shown under Who can participate. */
+  participationStreams: string[];
+  /** Track lists keyed by stream heading (undergraduate / postgraduate). */
+  trackSections: { heading: string; tracks: string[] }[];
+  /** Competition document uploads used for deadline lines. */
+  documentRequirements?: DocumentRequirement[];
+  poster?: {
+    filename: string;
+    content: Buffer;
+    contentType?: string;
+  };
+}) {
+  const { copy } = options;
+  const contact = contactSentence();
+  const instructions = paymentInstructions(copy.name);
+  const opening = `We are pleased to invite you to participate in the ${themedCompetition(copy)}. The competition will be held online, with the Virtual Grand Finale and Closing Ceremony on ${copy.closingCeremony || "the announced closing date"}.`;
+  const about = `${copy.name} builds on KLIIC and i-CPEX. It offers a multidisciplinary platform to showcase projects, exchange research ideas, and engage with academic and industry evaluators. Please find the official poster attached to this email.`;
+  const whoText =
+    options.participationStreams.length > 0
+      ? options.participationStreams.map((line) => `- ${line}`).join("\n")
+      : "- See the registration website for eligibility";
+  const whoHtml =
+    options.participationStreams.length > 0
+      ? `<ul>${options.participationStreams
+          .map((line) => `<li>${escapeHtml(line)}</li>`)
+          .join("")}</ul>`
+      : "<p>See the registration website for eligibility.</p>";
+  const trackTextParts =
+    options.trackSections.length > 0
+      ? options.trackSections.map((section) => {
+          const lines =
+            section.tracks.length > 0
+              ? section.tracks.map((name) => `- ${name}`).join("\n")
+              : "- See the registration website for available tracks";
+          return `${section.heading}\n${lines}`;
+        })
+      : ["Tracks\n- See the registration website for available tracks"];
+  const trackHtmlParts =
+    options.trackSections.length > 0
+      ? options.trackSections.map((section) => {
+          const list =
+            section.tracks.length > 0
+              ? `<ul>${section.tracks
+                  .map((name) => `<li>${escapeHtml(name)}</li>`)
+                  .join("")}</ul>`
+              : "<p>See the registration website for available tracks.</p>";
+          return `<p><strong>${escapeHtml(section.heading)}</strong></p>${list}`;
+        })
+      : [
+          "<p><strong>Tracks</strong></p><p>See the registration website for available tracks.</p>",
+        ];
+  const documentDeadlines = copy.paymentDeadline
+    ? documentDeadlineLines(
+        options.documentRequirements ?? [],
+        copy.paymentDeadline
+      )
+    : [];
+  const dates = [
+    `Registration & Abstract Submission: ${options.registrationPeriod}`,
+    copy.paymentDeadline ? `Payment Deadline: ${copy.paymentDeadline}` : undefined,
+    ...documentDeadlines,
+    copy.judgingPeriod ? `Judging: ${copy.judgingPeriod}` : undefined,
+    copy.closingCeremony
+      ? `Closing Ceremony & Result Announcement: ${copy.closingCeremony}`
+      : undefined,
+  ]
+    .filter(Boolean)
+    .join("\n");
+  const why = [
+    "Present your innovation or research to a wider audience and receive feedback from academic and industry evaluators",
+    "Compete for awards including Best Video, Best Abstract, Best Poster, Best Presenter and Best Paper",
+    "Have your abstract published in an ISBN abstract book",
+    "Submit an optional full paper for review and possible publication in a special issue of the Journal of Computing Technologies and Creative Content (JTeC), subject to peer review and editorial acceptance",
+  ];
+  const close =
+    "We encourage you to share this invitation with your friends and colleagues and look forward to your participation.";
+
+  await sendMail({
+    to: options.to,
+    subject: `Call for Participation: ${copy.name} (UniKL Students and Staff)`,
+    html: joinHtml([
+      "<p>Dear Students and Colleagues,</p>",
+      INTRO_HTML,
+      `<p>${escapeHtml(opening)}</p>`,
+      `<p>${escapeHtml(about)}</p>`,
+      `<p>Register here: <a href="${escapeHtml(options.registerUrl)}">${escapeHtml(options.registerUrl)}</a></p>`,
+      "<p><strong>Who can participate</strong></p>",
+      whoHtml,
+      ...trackHtmlParts,
+      "<p><strong>Important dates</strong></p>",
+      `<p>${escapeHtml(dates).replace(/\n/g, "<br>")}</p>`,
+      "<p><strong>Registration fee</strong></p>",
+      "<ul><li>UniKL MIIT: RM100.00</li><li>Other UniKL Campuses: RM100.00</li></ul>",
+      "<p><strong>Payment</strong></p>",
+      instructions.html,
+      "<p><strong>Why participate</strong></p>",
+      `<ul>${why.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul>`,
+      contact ? `<p>${escapeHtml(contact)}</p>` : "",
+      `<p>${escapeHtml(close)}</p>`,
+      signOffHtml(copy),
+    ]),
+    text: joinText([
+      "Dear Students and Colleagues,",
+      INTRO_TEXT,
+      opening,
+      about,
+      `Register here: ${options.registerUrl}`,
+      `Who can participate\n${whoText}`,
+      ...trackTextParts,
+      `Important dates\n${dates}`,
+      "Registration fee\nUniKL MIIT: RM100.00\nOther UniKL Campuses: RM100.00",
+      `Payment\n${instructions.text}`,
+      `Why participate\n${why.map((line) => `- ${line}`).join("\n")}`,
+      contact,
+      close,
+      signOffText(copy),
+    ]),
+    attachments: options.poster
+      ? [
+          {
+            filename: options.poster.filename,
+            content: options.poster.content,
+            contentType: options.poster.contentType,
+          },
+        ]
+      : undefined,
   });
 }
 

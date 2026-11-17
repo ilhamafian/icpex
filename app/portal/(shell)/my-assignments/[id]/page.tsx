@@ -106,6 +106,8 @@ export default async function AssessmentPage({
     })),
     documents: registration.documents.map((doc) => ({
       type: doc.type,
+      requirement_id: doc.requirement_id,
+      label: doc.label,
       file_name: doc.file_name,
       file_url: doc.file_url,
     })),

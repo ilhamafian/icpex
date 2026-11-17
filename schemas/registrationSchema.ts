@@ -71,6 +71,10 @@ export const registrationSchema = z.object({
         "PROJECT_PHOTO",
         "PROJECT_OTHER",
       ]),
+      /** Competition document-requirement id when submitted from the public form. */
+      requirement_id: z.string().min(1).optional(),
+      /** Display name from the competition requirement (preferred over type labels). */
+      label: z.string().min(1).optional(),
       file_name: z.string().min(1),
       file_url: z.string().min(1),
     })

@@ -5,6 +5,11 @@ import { PaymentModel } from "@/models/Payment";
 import { RegistrationModel } from "@/models/Registration";
 import { SubmissionModel } from "@/models/Submission";
 import {
+  effectiveDocumentRequirements,
+  requirementsForLevel,
+  validateDocumentsAgainstRequirements,
+} from "@/schemas/documentRequirement";
+import {
   EDUCATION_LEVEL_LABELS,
   allowedEducationLevels,
 } from "@/schemas/educationLevel";
@@ -45,7 +50,9 @@ export async function POST(req: NextRequest) {
 
     const allowedLevels = allowedEducationLevels(competition.eligibility);
     const categories = await new CategoryModel().find({});
-    const categoryIds = new Set(categories.map((c) => toIdString(c._id)));
+    const categoryById = new Map(
+      categories.map((category) => [toIdString(category._id), category])
+    );
     const categoryNameById = new Map(
       categories.map((category) => [toIdString(category._id), category.name])
     );
@@ -61,9 +68,39 @@ export async function POST(req: NextRequest) {
           400
         );
       }
-      if (!categoryIds.has(String(project.category_id))) {
+      const category = categoryById.get(String(project.category_id));
+      if (!category) {
         return createResponse(
           { error: `Project ${index + 1}: invalid category.` },
+          400
+        );
+      }
+      if (
+        category.education_level &&
+        category.education_level !== project.participant.education_level
+      ) {
+        return createResponse(
+          {
+            error: `Project ${index + 1}: that track is for ${EDUCATION_LEVEL_LABELS[
+              category.education_level
+            ].toLowerCase()} participants.`,
+          },
+          400
+        );
+      }
+
+      const documentRequirements = requirementsForLevel(
+        effectiveDocumentRequirements(competition),
+        project.participant.education_level
+      );
+      const documentErrors = validateDocumentsAgainstRequirements(
+        project.documents,
+        documentRequirements
+      );
+      const firstDocumentError = Object.values(documentErrors)[0];
+      if (firstDocumentError) {
+        return createResponse(
+          { error: `Project ${index + 1}: ${firstDocumentError}` },
           400
         );
       }
@@ -161,6 +198,7 @@ export async function POST(req: NextRequest) {
       );
 
       const copy = competitionEmailCopy(competition);
+      const documentRequirements = effectiveDocumentRequirements(competition);
       try {
         await Promise.all(
           projects.map((project, index) =>
@@ -174,6 +212,7 @@ export async function POST(req: NextRequest) {
               projectTitle: project.project.title,
               paymentDue: results[index].fee > 0,
               copy,
+              documentRequirements,
             })
           )
         );

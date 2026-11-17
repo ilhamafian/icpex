@@ -53,10 +53,6 @@ export async function POST(
 
     const registrations = await new RegistrationModel().find({ submission_id: id });
     const recipients = submissionRecipients(registrations);
-    const letter = {
-      ...submissionLetterDetails(registrations),
-      institutionName: submission.institution.name,
-    };
     if (recipients.length === 0) {
       return createResponse({ error: "This submission has no participant email." }, 400);
     }
@@ -65,6 +61,19 @@ export async function POST(
       toIdString(submission.competition_id)
     );
     const copy = competitionEmailCopy(competition ?? { name: "ICPEX" });
+    const letter = {
+      ...submissionLetterDetails(registrations),
+      institutionName: submission.institution.name,
+      categoryLabel: [
+        ...new Set(
+          registrations.map((registration) =>
+            registration.participant.education_level === "POSTGRADUATE"
+              ? copy.postgraduateStreamName
+              : copy.undergraduateStreamName
+          )
+        ),
+      ].join(" / "),
+    };
     const isBalance = Boolean(submission.balance_due);
     const payUrl = await ensurePaymentUrl(submission);
     const delivery = await emailEach(recipients, (to) =>

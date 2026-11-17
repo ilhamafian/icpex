@@ -4,6 +4,7 @@ import { CompetitionModel } from "@/models/Competition";
 import {
   competitionInputSchema,
   competitionSchema,
+  missingStreamNameError,
 } from "@/schemas/competitionSchema";
 import { requireSuperAdminSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
@@ -48,6 +49,11 @@ export async function POST(req: NextRequest) {
         { error: "End date must be on or after start date." },
         400
       );
+    }
+
+    const streamError = missingStreamNameError(parsed.data);
+    if (streamError) {
+      return createResponse({ error: streamError }, 400);
     }
 
     const model = new CompetitionModel();

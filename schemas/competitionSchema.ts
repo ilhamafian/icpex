@@ -1,3 +1,4 @@
+import { documentRequirementsSchema } from "./documentRequirement";
 import { competitionEligibilitySchema } from "./educationLevel";
 import { objectIdSchema } from "./objectId";
 import { z } from "zod";
@@ -29,6 +30,16 @@ export const competitionSchema = z.object({
   formal_name: z.string().min(1).optional(),
   /** Competition theme line used in emails. */
   theme: z.string().min(1).optional(),
+  /**
+   * “Who can participate” / category label for the undergraduate stream.
+   * e.g. Undergraduate Innovation Competition
+   */
+  undergraduate_stream_name: z.string().min(1).optional(),
+  /**
+   * “Who can participate” / category label for the postgraduate stream.
+   * e.g. Postgraduate Five-Minute Thesis (5MT) Competition …
+   */
+  postgraduate_stream_name: z.string().min(1).optional(),
   start_date: z.coerce.date(),
   end_date: z.coerce.date(),
   /** Last day for registration fee payment, shown in emails. */
@@ -46,6 +57,11 @@ export const competitionSchema = z.object({
     .nullish(),
   status: competitionStatusSchema,
   eligibility: competitionEligibilitySchema,
+  /**
+   * Per-stream document uploads shown on the registration form.
+   * Older competitions omit this and fall back to default requirements.
+   */
+  document_requirements: documentRequirementsSchema.optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional(),
 });
@@ -74,3 +90,23 @@ export const competitionUpdateSchema = competitionInputSchema.partial();
 export type Competition = z.infer<typeof competitionSchema>;
 export type CompetitionInput = z.infer<typeof competitionInputSchema>;
 export type CompetitionStatus = z.infer<typeof competitionStatusSchema>;
+
+/** Stream display names required for the education levels the competition accepts. */
+export function missingStreamNameError(
+  data: Pick<
+    Competition,
+    "eligibility" | "undergraduate_stream_name" | "postgraduate_stream_name"
+  >
+): string | null {
+  const needsUndergrad =
+    data.eligibility === "UNDERGRADUATE" || data.eligibility === "BOTH";
+  const needsPostgrad =
+    data.eligibility === "POSTGRADUATE" || data.eligibility === "BOTH";
+  if (needsUndergrad && !data.undergraduate_stream_name?.trim()) {
+    return "Undergraduate stream name is required.";
+  }
+  if (needsPostgrad && !data.postgraduate_stream_name?.trim()) {
+    return "Postgraduate stream name is required.";
+  }
+  return null;
+}

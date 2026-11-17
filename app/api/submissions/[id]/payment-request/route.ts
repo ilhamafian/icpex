@@ -72,16 +72,26 @@ export async function POST(
     if (recipients.length === 0) {
       return createResponse({ error: "This submission has no participant email." }, 400);
     }
-    const letter = {
-      ...submissionLetterDetails(registrations),
-      institutionName: submission.institution.name,
-    };
     const competition = await new CompetitionModel().findById(
       toIdString(submission.competition_id)
     );
     const copy = competitionEmailCopy(
       competition ?? { name: "ICPEX" }
     );
+    const details = submissionLetterDetails(registrations);
+    const letter = {
+      ...details,
+      institutionName: submission.institution.name,
+      categoryLabel: [
+        ...new Set(
+          registrations.map((registration) =>
+            registration.participant.education_level === "POSTGRADUATE"
+              ? copy.postgraduateStreamName
+              : copy.undergraduateStreamName
+          )
+        ),
+      ].join(" / "),
+    };
 
     const statuses = new Set(payments.map((payment) => payment.status));
     const currency = (submission.currency ?? "MYR") as Currency;

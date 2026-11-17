@@ -447,7 +447,7 @@ export function AssessmentWorkspace({
                             {doc.file_name}
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            {DOCUMENT_LABELS[doc.type]}
+                            {doc.label?.trim() || DOCUMENT_LABELS[doc.type]}
                           </span>
                         </div>
                       </div>
