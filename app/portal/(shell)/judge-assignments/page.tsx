@@ -11,7 +11,11 @@ import {
   SCORING_JUDGE_ROLES,
 } from "@/schemas/userRole";
 import { usersWithRolesFilter } from "@/utils/roleGrants";
-import { toAssignmentRegistrationOption } from "@/utils/assignmentOptions";
+import { effectiveDocumentRequirements } from "@/schemas/documentRequirement";
+import {
+  assignmentDocumentColumns,
+  toAssignmentRegistrationOption,
+} from "@/utils/assignmentOptions";
 import { findRegistrationsForCompetition } from "@/utils/competitionScope";
 import { getCurrentCompetition } from "@/utils/currentCompetition";
 import { requirePortalSection } from "@/utils/requirePortalAccess";
@@ -98,6 +102,10 @@ export default async function JudgeAssignmentsPage() {
   const competitionId = competition ? toIdString(competition._id) : null;
   const { assignments, judges, registrations, categories } =
     await loadAssignmentData(competitionId, session.role);
+  const documentColumns = assignmentDocumentColumns(
+    effectiveDocumentRequirements(competition),
+    educationLevelForRole(session.role)
+  );
 
   return (
     <JudgeAssignmentsManager
@@ -106,6 +114,7 @@ export default async function JudgeAssignmentsPage() {
       categories={categories}
       competitionId={competitionId}
       registrations={registrations}
+      documentColumns={documentColumns}
       judgingDueDate={
         competition?.judging_due_date
           ? new Date(competition.judging_due_date).toISOString()

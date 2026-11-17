@@ -62,6 +62,10 @@ export const competitionSchema = z.object({
    * Older competitions omit this and fall back to default requirements.
    */
   document_requirements: documentRequirementsSchema.optional(),
+  /** Set after the one-time “judging has started” email to assigned judges. */
+  judge_start_reminder_sent_at: z.coerce.date().optional(),
+  /** Set after the one-time email 3 days before the scoring due date. */
+  judge_due_reminder_sent_at: z.coerce.date().optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional(),
 });
@@ -71,6 +75,8 @@ export const competitionInputSchema = competitionSchema
   .omit({
     _id: true,
     competition_id: true,
+    judge_start_reminder_sent_at: true,
+    judge_due_reminder_sent_at: true,
     created_at: true,
     updated_at: true,
   })
@@ -86,6 +92,14 @@ export const competitionInputSchema = competitionSchema
 
 /** Updates never change `competition_id` once assigned. */
 export const competitionUpdateSchema = competitionInputSchema.partial();
+
+/** Internal stamps so scheduled judge reminders are sent only once. */
+export const competitionReminderStampSchema = z
+  .object({
+    judge_start_reminder_sent_at: z.coerce.date(),
+    judge_due_reminder_sent_at: z.coerce.date(),
+  })
+  .partial();
 
 export type Competition = z.infer<typeof competitionSchema>;
 export type CompetitionInput = z.infer<typeof competitionInputSchema>;

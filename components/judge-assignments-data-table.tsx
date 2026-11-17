@@ -66,7 +66,11 @@ import type { PaymentStatus } from "@/schemas/paymentSchema";
 import { PAYMENT_STATUS_LABELS } from "@/utils/paymentStatusLabel";
 import type { SerializedUser } from "@/types/user";
 import { judgeProfileBlockReason } from "@/utils/judgeEligibility";
-import type { AssignmentRegistrationOption } from "@/utils/assignmentOptions";
+import {
+  documentUrlForColumn,
+  type AssignmentDocumentColumn,
+  type AssignmentRegistrationOption,
+} from "@/utils/assignmentOptions";
 import { leaderScoringDeadlineMessage } from "@/utils/competitionDates";
 import type { SerializedJudgeAssignment } from "@/utils/serializeJudgeAssignment";
 
@@ -154,13 +158,6 @@ const PAYMENT_FILTERS: { value: PaymentFilter; label: string }[] = [
 const ASSIGNMENT_FILTERS: { value: AssignmentFilter; label: string }[] = [
   { value: "ASSIGNED", label: "Has judges" },
   { value: "UNASSIGNED", label: "No judges yet" },
-];
-
-type FullPaperFilter = "UPLOADED" | "NONE";
-
-const FULL_PAPER_FILTERS: { value: FullPaperFilter; label: string }[] = [
-  { value: "UPLOADED", label: "Uploaded" },
-  { value: "NONE", label: "Not uploaded" },
 ];
 
 const SORT_OPTIONS = {
@@ -347,8 +344,11 @@ type JudgeAssignmentsDataTableProps = {
   categories: { id: string; name: string }[];
   /** Judges are offered only for roles held in this competition. */
   competitionId: string | null;
+  documentColumns: AssignmentDocumentColumn[];
   judgingDueDate?: string | null;
   busyKey?: string | null;
+  reminding?: boolean;
+  onRemindUnscored?: () => void;
   onToggleJudge: (
     row: JudgeAssignmentRow,
     judge: SerializedUser,
@@ -365,8 +365,11 @@ export function JudgeAssignmentsDataTable({
   judges,
   categories: categoryCatalog,
   competitionId,
+  documentColumns,
   judgingDueDate = null,
   busyKey,
+  reminding = false,
+  onRemindUnscored,
   onToggleJudge,
 }: JudgeAssignmentsDataTableProps) {
   const [query, setQuery] = React.useState("");
@@ -378,9 +381,6 @@ export function JudgeAssignmentsDataTable({
   );
   const [assignmentFilter, setAssignmentFilter] = React.useState<
     Set<AssignmentFilter>
-  >(() => new Set());
-  const [fullPaperFilter, setFullPaperFilter] = React.useState<
-    Set<FullPaperFilter>
   >(() => new Set());
   const [categoryFilter, setCategoryFilter] = React.useState<Set<string>>(
     () => new Set()
@@ -447,12 +447,6 @@ export function JudgeAssignmentsDataTable({
         ) {
           return false;
         }
-        if (
-          fullPaperFilter.size &&
-          !fullPaperFilter.has(registration.has_full_paper ? "UPLOADED" : "NONE")
-        ) {
-          return false;
-        }
         if (categoryFilter.size) {
           const categoryId =
             registration.category_id || registration.category_name;
@@ -478,7 +472,6 @@ export function JudgeAssignmentsDataTable({
     statusFilter,
     paymentFilter,
     assignmentFilter,
-    fullPaperFilter,
     categoryFilter,
     sortBy,
   ]);
@@ -487,7 +480,6 @@ export function JudgeAssignmentsDataTable({
     statusFilter.size +
     paymentFilter.size +
     assignmentFilter.size +
-    fullPaperFilter.size +
     categoryFilter.size;
 
   const columns = React.useMemo(
@@ -578,42 +570,29 @@ export function JudgeAssignmentsDataTable({
             );
           },
         }),
-        columnHelper.accessor((row) => row.registration.abstract_file_url ?? "", {
-          id: "abstract",
-          header: () => <div className="w-full text-center">Abstract</div>,
-          cell: ({ row }) => (
-            <div className="flex justify-center">
-              {documentStatusBadge({
-                url: row.original.registration.abstract_file_url,
-                label: `abstract for ${row.original.registration.registration_number}`,
-              })}
-            </div>
-          ),
-        }),
-        columnHelper.accessor((row) => row.registration.video_url ?? "", {
-          id: "video",
-          header: () => <div className="w-full text-center">Video</div>,
-          cell: ({ row }) => (
-            <div className="flex justify-center">
-              {documentStatusBadge({
-                url: row.original.registration.video_url,
-                label: `video for ${row.original.registration.registration_number}`,
-              })}
-            </div>
-          ),
-        }),
-        columnHelper.accessor((row) => row.registration.has_full_paper, {
-          id: "full paper",
-          header: () => <div className="w-full text-center">Full paper</div>,
-          cell: ({ row }) => (
-            <div className="flex justify-center">
-              {documentStatusBadge({
-                url: row.original.registration.full_paper_url,
-                label: `full paper for ${row.original.registration.registration_number}`,
-              })}
-            </div>
-          ),
-        }),
+        ...documentColumns.map((column) =>
+          columnHelper.accessor(
+            (row) =>
+              documentUrlForColumn(row.registration.documents, column) ?? "",
+            {
+              id: `document:${column.key}`,
+              header: () => (
+                <div className="w-full text-center">{column.name}</div>
+              ),
+              cell: ({ row }) => (
+                <div className="flex justify-center">
+                  {documentStatusBadge({
+                    url: documentUrlForColumn(
+                      row.original.registration.documents,
+                      column
+                    ),
+                    label: `${column.name} for ${row.original.registration.registration_number}`,
+                  })}
+                </div>
+              ),
+            }
+          )
+        ),
         columnHelper.accessor((row) => row.registration.created_at, {
           id: "submitted",
           header: "Submitted",
@@ -754,6 +733,7 @@ export function JudgeAssignmentsDataTable({
       competitionId,
       judges,
       judgesById,
+      documentColumns,
       onToggleJudge,
       pagination.pageIndex,
       pagination.pageSize,
@@ -792,6 +772,16 @@ export function JudgeAssignmentsDataTable({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {onRemindUnscored ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onRemindUnscored}
+              disabled={reminding || !competitionId}
+            >
+              {reminding ? "Sending…" : "Remind unscored judges"}
+            </Button>
+          ) : null}
           <div className="relative">
             <IconSearch className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
             <Input
@@ -889,23 +879,6 @@ export function JudgeAssignmentsDataTable({
                   {label}
                 </DropdownMenuCheckboxItem>
               ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>Full paper</DropdownMenuLabel>
-              {FULL_PAPER_FILTERS.map(({ value, label }) => (
-                <DropdownMenuCheckboxItem
-                  key={value}
-                  checked={fullPaperFilter.has(value)}
-                  onSelect={(event) => event.preventDefault()}
-                  onCheckedChange={(checked) => {
-                    setFullPaperFilter((prev) =>
-                      toggleIn(prev, value, checked === true)
-                    );
-                    table.setPageIndex(0);
-                  }}
-                >
-                  {label}
-                </DropdownMenuCheckboxItem>
-              ))}
               {activeFilterCount ? (
                 <>
                   <DropdownMenuSeparator />
@@ -917,7 +890,6 @@ export function JudgeAssignmentsDataTable({
                       setStatusFilter(new Set());
                       setPaymentFilter(new Set());
                       setAssignmentFilter(new Set());
-                      setFullPaperFilter(new Set());
                       setCategoryFilter(new Set());
                       table.setPageIndex(0);
                     }}

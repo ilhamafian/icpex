@@ -20,7 +20,10 @@ import {
   type JudgeAssignmentRow,
 } from "@/components/judge-assignments-data-table";
 import type { SerializedUser } from "@/types/user";
-import type { AssignmentRegistrationOption } from "@/utils/assignmentOptions";
+import type {
+  AssignmentDocumentColumn,
+  AssignmentRegistrationOption,
+} from "@/utils/assignmentOptions";
 import type { SerializedJudgeAssignment } from "@/utils/serializeJudgeAssignment";
 
 async function readError(res: Response): Promise<string> {
@@ -39,6 +42,7 @@ export function JudgeAssignmentsManager({
   categories,
   competitionId,
   registrations,
+  documentColumns,
   judgingDueDate = null,
 }: {
   initialAssignments: SerializedJudgeAssignment[];
@@ -46,12 +50,14 @@ export function JudgeAssignmentsManager({
   categories: { id: string; name: string }[];
   competitionId: string | null;
   registrations: AssignmentRegistrationOption[];
+  documentColumns: AssignmentDocumentColumn[];
   judgingDueDate?: string | null;
 }) {
   const [assignments, setAssignments] = useState(initialAssignments);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [removeTarget, setRemoveTarget] =
     useState<SerializedJudgeAssignment | null>(null);
+  const [reminding, setReminding] = useState(false);
 
   const rows = useMemo<JudgeAssignmentRow[]>(() => {
     const byRegistration = new Map<string, SerializedJudgeAssignment[]>();
@@ -145,6 +151,44 @@ export function JudgeAssignmentsManager({
     [removeAssignment]
   );
 
+  const remindUnscored = useCallback(async () => {
+    setReminding(true);
+    try {
+      const res = await fetch("/api/judge-assignments/remind", {
+        method: "POST",
+      });
+      const data = (await res.json()) as {
+        error?: unknown;
+        sent?: number;
+        total?: number;
+        message?: string;
+      };
+      if (!res.ok) {
+        toast.error(
+          typeof data.error === "string"
+            ? data.error
+            : "Could not send reminders."
+        );
+        return;
+      }
+      if (!data.sent) {
+        toast.message(
+          data.message ?? "Every assigned judge has already submitted their scores."
+        );
+        return;
+      }
+      toast.success(
+        data.sent === data.total
+          ? `Reminder sent to ${data.sent} judge${data.sent === 1 ? "" : "s"}.`
+          : `Reminder sent to ${data.sent} of ${data.total} judges.`
+      );
+    } catch {
+      toast.error("Could not send reminders.");
+    } finally {
+      setReminding(false);
+    }
+  }, []);
+
   const removeTargetJudge = removeTarget
     ? judges.find((judge) => judge._id === removeTarget.judge_id)
     : undefined;
@@ -156,8 +200,11 @@ export function JudgeAssignmentsManager({
         judges={judges}
         categories={categories}
         competitionId={competitionId}
+        documentColumns={documentColumns}
         judgingDueDate={judgingDueDate}
         busyKey={busyKey}
+        reminding={reminding}
+        onRemindUnscored={() => void remindUnscored()}
         onToggleJudge={handleToggleJudge}
       />
 

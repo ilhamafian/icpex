@@ -471,6 +471,74 @@ async function sendJudgeInviteEmail(options: {
   });
 }
 
+export type JudgeEvaluationReminderKind =
+  | "started"
+  | "due-soon"
+  | "both"
+  | "unscored";
+
+/** Ask assigned judges to score. Scheduled kinds go to every assigned judge; `unscored` is the leader nudge. */
+export async function sendJudgeEvaluationReminderEmail(options: {
+  to: string;
+  name?: string;
+  copy: CompetitionEmailCopy;
+  kind: JudgeEvaluationReminderKind;
+  /** Absolute URL of the judge's assignment list. */
+  assignmentsUrl: string;
+  /** Unscored assignments for this judge. Used by the leader reminder. */
+  outstandingCount?: number;
+}) {
+  const { copy } = options;
+  const greet = greeting(options.name?.trim() || "Judge");
+  const contact = contactSentence();
+  const link = uploadLink(options.assignmentsUrl, "Open your assignments");
+  const due = copy.judgingPeriod
+    ? `The judging period is ${copy.judgingPeriod}.`
+    : "Please submit your scores by the published scoring due date.";
+  const outstanding = options.outstandingCount ?? 0;
+  const outstandingLine =
+    outstanding === 1
+      ? "You still have 1 assignment without a submitted score."
+      : `You still have ${outstanding} assignments without a submitted score.`;
+
+  const opening =
+    options.kind === "due-soon"
+      ? `This is a reminder that scores for the ${themedCompetition(copy)} are due in 3 days.`
+      : options.kind === "unscored"
+        ? `This is a reminder to finish scoring your assignments for the ${themedCompetition(copy)}.`
+        : options.kind === "both"
+          ? `Judging for the ${themedCompetition(copy)} has begun, and scores are due within the next 3 days.`
+          : `Judging for the ${themedCompetition(copy)} has begun.`;
+
+  const body = [opening, options.kind === "unscored" ? outstandingLine : "", due]
+    .filter(Boolean)
+    .join(" ");
+
+  await sendMail({
+    to: options.to,
+    subject:
+      options.kind === "due-soon" || options.kind === "both"
+        ? `Reminder: scores due soon — ${copy.name}`
+        : `Reminder: please evaluate your assignments — ${copy.name}`,
+    html: joinHtml([
+      greet.html,
+      INTRO_HTML,
+      `<p>${escapeHtml(body)}</p>`,
+      link.html,
+      contact ? `<p>${escapeHtml(contact)}</p>` : "",
+      signOffHtml(copy),
+    ]),
+    text: joinText([
+      greet.text,
+      INTRO_TEXT,
+      body,
+      link.text,
+      contact,
+      signOffText(copy),
+    ]),
+  });
+}
+
 export async function sendRegistrationSubmittedEmail(options: {
   to: string;
   participantName: string;
