@@ -76,6 +76,13 @@ export const competitionSchema = z.object({
   live_presentation_meeting_url: z.string().url().optional(),
   live_presentation_reply_by: z.coerce.date().optional(),
   live_presentation_join_minutes: z.number().int().min(1).max(180).optional(),
+  /** Closing-ceremony place details, filled when invitations are sent. */
+  closing_ceremony_platform: z.string().min(1).optional(),
+  closing_ceremony_meeting_url: z.string().url().optional(),
+  closing_ceremony_venue: z.string().min(1).optional(),
+  closing_ceremony_reply_by: z.coerce.date().optional(),
+  closing_ceremony_join_minutes: z.number().int().min(1).max(180).optional(),
+  closing_ceremony_attendance_url: z.string().url().optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional(),
 });
@@ -93,6 +100,12 @@ export const competitionInputSchema = competitionSchema
     live_presentation_meeting_url: true,
     live_presentation_reply_by: true,
     live_presentation_join_minutes: true,
+    closing_ceremony_platform: true,
+    closing_ceremony_meeting_url: true,
+    closing_ceremony_venue: true,
+    closing_ceremony_reply_by: true,
+    closing_ceremony_join_minutes: true,
+    closing_ceremony_attendance_url: true,
     created_at: true,
     updated_at: true,
   })
@@ -171,6 +184,85 @@ function calendarDate(value: Date | string | undefined) {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return date.toISOString().slice(0, 10);
+}
+
+const optionalTrimmed = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value) => value || undefined);
+
+/** Body of the closing-ceremony send request. Place fields depend on mode. */
+export const closingCeremonyInviteSchema = z.object({
+  audience: z.enum(["participants", "judges"]),
+  time: livePresentationTimeSchema,
+  reply_by: z.coerce.date(),
+  join_minutes: z.coerce.number().int().min(1).max(180),
+  platform: optionalTrimmed,
+  meeting_url: optionalTrimmed,
+  venue: optionalTrimmed,
+  attendance_url: optionalTrimmed,
+});
+
+/** Stored on the competition when a closing-ceremony invitation is sent. */
+export const competitionClosingCeremonySchema = z.object({
+  closing_ceremony_time: livePresentationTimeSchema,
+  closing_ceremony_reply_by: z.date(),
+  closing_ceremony_join_minutes: z.number().int().min(1).max(180),
+  closing_ceremony_platform: z.string().min(1).optional(),
+  closing_ceremony_meeting_url: z.string().url().optional(),
+  closing_ceremony_venue: z.string().min(1).optional(),
+  closing_ceremony_attendance_url: z.string().url().optional(),
+});
+
+export type ClosingCeremonyInvite = z.infer<typeof closingCeremonyInviteSchema>;
+
+export type ClosingCeremonyAudience = ClosingCeremonyInvite["audience"];
+
+/** Values for the closing-ceremony send dialog. */
+export type ClosingCeremonyDraft = {
+  time: string;
+  platform: string;
+  meeting_url: string;
+  venue: string;
+  reply_by: string;
+  join_minutes: number;
+  attendance_url: string;
+};
+
+export function emptyClosingCeremonyDraft(): ClosingCeremonyDraft {
+  return {
+    time: "",
+    platform: "",
+    meeting_url: "",
+    venue: "",
+    reply_by: "",
+    join_minutes: 15,
+    attendance_url: "",
+  };
+}
+
+export function closingCeremonyDraft(
+  competition: {
+    closing_ceremony_time?: string | null;
+    closing_ceremony_platform?: string;
+    closing_ceremony_meeting_url?: string;
+    closing_ceremony_venue?: string;
+    closing_ceremony_reply_by?: Date | string;
+    closing_ceremony_join_minutes?: number;
+    closing_ceremony_attendance_url?: string;
+  } | null
+): ClosingCeremonyDraft {
+  if (!competition) return emptyClosingCeremonyDraft();
+  return {
+    time: competition.closing_ceremony_time ?? "",
+    platform: competition.closing_ceremony_platform ?? "",
+    meeting_url: competition.closing_ceremony_meeting_url ?? "",
+    venue: competition.closing_ceremony_venue ?? "",
+    reply_by: calendarDate(competition.closing_ceremony_reply_by),
+    join_minutes: competition.closing_ceremony_join_minutes ?? 15,
+    attendance_url: competition.closing_ceremony_attendance_url ?? "",
+  };
 }
 
 export function livePresentationDraft(

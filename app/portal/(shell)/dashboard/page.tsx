@@ -1,5 +1,6 @@
 import { BannerManager } from "@/components/BannerManager";
 import { CampusInvitationShortcut } from "@/components/CampusInvitationShortcut";
+import { ClosingCeremonyShortcut } from "@/components/ClosingCeremonyShortcut";
 import { ChartAreaInteractive } from "@/components/chart-area-interactive";
 import { DataTable } from "@/components/data-table";
 import { SectionCards } from "@/components/section-cards";
@@ -48,6 +49,10 @@ export default async function AdminDashboardPage() {
             currentCompetitionId={bannerData.currentCompetitionId}
           />
           <CampusInvitationShortcut
+            competitions={bannerData.competitions}
+            currentCompetitionId={bannerData.currentCompetitionId}
+          />
+          <ClosingCeremonyShortcut
             competitions={bannerData.competitions}
             currentCompetitionId={bannerData.currentCompetitionId}
           />

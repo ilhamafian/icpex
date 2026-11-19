@@ -1,0 +1,189 @@
+import Link from "next/link";
+import type { ReactNode } from "react";
+
+import { DATES } from "@/components/marketing/content";
+
+export function SectionHeading({
+  title,
+  description,
+}: {
+  title: string;
+  description?: string;
+}) {
+  return (
+    <div className="mx-auto mb-10 max-w-3xl text-center">
+      <h2 className="text-3xl font-bold tracking-tight text-balance sm:text-4xl">
+        {title}
+      </h2>
+      {description ? (
+        <p className="mt-4 text-pretty text-base text-white/80 sm:text-lg">
+          {description}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+export function ContentPage({
+  eyebrow,
+  title,
+  children,
+}: {
+  eyebrow?: string;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="mx-auto w-full max-w-6xl px-6 py-14 sm:py-16">
+      {eyebrow ? (
+        <p className="text-xs font-semibold tracking-[0.2em] text-[#e8b84a] uppercase">
+          {eyebrow}
+        </p>
+      ) : null}
+      <h1 className="mt-3 text-4xl font-bold tracking-tight text-balance sm:text-5xl">
+        {title}
+      </h1>
+      <div className="mt-5 h-px w-full bg-[#e8b84a]" />
+      <div className="mt-10">{children}</div>
+    </div>
+  );
+}
+
+export function InfoCard({
+  title,
+  children,
+  className = "",
+}: {
+  title?: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <article
+      className={`rounded-3xl bg-[#123056]/95 px-6 py-8 ring-1 ring-white/10 sm:px-8 ${className}`}
+    >
+      {title ? (
+        <h3 className="text-center text-lg font-bold text-[#e8b84a]">{title}</h3>
+      ) : null}
+      <div className={title ? "mt-3" : undefined}>{children}</div>
+    </article>
+  );
+}
+
+export function BulletPanel({
+  title,
+  items,
+  children,
+}: {
+  title: string;
+  items: string[];
+  children?: ReactNode;
+}) {
+  return (
+    <article className="rounded-3xl bg-[#123056]/95 px-6 py-8 ring-1 ring-white/10 sm:px-8 sm:py-10">
+      <h3 className="text-center text-sm font-bold tracking-[0.14em] text-[#e8b84a] uppercase">
+        {title}
+      </h3>
+      <ul className="mx-auto mt-6 max-w-md list-disc space-y-2.5 pl-5 text-left text-sm leading-relaxed text-white/90 sm:text-base">
+        {items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+      {children}
+    </article>
+  );
+}
+
+export function GuidelineSection({
+  title,
+  intro,
+  panels,
+}: {
+  title: string;
+  intro: string;
+  panels: { title: string; items: string[]; extra?: ReactNode }[];
+}) {
+  return (
+    <section className="mx-auto w-full max-w-6xl px-6 py-16">
+      <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">
+        {title}
+      </h2>
+      <div className="mx-auto mt-4 h-px max-w-5xl bg-[#e8b84a]" />
+      <p className="mx-auto mt-8 max-w-3xl text-center text-pretty text-base text-white/80 sm:text-lg">
+        {intro}
+      </p>
+      <div className="mt-10 grid gap-6 lg:grid-cols-2">
+        {panels.map((panel) => (
+          <BulletPanel key={panel.title} title={panel.title} items={panel.items}>
+            {panel.extra}
+          </BulletPanel>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export function TrackList({
+  tracks,
+}: {
+  tracks: readonly { title: string; body: string }[];
+}) {
+  return (
+    <ul className="flex flex-col gap-4">
+      {tracks.map((track) => (
+        <li
+          key={track.title}
+          className="rounded-2xl bg-[#123056]/95 px-5 py-4 text-center ring-1 ring-white/10"
+        >
+          <p className="font-bold text-[#e8b84a]">{track.title}</p>
+          <p className="mt-1 text-sm leading-relaxed text-white/80">{track.body}</p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function DatesList() {
+  return (
+    <div className="rounded-[2rem] bg-[#123056]/95 px-5 py-6 ring-1 ring-white/10 sm:px-8 sm:py-8">
+      <ul className="flex flex-col gap-5">
+        {DATES.map((item) => (
+          <li
+            key={item.title}
+            className="grid items-start gap-1 lg:grid-cols-[11rem_minmax(0,1.1fr)_minmax(0,1.2fr)] lg:items-center lg:gap-6"
+          >
+            <p className="flex items-center gap-3 text-sm font-bold tracking-wide text-[#e8b84a] uppercase">
+              <span className="size-2.5 shrink-0 bg-[#e8b84a]" aria-hidden />
+              {item.date}
+            </p>
+            <p className="font-semibold">{item.title}</p>
+            <p className="text-sm text-white/75 sm:text-base">{item.detail}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export function RegisterButton({
+  href,
+  children,
+  tone = "gold",
+}: {
+  href: string;
+  children: ReactNode;
+  tone?: "gold" | "slate";
+}) {
+  return (
+    <Link
+      href={href}
+      className={
+        tone === "gold"
+          ? "inline-flex h-12 items-center justify-center rounded-lg bg-[#d6a11e] px-7 text-sm font-bold tracking-wide text-[#1a1408] uppercase transition-colors hover:bg-[#e2b43a]"
+          : "inline-flex h-12 items-center justify-center rounded-lg bg-[#35567f] px-7 text-sm font-bold tracking-wide text-white uppercase transition-colors hover:bg-[#426691]"
+      }
+    >
+      {children}
+    </Link>
+  );
+}

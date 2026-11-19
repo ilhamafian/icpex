@@ -5,6 +5,7 @@ import { Resend } from "resend";
 
 import {
   CLOSING_CEREMONY_MODE_LABELS,
+  type ClosingCeremonyMode,
   type Competition,
 } from "@/schemas/competitionSchema";
 import {
@@ -1170,6 +1171,188 @@ export async function sendLivePresentationInviteEmail(options: {
       `Technical requirements\n${technicalText}`,
       confirm,
       results,
+      contact,
+      close,
+      signOffText(copy),
+    ]),
+  });
+}
+
+function bulletList(lines: string[]) {
+  return {
+    text: lines.map((line) => `- ${line}`).join("\n"),
+    html: `<ul>${lines.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul>`,
+  };
+}
+
+function ceremonyMinutePhrase(joinMinutes: number) {
+  return `${joinMinutes} minute${joinMinutes === 1 ? "" : "s"}`;
+}
+
+/** Shared date, time, mode, and place block for both closing-ceremony letters. */
+function closingCeremonyEvent(options: {
+  date: Date;
+  time: string;
+  mode: ClosingCeremonyMode;
+  platform?: string;
+  meetingUrl?: string;
+  venue?: string;
+}) {
+  const sessionTime = formatEmailTime(options.time);
+  const rows: Array<[string, string]> = [
+    ["Date", formatEmailDate(options.date)],
+    ["Time", sessionTime ? `${sessionTime} (Malaysia Time, GMT+8)` : ""],
+    ["Mode", CLOSING_CEREMONY_MODE_LABELS[options.mode]],
+  ];
+  if (options.mode === "ONLINE") {
+    rows.push(
+      ["Platform", options.platform ?? ""],
+      ["Meeting Link", options.meetingUrl ?? ""]
+    );
+  } else {
+    rows.push(["Venue", options.venue ?? ""]);
+  }
+  const details = detailList(rows);
+  const meetingUrl = options.mode === "ONLINE" ? options.meetingUrl?.trim() : "";
+  const meeting = meetingUrl
+    ? {
+        text: meetingUrl,
+        html: `<p><a href="${escapeHtml(meetingUrl)}">Join the closing ceremony</a></p>`,
+      }
+    : { text: "", html: "" };
+  return { details, meeting };
+}
+
+export async function sendClosingCeremonyParticipantEmail(options: {
+  to: string;
+  participantName: string;
+  registrationNumber: string;
+  date: Date;
+  time: string;
+  mode: ClosingCeremonyMode;
+  platform?: string;
+  meetingUrl?: string;
+  venue?: string;
+  replyBy: Date;
+  joinMinutes: number;
+  attendanceUrl: string;
+  copy: CompetitionEmailCopy;
+}) {
+  const { copy } = options;
+  const greet = greeting(options.participantName);
+  const contact = contactSentence();
+  const replyBy = formatEmailDate(options.replyBy);
+  const opening = `Thank you for taking part in the ${themedCompetition(copy)}. We are pleased to invite you to the Closing Ceremony and Results Announcement.`;
+  const event = closingCeremonyEvent(options);
+  const highlights = bulletList([
+    "Opening remarks",
+    "Announcement of winners for the competition awards",
+    "Recognition of participating institutions and Co-Organisers",
+    "Closing remarks",
+  ]);
+  const awards =
+    "The winners of Best Video, Best Abstract, Best Poster (Single Slide), Best Presenter, and Best Paper will be announced during the ceremony. Digital certificates will be issued to participants by email after the ceremony.";
+  const early =
+    options.mode === "PHYSICAL"
+      ? `Arrive at least ${ceremonyMinutePhrase(options.joinMinutes)} before the start time.`
+      : `Join the session at least ${ceremonyMinutePhrase(options.joinMinutes)} before the start time.`;
+  const displayName = `Rename your display name to: ${options.registrationNumber} – ${options.participantName.trim() || "Participant"}.`;
+  const attendText = `Register your attendance at ${options.attendanceUrl} by ${replyBy}.`;
+  const attendHtml = `<li>Register your attendance at <a href="${escapeHtml(options.attendanceUrl)}">${escapeHtml(options.attendanceUrl)}</a> by ${escapeHtml(replyBy)}.</li>`;
+  const joinHeading = options.mode === "PHYSICAL" ? "To attend, please:" : "To join, please:";
+  const stepsText = [attendText, early, displayName].map((line) => `- ${line}`).join("\n");
+  const stepsHtml = `<ul>${attendHtml}<li>${escapeHtml(early)}</li><li>${escapeHtml(displayName)}</li></ul>`;
+  const close =
+    "We hope to see you at the ceremony and look forward to celebrating your efforts and achievements.";
+
+  await sendMail({
+    to: options.to,
+    subject: `Invitation: ${copy.name} Closing Ceremony and Result Announcement`,
+    html: joinHtml([
+      greet.html,
+      INTRO_HTML,
+      `<p>${escapeHtml(opening)}</p>`,
+      "<p>Event details:</p>",
+      event.details.html,
+      event.meeting.html,
+      "<p><strong>Programme highlights</strong></p>",
+      highlights.html,
+      `<p>${escapeHtml(awards)}</p>`,
+      `<p>${escapeHtml(joinHeading)}</p>`,
+      stepsHtml,
+      contact ? `<p>${escapeHtml(contact)}</p>` : "",
+      `<p>${escapeHtml(close)}</p>`,
+      signOffHtml(copy),
+    ]),
+    text: joinText([
+      greet.text,
+      INTRO_TEXT,
+      opening,
+      `Event details:\n${event.details.text}`,
+      event.meeting.text,
+      `Programme highlights\n${highlights.text}`,
+      awards,
+      `${joinHeading}\n${stepsText}`,
+      contact,
+      close,
+      signOffText(copy),
+    ]),
+  });
+}
+
+export async function sendClosingCeremonyJudgeEmail(options: {
+  to: string;
+  judgeName: string;
+  date: Date;
+  time: string;
+  mode: ClosingCeremonyMode;
+  platform?: string;
+  meetingUrl?: string;
+  venue?: string;
+  replyBy: Date;
+  copy: CompetitionEmailCopy;
+}) {
+  const { copy } = options;
+  const greet = greeting(options.judgeName);
+  const contact = contactSentence();
+  const replyBy = formatEmailDate(options.replyBy);
+  const opening = `Thank you for your valuable contribution as a Judge for the ${themedCompetition(copy)}. On behalf of the organising committee, we are pleased to invite you to the Closing Ceremony and Result Announcement.`;
+  const event = closingCeremonyEvent(options);
+  const highlights = bulletList([
+    "Opening remarks",
+    "Announcement of winners for the competition awards",
+    "Recognition of judges and participating institutions",
+    "Closing remarks",
+  ]);
+  const confirm = `Please confirm your attendance by ${replyBy} by replying to this email. A digital certificate of appreciation will be issued to judges by email after the ceremony.`;
+  const close =
+    "We sincerely appreciate your support and hope you can join us to celebrate the participants' achievements.";
+
+  await sendMail({
+    to: options.to,
+    subject: `Invitation: ${copy.name} Closing Ceremony and Result Announcement (Judges)`,
+    html: joinHtml([
+      greet.html,
+      INTRO_HTML,
+      `<p>${escapeHtml(opening)}</p>`,
+      "<p>Event details:</p>",
+      event.details.html,
+      event.meeting.html,
+      "<p><strong>Programme highlights</strong></p>",
+      highlights.html,
+      `<p>${escapeHtml(confirm)}</p>`,
+      contact ? `<p>${escapeHtml(contact)}</p>` : "",
+      `<p>${escapeHtml(close)}</p>`,
+      signOffHtml(copy),
+    ]),
+    text: joinText([
+      greet.text,
+      INTRO_TEXT,
+      opening,
+      `Event details:\n${event.details.text}`,
+      event.meeting.text,
+      `Programme highlights\n${highlights.text}`,
+      confirm,
       contact,
       close,
       signOffText(copy),
