@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 
 import {
   competitionEmailCopy,
+  mailboxForLevels,
   sendPaymentReceivedEmail,
   sendUnderpaidEmail,
 } from "@/lib/email";
@@ -88,6 +89,9 @@ export async function POST(
       toIdString(submission.competition_id)
     );
     const copy = competitionEmailCopy(competition ?? { name: "ICPEX" });
+    const educationLevel = mailboxForLevels(
+      registrations.map((registration) => registration.participant.education_level)
+    );
     const currency = (submission.currency ?? "MYR") as Currency;
     const receiptUrl = payments.find((payment) => payment.receipt_url)?.receipt_url;
     const now = new Date();
@@ -126,6 +130,7 @@ export async function POST(
           balance: decision.amount,
           currency: decision.currency,
           payUrl,
+          educationLevel,
           copy,
         })
       );
@@ -194,6 +199,7 @@ export async function POST(
           amount: submission.amount,
           currency,
           invoicePdf,
+          educationLevel,
           copy,
           overpaid,
         })

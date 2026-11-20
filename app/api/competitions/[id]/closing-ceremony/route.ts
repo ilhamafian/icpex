@@ -184,6 +184,7 @@ export async function POST(
           to: recipient.to,
           participantName: recipient.name,
           registrationNumber: recipient.registrationNumber,
+          educationLevel: recipient.educationLevel,
           joinMinutes: parsed.data.join_minutes,
           attendanceUrl,
           copy,
@@ -223,6 +224,7 @@ export async function POST(
       sendClosingCeremonyJudgeEmail({
         to: recipient.to,
         judgeName: recipient.name,
+        educationLevel: recipient.educationLevel,
         copy,
         ...event,
       })

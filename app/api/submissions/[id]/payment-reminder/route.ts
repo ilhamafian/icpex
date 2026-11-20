@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 
 import {
   competitionEmailCopy,
+  mailboxForLevels,
   sendPaymentReminderEmail,
 } from "@/lib/email";
 import { CompetitionModel } from "@/models/Competition";
@@ -61,6 +62,9 @@ export async function POST(
       toIdString(submission.competition_id)
     );
     const copy = competitionEmailCopy(competition ?? { name: "ICPEX" });
+    const educationLevel = mailboxForLevels(
+      registrations.map((registration) => registration.participant.education_level)
+    );
     const letter = {
       ...submissionLetterDetails(registrations),
       institutionName: submission.institution.name,
@@ -87,6 +91,7 @@ export async function POST(
         payUrl,
         isBalance,
         letter,
+        educationLevel,
         copy,
       })
     );

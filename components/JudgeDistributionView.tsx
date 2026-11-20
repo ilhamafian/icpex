@@ -203,9 +203,9 @@ function JudgeAxisTick({
   y = 0,
   payload,
 }: {
-  x?: number;
-  y?: number;
-  payload?: { value?: string };
+  x?: string | number;
+  y?: string | number;
+  payload?: { value?: unknown };
 }) {
   const full = String(payload?.value ?? "");
   const text = full.length > 22 ? `${full.slice(0, 21)}…` : full;

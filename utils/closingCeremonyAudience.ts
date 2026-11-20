@@ -5,10 +5,12 @@ import { ObjectId, type Filter } from "mongodb";
 import { RegistrationModel } from "@/models/Registration";
 import { SubmissionModel } from "@/models/Submission";
 import { UserModel } from "@/models/User";
+import { mailboxForLevels } from "@/lib/email";
+import type { EducationLevel } from "@/schemas/educationLevel";
 import { toIdString } from "@/schemas/objectId";
 import type { Registration } from "@/schemas/registrationSchema";
 import type { Submission } from "@/schemas/submissionSchema";
-import type { UserRole } from "@/schemas/userRole";
+import { educationLevelForRole, type UserRole } from "@/schemas/userRole";
 import { usersWithRolesFilter } from "@/utils/roleGrants";
 
 const CEREMONY_JUDGE_ROLES: UserRole[] = [
@@ -27,11 +29,13 @@ export type ClosingCeremonyParticipant = {
   to: string;
   name: string;
   registrationNumber: string;
+  educationLevel: EducationLevel;
 };
 
 export type ClosingCeremonyJudge = {
   to: string;
   name: string;
+  educationLevel: EducationLevel;
 };
 
 /** Registrations on a paid submission, including free and complimentary projects. */
@@ -70,6 +74,7 @@ export async function loadClosingCeremonyParticipants(
       to,
       name: registration.participant.name,
       registrationNumber: registration.registration_number,
+      educationLevel: registration.participant.education_level,
     });
   }
   return recipients;
@@ -89,7 +94,13 @@ export async function loadClosingCeremonyJudges(
     const key = to.toLowerCase();
     if (!key || seen.has(key)) continue;
     seen.add(key);
-    recipients.push({ to, name: user.name?.trim() || "Judge" });
+    recipients.push({
+      to,
+      name: user.name?.trim() || "Judge",
+      educationLevel: mailboxForLevels(
+        user.roles.map((grant) => educationLevelForRole(grant.role))
+      ),
+    });
   }
   return recipients;
 }

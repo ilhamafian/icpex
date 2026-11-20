@@ -155,6 +155,8 @@ type MailMessage = {
   html: string;
   text: string;
   attachments?: MailAttachment[];
+  /** Which mailbox sends this. Defaults to the undergraduate account. */
+  educationLevel?: EducationLevel;
 };
 
 function requireEnv(name: string) {
@@ -173,7 +175,7 @@ function isDebugMode() {
 
 async function sendViaResend(message: MailMessage) {
   const resend = new Resend(requireEnv("RESEND_API_KEY"));
-  const { attachments, ...rest } = message;
+  const { attachments, educationLevel: _educationLevel, ...rest } = message;
   const { error } = await resend.emails.send({
     from: requireEnv("FROM_EMAIL"),
     ...rest,
@@ -188,10 +190,55 @@ async function sendViaResend(message: MailMessage) {
   }
 }
 
-let transporter: Transporter | null = null;
+type MailboxSettings = {
+  user: string;
+  pass: string;
+  address: string;
+  name?: string;
+};
 
-function getTransporter() {
-  if (transporter) return transporter;
+/**
+ * Postgraduate mail uses the postgraduate mailbox. Mixed submissions and mail
+ * that is not tied to one track (campus calls, super-admin invites) use the
+ * undergraduate mailbox.
+ */
+export function mailboxForLevels(
+  levels: Iterable<EducationLevel | null | undefined>
+): EducationLevel {
+  const list = [...levels].filter((level): level is EducationLevel => Boolean(level));
+  if (list.length > 0 && list.every((level) => level === "POSTGRADUATE")) {
+    return "POSTGRADUATE";
+  }
+  return "UNDERGRADUATE";
+}
+
+function mailboxSettings(level: EducationLevel): MailboxSettings {
+  if (level === "POSTGRADUATE") {
+    const user = requireEnv("MAIL_PG_USERNAME");
+    const name = process.env.MAIL_PG_FROM_NAME?.trim();
+    return {
+      user,
+      pass: requireEnv("MAIL_PG_PASSWORD"),
+      address: process.env.MAIL_PG_FROM_ADDRESS?.trim() || user,
+      name: name || undefined,
+    };
+  }
+
+  const user = requireEnv("MAIL_USERNAME");
+  const name = process.env.MAIL_FROM_NAME?.trim();
+  return {
+    user,
+    pass: requireEnv("MAIL_PASSWORD"),
+    address: process.env.MAIL_FROM_ADDRESS?.trim() || user,
+    name: name || undefined,
+  };
+}
+
+const transporters = new Map<EducationLevel, Transporter>();
+
+function getTransporter(level: EducationLevel) {
+  const existing = transporters.get(level);
+  if (existing) return existing;
 
   const driver = process.env.MAIL_DRIVER ?? "smtp";
   if (driver !== "smtp") {
@@ -205,24 +252,27 @@ function getTransporter() {
 
   // "ssl" = implicit TLS (usually 465); "tls" = STARTTLS upgrade (usually 587).
   const encryption = process.env.MAIL_ENCRYPTION?.trim().toLowerCase();
+  const mailbox = mailboxSettings(level);
 
-  transporter = nodemailer.createTransport({
+  const transporter = nodemailer.createTransport({
     host: requireEnv("MAIL_HOST"),
     port,
     secure: encryption === "ssl",
     requireTLS: encryption === "tls",
     auth: {
-      user: requireEnv("MAIL_USERNAME"),
-      pass: requireEnv("MAIL_PASSWORD"),
+      user: mailbox.user,
+      pass: mailbox.pass,
     },
   });
+  transporters.set(level, transporter);
   return transporter;
 }
 
-function getFrom() {
-  const address = requireEnv("MAIL_FROM_ADDRESS");
-  const name = process.env.MAIL_FROM_NAME;
-  return name ? { name, address } : address;
+function fromFor(level: EducationLevel) {
+  const mailbox = mailboxSettings(level);
+  return mailbox.name
+    ? { name: mailbox.name, address: mailbox.address }
+    : mailbox.address;
 }
 
 async function sendMail(message: MailMessage) {
@@ -231,7 +281,9 @@ async function sendMail(message: MailMessage) {
     return;
   }
 
-  await getTransporter().sendMail({ from: getFrom(), ...message });
+  const level = message.educationLevel ?? "UNDERGRADUATE";
+  const { educationLevel: _educationLevel, ...rest } = message;
+  await getTransporter(level).sendMail({ from: fromFor(level), ...rest });
 }
 
 const JUDGE_INVITE_ROLES = new Set<UserRole>([
@@ -394,6 +446,7 @@ export async function sendUserInviteEmail(options: {
 
   await sendMail({
     to: options.to,
+    educationLevel: educationLevelForRole(options.role) ?? "UNDERGRADUATE",
     subject: "You're invited to ICPEX",
     html: `
       <p>You have been invited to join ICPEX as a <strong>${escapeHtml(roleLabel)}</strong>.</p>
@@ -441,6 +494,7 @@ async function sendJudgeInviteEmail(options: {
 
   await sendMail({
     to: options.to,
+    educationLevel: educationLevelForRole(options.role) ?? "UNDERGRADUATE",
     subject: `Invitation to Serve as a Judge: ${copy.name}`,
     html: joinHtml([
       greet.html,
@@ -483,6 +537,7 @@ export async function sendJudgeEvaluationReminderEmail(options: {
   to: string;
   name?: string;
   copy: CompetitionEmailCopy;
+  educationLevel: EducationLevel;
   kind: JudgeEvaluationReminderKind;
   /** Absolute URL of the judge's assignment list. */
   assignmentsUrl: string;
@@ -517,6 +572,7 @@ export async function sendJudgeEvaluationReminderEmail(options: {
 
   await sendMail({
     to: options.to,
+    educationLevel: options.educationLevel,
     subject:
       options.kind === "due-soon" || options.kind === "both"
         ? `Reminder: scores due soon — ${copy.name}`
@@ -618,6 +674,7 @@ ${instructions?.html ?? ""}
 
   await sendMail({
     to: options.to,
+    educationLevel: options.educationLevel,
     subject: `${copy.name}: Registration and Abstract Submission Successful`,
     html: joinHtml([
       greet.html,
@@ -667,6 +724,7 @@ export async function sendPaymentRequestEmail(options: {
   payUrl: string;
   projects: { title: string; amount: number }[];
   letter: PaymentLetter;
+  educationLevel: EducationLevel;
   copy: CompetitionEmailCopy;
 }) {
   const { copy } = options;
@@ -703,6 +761,7 @@ export async function sendPaymentRequestEmail(options: {
 
   await sendMail({
     to: options.to,
+    educationLevel: options.educationLevel,
     subject: `${copy.name}: Registration Fee Payment (${options.submissionNumber})`,
     html: joinHtml([
       greet.html,
@@ -742,6 +801,7 @@ export async function sendNoPaymentDueEmail(options: {
   to: string;
   submissionNumber: string;
   participantName: string;
+  educationLevel: EducationLevel;
   copy: CompetitionEmailCopy;
 }) {
   const { copy } = options;
@@ -751,6 +811,7 @@ export async function sendNoPaymentDueEmail(options: {
 
   await sendMail({
     to: options.to,
+    educationLevel: options.educationLevel,
     subject: `${copy.name}: No Payment Due (${options.submissionNumber})`,
     html: joinHtml([
       greet.html,
@@ -771,6 +832,7 @@ export async function sendPaymentReceivedEmail(options: {
   amount: number;
   currency: Currency;
   invoicePdf: Buffer;
+  educationLevel: EducationLevel;
   copy: CompetitionEmailCopy;
   /** Extra amount the participant transferred, refunded outside the app. */
   overpaid?: { amount: number; currency: Currency };
@@ -787,6 +849,7 @@ export async function sendPaymentReceivedEmail(options: {
 
   await sendMail({
     to: options.to,
+    educationLevel: options.educationLevel,
     subject: `${copy.name}: Payment Received (${options.submissionNumber})`,
     html: joinHtml([
       greet.html,
@@ -823,6 +886,7 @@ export async function sendUnderpaidEmail(options: {
   balance: number;
   currency: Currency;
   payUrl: string;
+  educationLevel: EducationLevel;
   copy: CompetitionEmailCopy;
 }) {
   const { copy } = options;
@@ -838,6 +902,7 @@ export async function sendUnderpaidEmail(options: {
 
   await sendMail({
     to: options.to,
+    educationLevel: options.educationLevel,
     subject: `${copy.name}: Registration Fee Balance Due (${options.submissionNumber})`,
     html: joinHtml([
       greet.html,
@@ -944,6 +1009,7 @@ export async function sendCampusInvitationEmail(options: {
   const close =
     "We encourage you to share this invitation with your friends and colleagues and look forward to your participation.";
 
+  // Covers both streams, so it goes out from the undergraduate mailbox.
   await sendMail({
     to: options.to,
     subject: `Call for Participation: ${copy.name} (UniKL Students and Staff)`,
@@ -1005,6 +1071,7 @@ export async function sendPaymentReminderEmail(options: {
   /** True when only an underpaid balance is outstanding. */
   isBalance: boolean;
   letter: PaymentLetter;
+  educationLevel: EducationLevel;
   copy: CompetitionEmailCopy;
 }) {
   const { copy } = options;
@@ -1036,6 +1103,7 @@ export async function sendPaymentReminderEmail(options: {
 
   await sendMail({
     to: options.to,
+    educationLevel: options.educationLevel,
     subject,
     html: joinHtml([
       greet.html,
@@ -1140,6 +1208,7 @@ export async function sendLivePresentationInviteEmail(options: {
 
   await sendMail({
     to: options.to,
+    educationLevel: "POSTGRADUATE",
     subject: `Invitation: ${copy.name} 5MT Live Presentation (Postgraduate)`,
     html: joinHtml([
       greet.html,
@@ -1227,6 +1296,7 @@ export async function sendClosingCeremonyParticipantEmail(options: {
   to: string;
   participantName: string;
   registrationNumber: string;
+  educationLevel: EducationLevel;
   date: Date;
   time: string;
   mode: ClosingCeremonyMode;
@@ -1267,6 +1337,7 @@ export async function sendClosingCeremonyParticipantEmail(options: {
 
   await sendMail({
     to: options.to,
+    educationLevel: options.educationLevel,
     subject: `Invitation: ${copy.name} Closing Ceremony and Result Announcement`,
     html: joinHtml([
       greet.html,
@@ -1303,6 +1374,7 @@ export async function sendClosingCeremonyParticipantEmail(options: {
 export async function sendClosingCeremonyJudgeEmail(options: {
   to: string;
   judgeName: string;
+  educationLevel: EducationLevel;
   date: Date;
   time: string;
   mode: ClosingCeremonyMode;
@@ -1330,6 +1402,7 @@ export async function sendClosingCeremonyJudgeEmail(options: {
 
   await sendMail({
     to: options.to,
+    educationLevel: options.educationLevel,
     subject: `Invitation: ${copy.name} Closing Ceremony and Result Announcement (Judges)`,
     html: joinHtml([
       greet.html,

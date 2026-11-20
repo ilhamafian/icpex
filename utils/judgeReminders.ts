@@ -5,6 +5,7 @@ import type { Filter, WithId } from "mongodb";
 import { getAppOrigin } from "@/lib/appOrigin";
 import {
   competitionEmailCopy,
+  mailboxForLevels,
   sendJudgeEvaluationReminderEmail,
   type JudgeEvaluationReminderKind,
 } from "@/lib/email";
@@ -20,6 +21,7 @@ import type { JudgeAssignment } from "@/schemas/judgeAssignmentsSchema";
 import { toIdString } from "@/schemas/objectId";
 import type { User } from "@/schemas/userSchema";
 import {
+  educationLevelForRole,
   judgeRoleForEducation,
   SCORING_JUDGE_ROLES,
   type UserRole,
@@ -157,6 +159,11 @@ export async function sendJudgeReminders(options: {
         to,
         name: judge?.name,
         copy,
+        educationLevel:
+          options.track ??
+          mailboxForLevels(
+            (judge?.roles ?? []).map((grant) => educationLevelForRole(grant.role))
+          ),
         kind: options.kind,
         assignmentsUrl,
         outstandingCount: judge
