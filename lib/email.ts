@@ -1,7 +1,6 @@
 import "server-only";
 
 import nodemailer, { type Transporter } from "nodemailer";
-import { Resend } from "resend";
 
 import {
   CLOSING_CEREMONY_MODE_LABELS,
@@ -167,29 +166,6 @@ function requireEnv(name: string) {
   return value;
 }
 
-/** DEBUG_MODE=true sends through Resend; otherwise through SMTP. */
-function isDebugMode() {
-  const flag = process.env.DEBUG_MODE?.trim().toLowerCase();
-  return flag === "true" || flag === "1";
-}
-
-async function sendViaResend(message: MailMessage) {
-  const resend = new Resend(requireEnv("RESEND_API_KEY"));
-  const { attachments, educationLevel: _educationLevel, ...rest } = message;
-  const { error } = await resend.emails.send({
-    from: requireEnv("FROM_EMAIL"),
-    ...rest,
-    attachments: attachments?.map((attachment) => ({
-      filename: attachment.filename,
-      content: attachment.content,
-      contentType: attachment.contentType,
-    })),
-  });
-  if (error) {
-    throw new Error(error.message || "Failed to send email");
-  }
-}
-
 type MailboxSettings = {
   user: string;
   pass: string;
@@ -276,11 +252,6 @@ function fromFor(level: EducationLevel) {
 }
 
 async function sendMail(message: MailMessage) {
-  if (isDebugMode()) {
-    await sendViaResend(message);
-    return;
-  }
-
   const level = message.educationLevel ?? "UNDERGRADUATE";
   const { educationLevel: _educationLevel, ...rest } = message;
   await getTransporter(level).sendMail({ from: fromFor(level), ...rest });
