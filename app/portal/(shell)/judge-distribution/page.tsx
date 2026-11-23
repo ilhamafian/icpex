@@ -1,4 +1,4 @@
-import { JudgeDistributionView } from "@/components/JudgeDistributionView";
+import { JudgeDistributionAudience } from "@/components/JudgeDistributionAudience";
 import {
   emptyJudgeLeaderReport,
   loadJudgeLeaderReport,
@@ -7,15 +7,22 @@ import { requirePortalSection } from "@/utils/requirePortalAccess";
 
 export default async function JudgeDistributionPage() {
   const session = await requirePortalSection("judge-distribution");
-  const report = await loadJudgeLeaderReport(session.role).catch(
-    emptyJudgeLeaderReport
-  );
+  const [judgeReport, reviewerReport] = await Promise.all([
+    loadJudgeLeaderReport(session.role, "JUDGE").catch(emptyJudgeLeaderReport),
+    loadJudgeLeaderReport(session.role, "PAPER_REVIEWER").catch(
+      emptyJudgeLeaderReport
+    ),
+  ]);
 
   return (
-    <JudgeDistributionView
-      competitionName={report.competition_name}
-      rows={report.distribution}
-      unassignedParticipants={report.unassigned_participants}
+    <JudgeDistributionAudience
+      competitionName={
+        judgeReport.competition_name ?? reviewerReport.competition_name
+      }
+      judgeRows={judgeReport.distribution}
+      reviewerRows={reviewerReport.distribution}
+      judgeUnassigned={judgeReport.unassigned_participants}
+      reviewerUnassigned={reviewerReport.unassigned_participants}
     />
   );
 }

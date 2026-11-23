@@ -3,10 +3,12 @@ import {
   ADMIN_ROLES,
   JUDGE_LEADER_ROLES,
   SCORING_JUDGE_ROLES,
+  SCORING_ROLES,
   SECRETARIAT_ROLES,
   type UserRole,
 } from "@/schemas/userRole";
 
+/** Dashboard judge counts. Paper reviewers are a separate pool. */
 export const JUDGE_ROLES: UserRole[] = [...SCORING_JUDGE_ROLES];
 
 export async function requireSession(
@@ -30,9 +32,9 @@ export async function requireAdminSession(): Promise<SessionPayload | null> {
   return requireSession(ADMIN_ROLES);
 }
 
-/** Scoring judge for the active education track. */
+/** Scoring judge or paper reviewer for the active education track. */
 export async function requireJudgeSession(): Promise<SessionPayload | null> {
-  return requireSession(SCORING_JUDGE_ROLES);
+  return requireSession(SCORING_ROLES);
 }
 
 /** Judge leader or super admin — criteria and assignments. */

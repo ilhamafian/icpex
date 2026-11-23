@@ -2,6 +2,7 @@ import z from "zod";
 
 import { educationLevelSchema } from "./educationLevel";
 import { objectIdSchema } from "./objectId";
+import { scoringAudienceSchema } from "./scoringAudience";
 
 /** True when the value has at most one digit after the decimal point. */
 export function hasAtMostOneDecimal(value: number) {
@@ -53,6 +54,8 @@ export const judgeRubricSchema = z.object({
   _id: objectIdSchema.optional(),
   competition_id: objectIdSchema,
   education_level: educationLevelSchema,
+  /** Rows saved before paper reviewers existed are judges. */
+  audience: scoringAudienceSchema.default("JUDGE"),
   name: z.string().trim().min(1),
   sort_order: z.number().int().nonnegative(),
   components: z.array(judgeRubricComponentSchema).default([]),
@@ -63,6 +66,7 @@ export const judgeRubricSchema = z.object({
 export const judgeRubricCreateSchema = z.object({
   name: z.string().trim().min(1),
   education_level: educationLevelSchema.optional(),
+  audience: scoringAudienceSchema.optional(),
 });
 
 export const judgeRubricUpdateSchema = z

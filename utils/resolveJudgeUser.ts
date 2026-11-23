@@ -4,7 +4,7 @@ import { UserModel } from "@/models/User";
 import { toIdString } from "@/schemas/objectId";
 import type { UserRole } from "@/schemas/userRole";
 import type { SessionPayload } from "@/lib/session";
-import { JUDGE_ROLES } from "@/utils/portalAuth";
+import { SCORING_ROLES } from "@/schemas/userRole";
 
 export type PortalJudgeUser = {
   _id: string;
@@ -18,7 +18,7 @@ export type PortalJudgeUser = {
 export async function resolveJudgeUser(
   session: SessionPayload
 ): Promise<PortalJudgeUser | null> {
-  if (!JUDGE_ROLES.includes(session.role)) {
+  if (!SCORING_ROLES.includes(session.role)) {
     return null;
   }
 

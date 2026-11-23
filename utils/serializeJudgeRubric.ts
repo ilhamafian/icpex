@@ -8,6 +8,10 @@ import {
   type JudgeRubric,
   type JudgeRubricBands,
 } from "@/schemas/judgeRubricSchema";
+import {
+  scoringAudienceOf,
+  type ScoringAudience,
+} from "@/schemas/scoringAudience";
 import { toIdString } from "@/schemas/objectId";
 
 function toIso(value: Date | string | undefined) {
@@ -28,6 +32,7 @@ export type SerializedJudgeRubric = {
   _id: string;
   competition_id: string;
   education_level: JudgeRubric["education_level"];
+  audience: ScoringAudience;
   name: string;
   sort_order: number;
   components: SerializedJudgeRubricComponent[];
@@ -60,6 +65,7 @@ export function serializeJudgeRubric(
     _id: toIdString(rubric._id),
     competition_id: toIdString(rubric.competition_id),
     education_level: rubric.education_level,
+    audience: scoringAudienceOf(rubric.audience),
     name: rubric.name,
     sort_order: rubric.sort_order ?? 0,
     components,

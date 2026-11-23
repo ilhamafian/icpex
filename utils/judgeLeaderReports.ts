@@ -18,10 +18,14 @@ import {
 } from "@/schemas/competitionSchema";
 import { toIdString } from "@/schemas/objectId";
 import type { User } from "@/schemas/userSchema";
+import type { ScoringAudience } from "@/schemas/scoringAudience";
+import {
+  scoringAudienceOf,
+  withScoringAudience,
+} from "@/schemas/scoringAudience";
 import {
   educationLevelForRole,
-  judgeRoleForEducation,
-  SCORING_JUDGE_ROLES,
+  scoringRolesForAudience,
   type UserRole,
 } from "@/schemas/userRole";
 import { findRegistrationsForCompetition } from "@/utils/competitionScope";
@@ -173,16 +177,15 @@ function scoresForAssignment(
 }
 
 export async function loadJudgeLeaderReport(
-  role: UserRole
+  role: UserRole,
+  audience: ScoringAudience = "JUDGE"
 ): Promise<JudgeLeaderReport> {
   const competition = await getCurrentCompetition();
   if (!competition) return emptyJudgeLeaderReport();
 
   const competitionId = toIdString(competition._id);
   const track = educationLevelForRole(role);
-  const judgeRoles = track
-    ? [judgeRoleForEducation(track)]
-    : [...SCORING_JUDGE_ROLES];
+  const judgeRoles = scoringRolesForAudience(track, audience);
 
   const assignmentModel = new JudgeAssignmentModel();
   await assignmentModel.collapseDuplicates();
@@ -195,9 +198,12 @@ export async function loadJudgeLeaderReport(
       }),
       new CategoryModel().find({}),
       new JudgeRubricModel().find(
-        track
-          ? { competition_id: competitionId, education_level: track }
-          : { competition_id: competitionId },
+        withScoringAudience(
+          track
+            ? { competition_id: competitionId, education_level: track }
+            : { competition_id: competitionId },
+          audience
+        ) as never,
         { sort: { sort_order: 1, created_at: 1 } }
       ),
     ]);
@@ -214,9 +220,16 @@ export async function loadJudgeLeaderReport(
   const assignments =
     registrationNumbers.length === 0
       ? []
-      : await assignmentModel.find({
-          registration_number: { $in: registrationNumbers },
-        });
+      : (
+          await assignmentModel.find(
+            withScoringAudience(
+              { registration_number: { $in: registrationNumbers } },
+              audience
+            ) as never
+          )
+        ).filter(
+          (assignment) => scoringAudienceOf(assignment.audience) === audience
+        );
 
   const judgesById = new Map(
     assignedJudges.map((judge) => [toIdString(judge._id), judge])
@@ -237,7 +250,9 @@ export async function loadJudgeLeaderReport(
     categories.map((category) => [toIdString(category._id), category.name])
   );
   const componentNames = new Map<string, string>();
-  for (const rubric of rubricDocs.map(serializeJudgeRubric)) {
+  for (const rubric of rubricDocs
+    .filter((rubric) => scoringAudienceOf(rubric.audience) === audience)
+    .map(serializeJudgeRubric)) {
     for (const component of rubric.components) {
       componentNames.set(component._id, `${rubric.name} · ${component.name}`);
     }

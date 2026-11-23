@@ -4,6 +4,7 @@ import type {
   CompetitionEligibility,
   EducationLevel,
 } from "@/schemas/educationLevel";
+import type { ScoringAudience } from "@/schemas/scoringAudience";
 
 export const userRoleSchema = z.enum([
   "SUPER_ADMIN",
@@ -15,6 +16,8 @@ export const userRoleSchema = z.enum([
   "UNDERGRAD_JUDGE_LEADER",
   "POSTGRAD_JUDGE",
   "UNDERGRAD_JUDGE",
+  "POSTGRAD_PAPER_REVIEWER",
+  "UNDERGRAD_PAPER_REVIEWER",
 ]);
 
 export type UserRole = z.infer<typeof userRoleSchema>;
@@ -29,6 +32,8 @@ export const USER_ROLE_LABELS: Record<UserRole, string> = {
   UNDERGRAD_JUDGE_LEADER: "Undergraduate Judge Leader",
   POSTGRAD_JUDGE: "Postgraduate Judge",
   UNDERGRAD_JUDGE: "Undergraduate Judge",
+  POSTGRAD_PAPER_REVIEWER: "Postgraduate Paper Reviewer",
+  UNDERGRAD_PAPER_REVIEWER: "Undergraduate Paper Reviewer",
 };
 
 /** Staff who manage competitions, users, and the dashboard. */
@@ -52,10 +57,22 @@ export const JUDGE_LEADER_ROLES: UserRole[] = [
   "UNDERGRAD_JUDGE_LEADER",
 ];
 
-/** Scoring judges. Each one scores every rubric for their education track. */
+/** Scoring judges. Each one scores every judge rubric for their education track. */
 export const SCORING_JUDGE_ROLES: UserRole[] = [
   "POSTGRAD_JUDGE",
   "UNDERGRAD_JUDGE",
+];
+
+/** Paper reviewers. Each one scores every paper-reviewer rubric for their track. */
+export const PAPER_REVIEWER_ROLES: UserRole[] = [
+  "POSTGRAD_PAPER_REVIEWER",
+  "UNDERGRAD_PAPER_REVIEWER",
+];
+
+/** Judges and paper reviewers. Both complete a profile and score assignments. */
+export const SCORING_ROLES: UserRole[] = [
+  ...SCORING_JUDGE_ROLES,
+  ...PAPER_REVIEWER_ROLES,
 ];
 
 /** Roles in display / default-selection priority order. */
@@ -83,8 +100,33 @@ export function isScoringJudgeRole(role: string): role is UserRole {
   return (SCORING_JUDGE_ROLES as readonly string[]).includes(role);
 }
 
+export function isPaperReviewerRole(role: string): role is UserRole {
+  return (PAPER_REVIEWER_ROLES as readonly string[]).includes(role);
+}
+
+export function isScoringRole(role: string): role is UserRole {
+  return isScoringJudgeRole(role) || isPaperReviewerRole(role);
+}
+
 export function judgeRoleForEducation(level: EducationLevel): UserRole {
   return level === "POSTGRADUATE" ? "POSTGRAD_JUDGE" : "UNDERGRAD_JUDGE";
+}
+
+export function reviewerRoleForEducation(level: EducationLevel): UserRole {
+  return level === "POSTGRADUATE"
+    ? "POSTGRAD_PAPER_REVIEWER"
+    : "UNDERGRAD_PAPER_REVIEWER";
+}
+
+/** Scoring roles for one audience. A null level includes both tracks. */
+export function scoringRolesForAudience(
+  level: EducationLevel | null,
+  audience: ScoringAudience
+): UserRole[] {
+  if (audience === "PAPER_REVIEWER") {
+    return level ? [reviewerRoleForEducation(level)] : [...PAPER_REVIEWER_ROLES];
+  }
+  return level ? [judgeRoleForEducation(level)] : [...SCORING_JUDGE_ROLES];
 }
 
 /** Roles the active user is allowed to grant. */
@@ -98,6 +140,7 @@ export function rolesGrantableBy(actor: UserRole): UserRole[] {
         "POSTGRAD_SECRETARIAT",
         "POSTGRAD_JUDGE_LEADER",
         "POSTGRAD_JUDGE",
+        "POSTGRAD_PAPER_REVIEWER",
       ];
     case "UNDERGRAD_ADMIN":
       return [
@@ -105,6 +148,7 @@ export function rolesGrantableBy(actor: UserRole): UserRole[] {
         "UNDERGRAD_SECRETARIAT",
         "UNDERGRAD_JUDGE_LEADER",
         "UNDERGRAD_JUDGE",
+        "UNDERGRAD_PAPER_REVIEWER",
       ];
     default:
       return [];
@@ -112,14 +156,18 @@ export function rolesGrantableBy(actor: UserRole): UserRole[] {
 }
 
 /**
- * Level stored on a judge profile. Both tracks only when the invite includes
- * both judge roles.
+ * Level stored on a scoring profile. Both tracks only when the invite includes
+ * scoring roles from both education tracks. Judges and paper reviewers count.
  */
 export function educationEligibilityForJudgeRoles(
   roles: readonly UserRole[]
 ): CompetitionEligibility | null {
-  const postgrad = roles.includes("POSTGRAD_JUDGE");
-  const undergrad = roles.includes("UNDERGRAD_JUDGE");
+  const postgrad = roles.some(
+    (role) => role === "POSTGRAD_JUDGE" || role === "POSTGRAD_PAPER_REVIEWER"
+  );
+  const undergrad = roles.some(
+    (role) => role === "UNDERGRAD_JUDGE" || role === "UNDERGRAD_PAPER_REVIEWER"
+  );
   if (postgrad && undergrad) return "BOTH";
   if (postgrad) return "POSTGRADUATE";
   if (undergrad) return "UNDERGRADUATE";

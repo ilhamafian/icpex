@@ -8,6 +8,10 @@ import {
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { resolveRubricTrack } from "@/utils/judgeRubricAccess";
 import { requireJudgeLeaderSession } from "@/utils/portalAuth";
+import {
+  scoringAudienceOf,
+  withScoringAudience,
+} from "@/schemas/scoringAudience";
 import { serializeJudgeRubric } from "@/utils/serializeJudgeRubric";
 
 export async function GET(req: NextRequest) {
@@ -25,15 +29,18 @@ export async function GET(req: NextRequest) {
       session.role,
       requested ?? undefined
     );
+    const requestedAudience = req.nextUrl.searchParams.get("audience");
     const model = new JudgeRubricModel();
-    const query =
-      track.ok
-        ? {
-            competition_id: session.competition_id,
-            education_level: track.level,
-          }
-        : { competition_id: session.competition_id };
-    const rubrics = await model.find(query, {
+    const base = track.ok
+      ? {
+          competition_id: session.competition_id,
+          education_level: track.level,
+        }
+      : { competition_id: session.competition_id };
+    const query = requestedAudience
+      ? withScoringAudience(base, scoringAudienceOf(requestedAudience))
+      : base;
+    const rubrics = await model.find(query as never, {
       sort: { sort_order: 1, created_at: 1 },
     });
 
@@ -72,11 +79,17 @@ export async function POST(req: NextRequest) {
       return createResponse({ error: track.error }, track.status);
     }
 
+    const audience = scoringAudienceOf(parsed.data.audience);
     const model = new JudgeRubricModel();
-    const existing = await model.find({
-      competition_id: session.competition_id,
-      education_level: track.level,
-    });
+    const existing = await model.find(
+      withScoringAudience(
+        {
+          competition_id: session.competition_id,
+          education_level: track.level,
+        },
+        audience
+      ) as never
+    );
     const sort_order =
       existing.reduce(
         (max, rubric) => Math.max(max, rubric.sort_order ?? 0),
@@ -87,6 +100,7 @@ export async function POST(req: NextRequest) {
       judgeRubricSchema.parse({
         competition_id: session.competition_id,
         education_level: track.level,
+        audience,
         name: parsed.data.name,
         sort_order,
         components: [],

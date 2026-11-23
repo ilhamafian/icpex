@@ -76,6 +76,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useScoringAudience } from "@/components/ScoringAudienceSwitch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { LivePresentationDraft } from "@/schemas/competitionSchema";
@@ -170,6 +171,7 @@ function mean(values: number[]) {
 }
 
 function MarksSummary({ rows }: { rows: ParticipantMarkRow[] }) {
+  const paper = useScoringAudience() === "PAPER_REVIEWER";
   const fullyScored = rows.filter((row) => progressOf(row) === "scored").length;
   const inProgress = rows.filter((row) => {
     const progress = progressOf(row);
@@ -205,7 +207,9 @@ function MarksSummary({ rows }: { rows: ParticipantMarkRow[] }) {
           </CardTitle>
         </CardHeader>
         <CardFooter className="text-sm text-muted-foreground">
-          Every assigned judge has submitted
+          {paper
+            ? "Every assigned paper reviewer has submitted"
+            : "Every assigned judge has submitted"}
         </CardFooter>
       </Card>
       <Card className="@container/card">
@@ -227,7 +231,8 @@ function MarksSummary({ rows }: { rows: ParticipantMarkRow[] }) {
           </CardTitle>
         </CardHeader>
         <CardFooter className="text-sm text-muted-foreground">
-          {unassigned.toLocaleString()} with no active judge
+          {unassigned.toLocaleString()} with no active{" "}
+          {paper ? "paper reviewer" : "judge"}
         </CardFooter>
       </Card>
     </div>
@@ -235,6 +240,7 @@ function MarksSummary({ rows }: { rows: ParticipantMarkRow[] }) {
 }
 
 function JudgeMarks({ judge }: { judge: ParticipantMarkJudge }) {
+  const paper = useScoringAudience() === "PAPER_REVIEWER";
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-3">
@@ -274,7 +280,9 @@ function JudgeMarks({ judge }: { judge: ParticipantMarkJudge }) {
       ) : (
         <p className="text-sm text-muted-foreground">
           {judge.status === "REJECTED"
-            ? "This judge declined the assignment."
+            ? paper
+              ? "This paper reviewer declined the assignment."
+              : "This judge declined the assignment."
             : judge.submitted
               ? "No criterion marks were stored."
               : "Marks have not been submitted."}
@@ -286,6 +294,7 @@ function JudgeMarks({ judge }: { judge: ParticipantMarkJudge }) {
 
 function ParticipantDrawer({ item }: { item: ParticipantMarkRow }) {
   const isMobile = useIsMobile();
+  const paper = useScoringAudience() === "PAPER_REVIEWER";
   const scored = activeJudges(item).filter((judge) => judge.submitted).length;
   const active = activeJudges(item).length;
 
@@ -339,11 +348,13 @@ function ParticipantDrawer({ item }: { item: ParticipantMarkRow }) {
           <div className="font-medium">
             {item.average_score === null
               ? "No submitted marks yet"
-              : `Average ${formatScore(item.average_score)} from ${scored} of ${active} judge${active === 1 ? "" : "s"}`}
+              : `Average ${formatScore(item.average_score)} from ${scored} of ${active} ${paper ? "paper reviewer" : "judge"}${active === 1 ? "" : "s"}`}
           </div>
           <Separator />
           {item.judges.length === 0 ? (
-            <p className="text-muted-foreground">No judges assigned.</p>
+            <p className="text-muted-foreground">
+              {paper ? "No paper reviewers assigned." : "No judges assigned."}
+            </p>
           ) : (
             item.judges.map((judge, index) => (
               <React.Fragment key={judge.assignment_id}>
@@ -367,6 +378,7 @@ function createColumns(
   pageIndex: number,
   pageSize: number,
   showTrack: boolean,
+  marksHeader: string,
   live: {
     pendingId: string | null;
     onToggle: (row: ParticipantMarkRow, nominated: boolean) => void;
@@ -442,7 +454,7 @@ function createColumns(
       : []),
     columnHelper.display({
       id: "marks",
-      header: "Judge marks",
+      header: marksHeader,
       enableSorting: false,
       cell: ({ row }) => {
         const judges = row.original.judges;
@@ -719,18 +731,21 @@ export function ParticipantMarksView({
     );
   }, [resolved, view, query, views]);
 
+  const audience = useScoringAudience();
   const columns = React.useMemo(
     () =>
       createColumns(
         pagination.pageIndex,
         pagination.pageSize,
         showTrack,
+        audience === "PAPER_REVIEWER" ? "Paper reviewer marks" : "Judge marks",
         canNominate ? { pendingId, onToggle: toggleNomination } : null
       ),
     [
       pagination.pageIndex,
       pagination.pageSize,
       showTrack,
+      audience,
       canNominate,
       pendingId,
       toggleNomination,

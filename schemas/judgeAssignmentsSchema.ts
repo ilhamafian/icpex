@@ -1,5 +1,6 @@
 import z from "zod";
 import { objectIdSchema } from "./objectId";
+import { scoringAudienceSchema } from "./scoringAudience";
 
 export const judgeAssignmentStatusSchema = z.enum([
   "PENDING",
@@ -28,6 +29,8 @@ export const judgeAssignmentsSchema = z.object({
   /** One note for the participant. Older rows stored this on each score. */
   comments: z.string().default(""),
   type: judgeAssignmentTypeSchema.optional(),
+  /** Rows saved before paper reviewers existed are judges. */
+  audience: scoringAudienceSchema.default("JUDGE"),
   total_score: z.number().default(0),
   submitted_at: z.coerce.date().optional(),
   created_at: z.coerce.date().optional(),
@@ -39,6 +42,7 @@ export const judgeAssignmentInputSchema = z.object({
   judge_id: objectIdSchema,
   registration_number: z.string().min(1),
   status: judgeAssignmentStatusSchema.optional(),
+  audience: scoringAudienceSchema.optional(),
 });
 
 /** Leader may reassign judge, registration, or status — not scores. */

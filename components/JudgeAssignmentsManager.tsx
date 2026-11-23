@@ -19,6 +19,8 @@ import {
   JudgeAssignmentsDataTable,
   type JudgeAssignmentRow,
 } from "@/components/judge-assignments-data-table";
+import type { ScoringAudience } from "@/schemas/scoringAudience";
+import { scoringAudienceOf } from "@/schemas/scoringAudience";
 import type { SerializedUser } from "@/types/user";
 import type {
   AssignmentDocumentColumn,
@@ -38,7 +40,7 @@ async function readError(res: Response): Promise<string> {
 
 export function JudgeAssignmentsManager({
   initialAssignments,
-  judges,
+  judgesByAudience,
   categories,
   competitionId,
   registrations,
@@ -46,14 +48,23 @@ export function JudgeAssignmentsManager({
   judgingDueDate = null,
 }: {
   initialAssignments: SerializedJudgeAssignment[];
-  judges: SerializedUser[];
+  judgesByAudience: Record<ScoringAudience, SerializedUser[]>;
   categories: { id: string; name: string }[];
   competitionId: string | null;
   registrations: AssignmentRegistrationOption[];
   documentColumns: AssignmentDocumentColumn[];
   judgingDueDate?: string | null;
 }) {
+  const [audience, setAudience] = useState<ScoringAudience>("JUDGE");
   const [assignments, setAssignments] = useState(initialAssignments);
+  const judges = judgesByAudience[audience];
+  const visibleAssignments = useMemo(
+    () =>
+      assignments.filter(
+        (assignment) => scoringAudienceOf(assignment.audience) === audience
+      ),
+    [assignments, audience]
+  );
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [removeTarget, setRemoveTarget] =
     useState<SerializedJudgeAssignment | null>(null);
@@ -61,7 +72,7 @@ export function JudgeAssignmentsManager({
 
   const rows = useMemo<JudgeAssignmentRow[]>(() => {
     const byRegistration = new Map<string, SerializedJudgeAssignment[]>();
-    for (const assignment of assignments) {
+    for (const assignment of visibleAssignments) {
       const list = byRegistration.get(assignment.registration_number) ?? [];
       list.push(assignment);
       byRegistration.set(assignment.registration_number, list);
@@ -70,7 +81,7 @@ export function JudgeAssignmentsManager({
       registration,
       assignments: byRegistration.get(registration.registration_number) ?? [],
     }));
-  }, [assignments, registrations]);
+  }, [visibleAssignments, registrations]);
 
   const removeAssignment = useCallback(
     async (assignment: SerializedJudgeAssignment) => {
@@ -90,14 +101,22 @@ export function JudgeAssignmentsManager({
         setAssignments((prev) =>
           prev.filter((item) => item._id !== assignment._id)
         );
-        toast.success("Judge unassigned.");
+        toast.success(
+          audience === "PAPER_REVIEWER"
+            ? "Paper reviewer unassigned."
+            : "Judge unassigned."
+        );
       } catch {
-        toast.error("Failed to unassign judge.");
+        toast.error(
+          audience === "PAPER_REVIEWER"
+            ? "Failed to unassign paper reviewer."
+            : "Failed to unassign judge."
+        );
       } finally {
         setBusyKey(null);
       }
     },
-    []
+    [audience]
   );
 
   const handleToggleJudge = useCallback(
@@ -129,6 +148,7 @@ export function JudgeAssignmentsManager({
           body: JSON.stringify({
             judge_id: judge._id,
             registration_number: registrationNumber,
+            audience,
           }),
         });
         if (!res.ok) {
@@ -143,12 +163,16 @@ export function JudgeAssignmentsManager({
           `Assigned ${judgeName(judge, judge.email)} to ${registrationNumber}.`
         );
       } catch {
-        toast.error("Failed to assign judge.");
+        toast.error(
+          audience === "PAPER_REVIEWER"
+            ? "Failed to assign paper reviewer."
+            : "Failed to assign judge."
+        );
       } finally {
         setBusyKey(null);
       }
     },
-    [removeAssignment]
+    [audience, removeAssignment]
   );
 
   const remindUnscored = useCallback(async () => {
@@ -156,6 +180,8 @@ export function JudgeAssignmentsManager({
     try {
       const res = await fetch("/api/judge-assignments/remind", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audience }),
       });
       const data = (await res.json()) as {
         error?: unknown;
@@ -177,17 +203,19 @@ export function JudgeAssignmentsManager({
         );
         return;
       }
+      const people =
+        audience === "PAPER_REVIEWER" ? "paper reviewer" : "judge";
       toast.success(
         data.sent === data.total
-          ? `Reminder sent to ${data.sent} judge${data.sent === 1 ? "" : "s"}.`
-          : `Reminder sent to ${data.sent} of ${data.total} judges.`
+          ? `Reminder sent to ${data.sent} ${people}${data.sent === 1 ? "" : "s"}.`
+          : `Reminder sent to ${data.sent} of ${data.total} ${people}s.`
       );
     } catch {
       toast.error("Could not send reminders.");
     } finally {
       setReminding(false);
     }
-  }, []);
+  }, [audience]);
 
   const removeTargetJudge = removeTarget
     ? judges.find((judge) => judge._id === removeTarget.judge_id)
@@ -196,8 +224,11 @@ export function JudgeAssignmentsManager({
   return (
     <>
       <JudgeAssignmentsDataTable
+        key={audience}
         data={rows}
         judges={judges}
+        audience={audience}
+        onAudienceChange={setAudience}
         categories={categories}
         competitionId={competitionId}
         documentColumns={documentColumns}
@@ -216,7 +247,11 @@ export function JudgeAssignmentsManager({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Unassign judge?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {audience === "PAPER_REVIEWER"
+                ? "Unassign paper reviewer?"
+                : "Unassign judge?"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
               <span className="font-medium text-foreground">
                 {judgeName(removeTargetJudge, removeTarget?.judge_id ?? "")}

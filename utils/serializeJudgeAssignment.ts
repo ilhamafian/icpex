@@ -4,6 +4,10 @@ import { WithId } from "mongodb";
 
 import type { JudgeAssignment } from "@/schemas/judgeAssignmentsSchema";
 import { toIdString } from "@/schemas/objectId";
+import {
+  scoringAudienceOf,
+  type ScoringAudience,
+} from "@/schemas/scoringAudience";
 
 function toIso(value: Date | string | undefined) {
   if (!value) return undefined;
@@ -22,6 +26,7 @@ export type SerializedJudgeAssignment = {
   judge_id: string;
   registration_number: string;
   status: JudgeAssignment["status"];
+  audience: ScoringAudience;
   scores: SerializedJudgeScore[];
   comments: string;
   total_score: number;
@@ -38,6 +43,7 @@ export function serializeJudgeAssignment(
     judge_id: toIdString(assignment.judge_id),
     registration_number: assignment.registration_number,
     status: assignment.status,
+    audience: scoringAudienceOf(assignment.audience),
     scores: (assignment.scores ?? []).map((score) => ({
       component_id: toIdString(score.component_id ?? score.criteria_id),
       score: score.score,

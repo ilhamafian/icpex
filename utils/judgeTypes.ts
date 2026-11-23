@@ -1,8 +1,8 @@
-import { isScoringJudgeRole } from "@/schemas/userRole";
+import { isScoringJudgeRole, isScoringRole } from "@/schemas/userRole";
 
-export { isScoringJudgeRole };
+export { isScoringJudgeRole, isScoringRole };
 
-/** A track judge scores every rubric for their education track. */
+/** A judge or paper reviewer scores the rubrics for their assignment. */
 export function canScoreAssignments(roles: readonly string[]): boolean {
-  return roles.some((role) => isScoringJudgeRole(role));
+  return roles.some((role) => isScoringRole(role));
 }

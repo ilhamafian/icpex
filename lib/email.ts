@@ -20,6 +20,7 @@ import {
 } from "@/schemas/educationLevel";
 import {
   educationLevelForRole,
+  isPaperReviewerRole,
   USER_ROLE_LABELS,
   type UserRole,
 } from "@/schemas/userRole";
@@ -261,6 +262,8 @@ async function sendMail(message: MailMessage) {
 const JUDGE_INVITE_ROLES = new Set<UserRole>([
   "POSTGRAD_JUDGE",
   "UNDERGRAD_JUDGE",
+  "POSTGRAD_PAPER_REVIEWER",
+  "UNDERGRAD_PAPER_REVIEWER",
   "POSTGRAD_JUDGE_LEADER",
   "UNDERGRAD_JUDGE_LEADER",
 ]);
@@ -439,7 +442,8 @@ async function sendJudgeInviteEmail(options: {
   documentRequirements?: DocumentRequirement[];
 }) {
   const { copy } = options;
-  const greet = greeting(options.name?.trim() || "Judge");
+  const roleTitle = isPaperReviewerRole(options.role) ? "Paper Reviewer" : "Judge";
+  const greet = greeting(options.name?.trim() || roleTitle);
   const contact = contactSentence();
   const link = uploadLink(options.inviteUrl, "Accept invitation");
   const category = judgeCategory(options.role, copy);
@@ -449,13 +453,13 @@ async function sendJudgeInviteEmail(options: {
     ["Mode", "Online"],
     ["Closing Ceremony & Result Announcement", copy.closingCeremony],
   ]);
-  const opening = `On behalf of the organising committee, we are pleased to invite you to serve as a Judge for the ${themedCompetition(copy)}.`;
+  const opening = `On behalf of the organising committee, we are pleased to invite you to serve as a ${roleTitle} for the ${themedCompetition(copy)}.`;
   const about = `${copy.name} is a virtual competition that brings together undergraduate and postgraduate participants from UniKL and other local and international institutions. It builds on the Kuala Lumpur Idea & Innovation Competition (KLIIC) and I-CPEX and now includes undergraduate innovation projects and postgraduate research communication through the Five-Minute Thesis (5MT) Competition. Your expertise and industry/academic perspectives would be valuable in evaluating the participants.`;
   const reviewLine = documentReviewPhrase(
     options.documentRequirements ?? []
   );
   const roleText = [
-    "Your role as a judge:",
+    `Your role as a ${roleTitle.toLowerCase()}:`,
     reviewLine,
     "Evaluate each submission using the official judging and evaluation form, which will be provided online.",
     "Submit your scores and comments by the end of the judging period.",
@@ -467,7 +471,7 @@ async function sendJudgeInviteEmail(options: {
   await sendMail({
     to: options.to,
     educationLevel: educationLevelForRole(options.role) ?? "UNDERGRADUATE",
-    subject: `Invitation to Serve as a Judge: ${copy.name}`,
+    subject: `Invitation to Serve as a ${roleTitle}: ${copy.name}`,
     html: joinHtml([
       greet.html,
       INTRO_HTML,

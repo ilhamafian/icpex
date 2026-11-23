@@ -1,11 +1,14 @@
+import { NextRequest } from "next/server";
+
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { getCurrentCompetition } from "@/utils/currentCompetition";
 import { sendJudgeReminders } from "@/utils/judgeReminders";
 import { requireJudgeLeaderSession } from "@/utils/portalAuth";
+import { scoringAudienceOf } from "@/schemas/scoringAudience";
 import { educationLevelForRole } from "@/schemas/userRole";
 
-/** Judge leader emails judges on their track who still have unscored assignments. */
-export async function POST() {
+/** Judge leader emails scorers on their track who still have unscored assignments. */
+export async function POST(req: NextRequest) {
   try {
     const session = await requireJudgeLeaderSession();
     if (!session) {
@@ -20,10 +23,15 @@ export async function POST() {
       );
     }
 
+    const body = (await req.json().catch(() => null)) as {
+      audience?: unknown;
+    } | null;
+    const audience = scoringAudienceOf(body?.audience);
     const delivery = await sendJudgeReminders({
       competition,
       kind: "unscored",
       track: educationLevelForRole(session.role),
+      audience,
     });
 
     if (delivery.total === 0) {
@@ -31,7 +39,10 @@ export async function POST() {
         sent: 0,
         failed: 0,
         total: 0,
-        message: "Every assigned judge has already submitted their scores.",
+        message:
+          audience === "PAPER_REVIEWER"
+            ? "Every assigned paper reviewer has already submitted their scores."
+            : "Every assigned judge has already submitted their scores.",
       });
     }
 

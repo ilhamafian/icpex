@@ -3,10 +3,12 @@ import "server-only";
 import { RegistrationModel } from "@/models/Registration";
 import { UserModel } from "@/models/User";
 import { toIdString } from "@/schemas/objectId";
+import type { ScoringAudience } from "@/schemas/scoringAudience";
 import type { UserRole } from "@/schemas/userRole";
 import {
   educationLevelForRole,
   judgeRoleForEducation,
+  reviewerRoleForEducation,
   USER_ROLE_LABELS,
 } from "@/schemas/userRole";
 import { registrationCompetitionId } from "@/utils/competitionScope";
@@ -18,6 +20,7 @@ export async function validateAssignmentRefs(input: {
   registration_number: string;
   /** Active role of the person creating the assignment. */
   actorRole?: UserRole;
+  audience?: ScoringAudience;
 }) {
   const registration = await new RegistrationModel().findOne({
     registration_number: input.registration_number,
@@ -43,7 +46,12 @@ export async function validateAssignmentRefs(input: {
     return { error: "Judge not found.", status: 400 as const };
   }
 
-  const requiredRole = judgeRoleForEducation(educationLevel);
+  const audience = input.audience ?? "JUDGE";
+  const requiredRole =
+    audience === "PAPER_REVIEWER"
+      ? reviewerRoleForEducation(educationLevel)
+      : judgeRoleForEducation(educationLevel);
+  const who = audience === "PAPER_REVIEWER" ? "Paper reviewer" : "Judge";
   if (
     !hasGrant(
       judge.roles,
@@ -52,7 +60,7 @@ export async function validateAssignmentRefs(input: {
     )
   ) {
     return {
-      error: `Judge must have the ${USER_ROLE_LABELS[requiredRole]} role in this registration's competition.`,
+      error: `${who} must have the ${USER_ROLE_LABELS[requiredRole]} role in this registration's competition.`,
       status: 400 as const,
     };
   }

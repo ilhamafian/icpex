@@ -23,6 +23,10 @@ import {
   scoringBlockReason,
   weightedRubricScore,
 } from "@/utils/rubricScore";
+import {
+  scoringAudienceOf,
+  withScoringAudience,
+} from "@/schemas/scoringAudience";
 import { serializeJudgeRubric } from "@/utils/serializeJudgeRubric";
 import { canAccessEducationLevel } from "@/utils/trackAccess";
 import {
@@ -142,10 +146,13 @@ export async function PATCH(
       }
 
       const rubricDocs = await new JudgeRubricModel().find(
-        {
-          competition_id: owned.competitionId,
-          education_level: owned.educationLevel,
-        },
+        withScoringAudience(
+          {
+            competition_id: owned.competitionId,
+            education_level: owned.educationLevel,
+          },
+          scoringAudienceOf(existing.audience)
+        ) as never,
         { sort: { sort_order: 1, created_at: 1 } }
       );
       const rubrics = rubricDocs.map(serializeJudgeRubric);

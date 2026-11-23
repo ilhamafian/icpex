@@ -10,6 +10,10 @@ import { JudgeAssignmentModel } from "@/models/JudgeAssignment";
 import { JudgeRubricModel } from "@/models/JudgeRubric";
 import { RegistrationModel } from "@/models/Registration";
 import { toIdString } from "@/schemas/objectId";
+import {
+  scoringAudienceOf,
+  withScoringAudience,
+} from "@/schemas/scoringAudience";
 import { registrationCompetitionId } from "@/utils/competitionScope";
 import { canScoreAssignments } from "@/utils/judgeTypes";
 import { readyRubrics, scoringBlockReason } from "@/utils/rubricScore";
@@ -60,10 +64,13 @@ export default async function AssessmentPage({
     new CompetitionModel().findById(toIdString(registration.competition_id)),
     new CategoryModel().findById(toIdString(registration.category_id)),
     new JudgeRubricModel().find(
-      {
-        competition_id: registrationCompetitionId(registration),
-        education_level: registration.participant.education_level,
-      },
+      withScoringAudience(
+        {
+          competition_id: registrationCompetitionId(registration),
+          education_level: registration.participant.education_level,
+        },
+        scoringAudienceOf(assignment.audience)
+      ) as never,
       { sort: { sort_order: 1, created_at: 1 } }
     ),
   ]);

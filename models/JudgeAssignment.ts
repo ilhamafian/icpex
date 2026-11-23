@@ -6,6 +6,7 @@ import {
   judgeAssignmentsSchema,
 } from "@/schemas/judgeAssignmentsSchema";
 import { toIdString } from "@/schemas/objectId";
+import { scoringAudienceOf } from "@/schemas/scoringAudience";
 import { ModelBase } from "./ModelBase";
 
 function timestamp(value: Date | string | undefined) {
@@ -26,7 +27,7 @@ export class JudgeAssignmentModel extends ModelBase<JudgeAssignment> {
     const rows = await this.find({});
     const groups = new Map<string, typeof rows>();
     for (const row of rows) {
-      const key = `${toIdString(row.judge_id)}:${row.registration_number}`;
+      const key = `${toIdString(row.judge_id)}:${row.registration_number}:${scoringAudienceOf(row.audience)}`;
       const list = groups.get(key) ?? [];
       list.push(row);
       groups.set(key, list);

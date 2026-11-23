@@ -1,4 +1,4 @@
-import { ParticipantMarksView } from "@/components/ParticipantMarksView";
+import { ParticipantMarksAudience } from "@/components/ParticipantMarksAudience";
 import {
   canManageLivePresentation,
   educationLevelForRole,
@@ -11,17 +11,23 @@ import { requirePortalSection } from "@/utils/requirePortalAccess";
 
 export default async function ParticipantMarksPage() {
   const session = await requirePortalSection("participant-marks");
-  const report = await loadJudgeLeaderReport(session.role).catch(
-    emptyJudgeLeaderReport
-  );
+  const [judgeReport, reviewerReport] = await Promise.all([
+    loadJudgeLeaderReport(session.role, "JUDGE").catch(emptyJudgeLeaderReport),
+    loadJudgeLeaderReport(session.role, "PAPER_REVIEWER").catch(
+      emptyJudgeLeaderReport
+    ),
+  ]);
 
   return (
-    <ParticipantMarksView
-      competitionName={report.competition_name}
-      rows={report.marks}
+    <ParticipantMarksAudience
+      competitionName={
+        judgeReport.competition_name ?? reviewerReport.competition_name
+      }
+      judgeRows={judgeReport.marks}
+      reviewerRows={reviewerReport.marks}
       showTrack={educationLevelForRole(session.role) === null}
       canNominate={canManageLivePresentation(session.role)}
-      liveSession={report.live_presentation}
+      liveSession={judgeReport.live_presentation}
     />
   );
 }

@@ -10,6 +10,10 @@ import { requireJudgeLeaderSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { serializeJudgeAssignment } from "@/utils/serializeJudgeAssignment";
 import { educationLevelForRole } from "@/schemas/userRole";
+import {
+  scoringAudienceOf,
+  withScoringAudience,
+} from "@/schemas/scoringAudience";
 import { validateAssignmentRefs } from "@/utils/validateJudgeAssignment";
 import { RegistrationModel } from "@/models/Registration";
 import type { EducationLevel } from "@/schemas/educationLevel";
@@ -69,10 +73,12 @@ export async function POST(req: NextRequest) {
     }
 
     const judgeId = toIdString(parsed.data.judge_id);
+    const audience = scoringAudienceOf(parsed.data.audience);
     const refs = await validateAssignmentRefs({
       judge_id: judgeId,
       registration_number: parsed.data.registration_number,
       actorRole: session.role,
+      audience,
     });
     if ("error" in refs) {
       return createResponse({ error: refs.error }, refs.status);
@@ -80,13 +86,23 @@ export async function POST(req: NextRequest) {
 
     const model = new JudgeAssignmentModel();
     await model.collapseDuplicates();
-    const duplicate = await model.findOne({
-      judge_id: judgeId,
-      registration_number: parsed.data.registration_number,
-    });
+    const duplicate = await model.findOne(
+      withScoringAudience(
+        {
+          judge_id: judgeId,
+          registration_number: parsed.data.registration_number,
+        },
+        audience
+      ) as never
+    );
     if (duplicate) {
       return createResponse(
-        { error: "This judge is already assigned to that registration." },
+        {
+          error:
+            audience === "PAPER_REVIEWER"
+              ? "This paper reviewer is already assigned to that registration."
+              : "This judge is already assigned to that registration.",
+        },
         409
       );
     }
@@ -95,6 +111,7 @@ export async function POST(req: NextRequest) {
       judgeAssignmentsSchema.parse({
         judge_id: judgeId,
         registration_number: parsed.data.registration_number,
+        audience,
         status: "ACCEPTED",
         scores: [],
         total_score: 0,

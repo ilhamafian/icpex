@@ -62,6 +62,8 @@ import {
 } from "@/components/ui/table";
 import { COMPETITION_ELIGIBILITY_LABELS } from "@/schemas/educationLevel";
 import type { JudgeAssignmentStatus } from "@/schemas/judgeAssignmentsSchema";
+import type { ScoringAudience } from "@/schemas/scoringAudience";
+import { ScoringAudienceSwitch } from "@/components/ScoringAudienceSwitch";
 import type { PaymentStatus } from "@/schemas/paymentSchema";
 import { PAYMENT_STATUS_LABELS } from "@/utils/paymentStatusLabel";
 import type { SerializedUser } from "@/types/user";
@@ -341,6 +343,8 @@ function JudgeProfilePreview({
 type JudgeAssignmentsDataTableProps = {
   data: JudgeAssignmentRow[];
   judges: SerializedUser[];
+  audience: ScoringAudience;
+  onAudienceChange: (audience: ScoringAudience) => void;
   categories: { id: string; name: string }[];
   /** Judges are offered only for roles held in this competition. */
   competitionId: string | null;
@@ -363,6 +367,8 @@ export function assignmentKey(registrationNumber: string, judgeId: string) {
 export function JudgeAssignmentsDataTable({
   data,
   judges,
+  audience,
+  onAudienceChange,
   categories: categoryCatalog,
   competitionId,
   documentColumns,
@@ -481,6 +487,10 @@ export function JudgeAssignmentsDataTable({
     paymentFilter.size +
     assignmentFilter.size +
     categoryFilter.size;
+
+  const paper = audience === "PAPER_REVIEWER";
+  const peopleLabel = paper ? "Paper reviewers" : "Judges";
+  const assignLabel = paper ? "Assign paper reviewers" : "Assign judges";
 
   const columns = React.useMemo(
     () =>
@@ -630,12 +640,12 @@ export function JudgeAssignmentsDataTable({
                       <IconUserPlus />
                       {assignments.length === 0 ? "Assign" : null}
                       <span className="sr-only">
-                        Assign judges to {registration.registration_number}
+                        {assignLabel} to {registration.registration_number}
                       </span>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-72">
-                    <DropdownMenuLabel>Judges</DropdownMenuLabel>
+                    <DropdownMenuLabel>{peopleLabel}</DropdownMenuLabel>
                     {(() => {
                       const assignedIds = new Set(
                         assignments.map((item) => item.judge_id)
@@ -648,7 +658,7 @@ export function JudgeAssignmentsDataTable({
                       if (options.length === 0) {
                         return (
                           <p className="text-muted-foreground px-3 pb-2 text-sm">
-                            No judges
+                            {paper ? "No paper reviewers" : "No judges"}
                           </p>
                         );
                       }
@@ -728,11 +738,14 @@ export function JudgeAssignmentsDataTable({
         }),
       ]),
     [
+      assignLabel,
       busyKey,
       categoryNameById,
       competitionId,
       judges,
       judgesById,
+      paper,
+      peopleLabel,
       documentColumns,
       onToggleJudge,
       pagination.pageIndex,
@@ -764,8 +777,16 @@ export function JudgeAssignmentsDataTable({
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 lg:px-6">
         <div>
           <h2 className="text-lg font-medium">Judge Assignments</h2>
-          <p className="text-muted-foreground text-sm">
-            Choose which judges review each registration. They score every rubric for this track.
+          <div className="mt-2">
+            <ScoringAudienceSwitch
+              value={audience}
+              onValueChange={onAudienceChange}
+            />
+          </div>
+          <p className="text-muted-foreground mt-2 text-sm">
+            {paper
+              ? "Choose which paper reviewers review each registration. They score every paper-reviewer rubric for this track."
+              : "Choose which judges review each registration. They score every rubric for this track."}
           </p>
           <p className="text-muted-foreground text-sm">
             {leaderScoringDeadlineMessage(judgingDueDate)}
@@ -779,7 +800,11 @@ export function JudgeAssignmentsDataTable({
               onClick={onRemindUnscored}
               disabled={reminding || !competitionId}
             >
-              {reminding ? "Sending…" : "Remind unscored judges"}
+              {reminding
+                ? "Sending…"
+                : paper
+                  ? "Remind unscored paper reviewers"
+                  : "Remind unscored judges"}
             </Button>
           ) : null}
           <div className="relative">
@@ -863,8 +888,8 @@ export function JudgeAssignmentsDataTable({
                 </DropdownMenuCheckboxItem>
               ))}
               <DropdownMenuSeparator />
-              <DropdownMenuLabel>Judges</DropdownMenuLabel>
-              {ASSIGNMENT_FILTERS.map(({ value, label }) => (
+              <DropdownMenuLabel>{peopleLabel}</DropdownMenuLabel>
+              {ASSIGNMENT_FILTERS.map(({ value }) => (
                 <DropdownMenuCheckboxItem
                   key={value}
                   checked={assignmentFilter.has(value)}
@@ -876,7 +901,13 @@ export function JudgeAssignmentsDataTable({
                     table.setPageIndex(0);
                   }}
                 >
-                  {label}
+                  {value === "ASSIGNED"
+                    ? paper
+                      ? "Has paper reviewers"
+                      : "Has judges"
+                    : paper
+                      ? "No paper reviewers yet"
+                      : "No judges yet"}
                 </DropdownMenuCheckboxItem>
               ))}
               {activeFilterCount ? (
@@ -914,7 +945,9 @@ export function JudgeAssignmentsDataTable({
             <SelectContent align="end">
               {(Object.keys(SORT_OPTIONS) as SortOption[]).map((option) => (
                 <SelectItem key={option} value={option}>
-                  {SORT_OPTIONS[option]}
+                  {option === "fewestJudges" && paper
+                    ? "Fewest paper reviewers first"
+                    : SORT_OPTIONS[option]}
                 </SelectItem>
               ))}
             </SelectContent>

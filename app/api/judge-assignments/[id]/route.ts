@@ -10,6 +10,10 @@ import { toIdString } from "@/schemas/objectId";
 import { requireJudgeLeaderSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { serializeJudgeAssignment } from "@/utils/serializeJudgeAssignment";
+import {
+  scoringAudienceOf,
+  withScoringAudience,
+} from "@/schemas/scoringAudience";
 import { canAccessEducationLevel } from "@/utils/trackAccess";
 import { validateAssignmentRefs } from "@/utils/validateJudgeAssignment";
 
@@ -66,23 +70,36 @@ export async function PATCH(
       nextJudgeId !== toIdString(existing.judge_id) ||
       nextRegistration !== existing.registration_number;
 
+    const audience = scoringAudienceOf(existing.audience);
+
     if (changedIdentity) {
       const refs = await validateAssignmentRefs({
         judge_id: nextJudgeId,
         registration_number: nextRegistration,
         actorRole: session.role,
+        audience,
       });
       if ("error" in refs) {
         return createResponse({ error: refs.error }, refs.status);
       }
 
-      const duplicate = await model.findOne({
-        judge_id: nextJudgeId,
-        registration_number: nextRegistration,
-      });
+      const duplicate = await model.findOne(
+        withScoringAudience(
+          {
+            judge_id: nextJudgeId,
+            registration_number: nextRegistration,
+          },
+          audience
+        ) as never
+      );
       if (duplicate && toIdString(duplicate._id) !== id) {
         return createResponse(
-          { error: "This judge is already assigned to that registration." },
+          {
+            error:
+              audience === "PAPER_REVIEWER"
+                ? "This paper reviewer is already assigned to that registration."
+                : "This judge is already assigned to that registration.",
+          },
           409
         );
       }

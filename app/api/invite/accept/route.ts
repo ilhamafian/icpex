@@ -4,13 +4,14 @@ import { hashInviteToken } from "@/lib/inviteToken";
 import { hashPassword } from "@/lib/password";
 import { CategoryModel } from "@/models/Category";
 import { UserModel } from "@/models/User";
+import { categoryMatchesEligibility } from "@/schemas/educationLevel";
 import { judgeProfileSchema } from "@/schemas/judgeProfileSchema";
 import { toIdString } from "@/schemas/objectId";
 import { acceptInviteSchema } from "@/schemas/userSchema";
 import { sortRoles, educationEligibilityForJudgeRoles } from "@/schemas/userRole";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { normalizeInstitution } from "@/utils/institutionKey";
-import { isScoringJudgeRole } from "@/utils/judgeTypes";
+import { isScoringRole } from "@/utils/judgeTypes";
 
 function firstIssueMessage(error: { issues: { message: string }[] }) {
   return error.issues[0]?.message ?? "Check the form and try again.";
@@ -70,7 +71,7 @@ export async function POST(req: NextRequest) {
     }
 
     const scoringJudge = user.roles.some((grant) =>
-      isScoringJudgeRole(grant.role)
+      isScoringRole(grant.role)
     );
 
     let judge_profile;
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
         return createResponse(
           {
             error:
-              "Judges must provide a university, national ID, and categories.",
+              "Enter a university, national ID, and categories.",
           },
           400
         );
@@ -92,30 +93,6 @@ export async function POST(req: NextRequest) {
         return createResponse({ error: "University is required." }, 400);
       }
 
-      const requestedIds = [
-        ...new Set(
-          parsed.data.judge_profile.category_ids.map((id) => toIdString(id))
-        ),
-      ];
-      const categories = await new CategoryModel().find({});
-      const known = new Map(
-        categories.map((category) => [
-          toIdString(category._id).toLowerCase(),
-          toIdString(category._id),
-        ])
-      );
-      const category_ids: string[] = [];
-      for (const id of requestedIds) {
-        const canonical = known.get(id.toLowerCase());
-        if (!canonical) {
-          return createResponse(
-            { error: "Select a category from the list." },
-            400
-          );
-        }
-        category_ids.push(canonical);
-      }
-
       const eligibility = educationEligibilityForJudgeRoles(
         user.roles.map((grant) => grant.role)
       );
@@ -124,6 +101,33 @@ export async function POST(req: NextRequest) {
           { error: "This invitation is not for a judge." },
           400
         );
+      }
+
+      const requestedIds = [
+        ...new Set(
+          parsed.data.judge_profile.category_ids.map((id) => toIdString(id))
+        ),
+      ];
+      const categories = await new CategoryModel().find({});
+      const known = new Map(
+        categories.flatMap((category) => {
+          const id = toIdString(category._id);
+          if (!id || !categoryMatchesEligibility(category.education_level, eligibility)) {
+            return [];
+          }
+          return [[id.toLowerCase(), id] as const];
+        })
+      );
+      const category_ids: string[] = [];
+      for (const id of requestedIds) {
+        const canonical = known.get(id.toLowerCase());
+        if (!canonical) {
+          return createResponse(
+            { error: "Select a category from your education track." },
+            400
+          );
+        }
+        category_ids.push(canonical);
       }
 
       judge_profile = judgeProfileSchema.parse({

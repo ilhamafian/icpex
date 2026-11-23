@@ -33,11 +33,23 @@ async function run(request: NextRequest) {
       return createResponse({ skipped: true, reason: "No reminder is due." });
     }
 
-    const delivery = await sendJudgeReminders({
+    const judgeDelivery = await sendJudgeReminders({
       competition,
       kind,
       track: null,
+      audience: "JUDGE",
     });
+    const reviewerDelivery = await sendJudgeReminders({
+      competition,
+      kind,
+      track: null,
+      audience: "PAPER_REVIEWER",
+    });
+    const delivery = {
+      sent: judgeDelivery.sent + reviewerDelivery.sent,
+      failed: judgeDelivery.failed + reviewerDelivery.failed,
+      total: judgeDelivery.total + reviewerDelivery.total,
+    };
 
     if (delivery.total > 0) {
       await stampScheduledReminder(toIdString(competition._id), kind);

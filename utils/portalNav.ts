@@ -13,7 +13,7 @@ import {
 import {
   ADMIN_ROLES,
   JUDGE_LEADER_ROLES,
-  SCORING_JUDGE_ROLES,
+  SCORING_ROLES,
   SECRETARIAT_ROLES,
   type UserRole,
 } from "@/schemas/userRole";
@@ -101,7 +101,7 @@ export const portalNavMain: PortalNavItem[] = [
     url: "/portal/my-assignments",
     icon: IconClipboardList,
     section: "my-assignments",
-    roles: SCORING_JUDGE_ROLES,
+    roles: SCORING_ROLES,
   },
 ];
 

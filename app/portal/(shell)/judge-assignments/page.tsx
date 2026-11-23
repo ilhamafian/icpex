@@ -5,10 +5,10 @@ import { PaymentModel } from "@/models/Payment";
 import { UserModel } from "@/models/User";
 import { toIdString } from "@/schemas/objectId";
 import type { PaymentStatus } from "@/schemas/paymentSchema";
+import type { ScoringAudience } from "@/schemas/scoringAudience";
 import {
   educationLevelForRole,
-  judgeRoleForEducation,
-  SCORING_JUDGE_ROLES,
+  scoringRolesForAudience,
 } from "@/schemas/userRole";
 import { usersWithRolesFilter } from "@/utils/roleGrants";
 import { effectiveDocumentRequirements } from "@/schemas/documentRequirement";
@@ -27,7 +27,12 @@ async function loadAssignmentData(
   role: Parameters<typeof educationLevelForRole>[0]
 ) {
   if (!competitionId) {
-    return { assignments: [], judges: [], registrations: [], categories: [] };
+    return {
+      assignments: [],
+      judgesByAudience: { JUDGE: [], PAPER_REVIEWER: [] },
+      registrations: [],
+      categories: [],
+    };
   }
 
   try {
@@ -36,14 +41,21 @@ async function loadAssignmentData(
     await assignmentModel.collapseDuplicates();
 
     const track = educationLevelForRole(role);
-    const judgeRoles = track
-      ? [judgeRoleForEducation(track)]
-      : [...SCORING_JUDGE_ROLES];
-    const [foundRegistrations, users, payments, categories] = await Promise.all([
+    const userModel = new UserModel();
+    const [foundRegistrations, judgeUsers, reviewerUsers, payments, categories] =
+      await Promise.all([
       findRegistrationsForCompetition(competitionId),
-      new UserModel().find(usersWithRolesFilter(judgeRoles, competitionId), {
-        sort: { email: 1 },
-      }),
+      userModel.find(
+        usersWithRolesFilter(scoringRolesForAudience(track, "JUDGE"), competitionId),
+        { sort: { email: 1 } }
+      ),
+      userModel.find(
+        usersWithRolesFilter(
+          scoringRolesForAudience(track, "PAPER_REVIEWER"),
+          competitionId
+        ),
+        { sort: { email: 1 } }
+      ),
       new PaymentModel().find({}, { sort: { created_at: -1 } }),
       new CategoryModel().find({}),
     ]);
@@ -76,9 +88,14 @@ async function loadAssignmentData(
       { sort: { created_at: -1 } }
     );
 
+    const judgesByAudience: Record<ScoringAudience, ReturnType<typeof serializeUser>[]> = {
+      JUDGE: judgeUsers.map(serializeUser),
+      PAPER_REVIEWER: reviewerUsers.map(serializeUser),
+    };
+
     return {
       assignments: assignments.map(serializeJudgeAssignment),
-      judges: users.map(serializeUser),
+      judgesByAudience,
       categories: categories.map((category) => ({
         id: toIdString(category._id),
         name: category.name,
@@ -92,7 +109,12 @@ async function loadAssignmentData(
       ),
     };
   } catch {
-    return { assignments: [], judges: [], registrations: [], categories: [] };
+    return {
+      assignments: [],
+      judgesByAudience: { JUDGE: [], PAPER_REVIEWER: [] },
+      registrations: [],
+      categories: [],
+    };
   }
 }
 
@@ -100,7 +122,7 @@ export default async function JudgeAssignmentsPage() {
   const session = await requirePortalSection("judge-assignments");
   const competition = await getCurrentCompetition();
   const competitionId = competition ? toIdString(competition._id) : null;
-  const { assignments, judges, registrations, categories } =
+  const { assignments, judgesByAudience, registrations, categories } =
     await loadAssignmentData(competitionId, session.role);
   const documentColumns = assignmentDocumentColumns(
     effectiveDocumentRequirements(competition),
@@ -110,7 +132,7 @@ export default async function JudgeAssignmentsPage() {
   return (
     <JudgeAssignmentsManager
       initialAssignments={assignments}
-      judges={judges}
+      judgesByAudience={judgesByAudience}
       categories={categories}
       competitionId={competitionId}
       registrations={registrations}

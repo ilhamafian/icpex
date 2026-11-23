@@ -19,11 +19,15 @@ import {
 import type { EducationLevel } from "@/schemas/educationLevel";
 import type { JudgeAssignment } from "@/schemas/judgeAssignmentsSchema";
 import { toIdString } from "@/schemas/objectId";
+import type { ScoringAudience } from "@/schemas/scoringAudience";
+import {
+  scoringAudienceOf,
+  withScoringAudience,
+} from "@/schemas/scoringAudience";
 import type { User } from "@/schemas/userSchema";
 import {
   educationLevelForRole,
-  judgeRoleForEducation,
-  SCORING_JUDGE_ROLES,
+  scoringRolesForAudience,
   type UserRole,
 } from "@/schemas/userRole";
 import { findRegistrationsForCompetition } from "@/utils/competitionScope";
@@ -88,6 +92,7 @@ async function assignedJudges(options: {
   competitionId: string;
   track: EducationLevel | null;
   unscoredOnly: boolean;
+  audience: ScoringAudience;
 }) {
   const registrations = await findRegistrationsForCompetition(
     options.competitionId
@@ -103,10 +108,19 @@ async function assignedJudges(options: {
     return { judges: [] as WithId<User>[], outstanding: new Map<string, number>() };
   }
 
-  const assignments = await new JudgeAssignmentModel().find({
-    registration_number: { $in: numbers },
-    status: { $ne: "REJECTED" },
-  } as Filter<JudgeAssignment>);
+  const assignments = (
+    await new JudgeAssignmentModel().find(
+      withScoringAudience(
+        {
+          registration_number: { $in: numbers },
+          status: { $ne: "REJECTED" },
+        },
+        options.audience
+      ) as Filter<JudgeAssignment>
+    )
+  ).filter(
+    (assignment) => scoringAudienceOf(assignment.audience) === options.audience
+  );
 
   const outstanding = new Map<string, number>();
   const involved = new Set<string>();
@@ -118,9 +132,10 @@ async function assignedJudges(options: {
     }
   }
 
-  const judgeRoles: UserRole[] = options.track
-    ? [judgeRoleForEducation(options.track)]
-    : [...SCORING_JUDGE_ROLES];
+  const judgeRoles: UserRole[] = scoringRolesForAudience(
+    options.track,
+    options.audience
+  );
   const users = await new UserModel().find(
     usersWithRolesFilter(judgeRoles, options.competitionId),
     { sort: { email: 1 } }
@@ -135,12 +150,14 @@ export async function sendJudgeReminders(options: {
   competition: WithId<Competition>;
   kind: JudgeEvaluationReminderKind;
   track: EducationLevel | null;
+  audience: ScoringAudience;
 }) {
   const competitionId = toIdString(options.competition._id);
   const { judges, outstanding } = await assignedJudges({
     competitionId,
     track: options.track,
     unscoredOnly: options.kind === "unscored",
+    audience: options.audience,
   });
   if (judges.length === 0) {
     return { sent: 0, failed: 0, total: 0 };

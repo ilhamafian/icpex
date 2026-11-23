@@ -11,6 +11,7 @@ import { toIdString } from "@/schemas/objectId";
 import type { Payment } from "@/schemas/paymentSchema";
 import type { EducationLevel } from "@/schemas/educationLevel";
 import type { Registration } from "@/schemas/registrationSchema";
+import { scoringAudienceOf } from "@/schemas/scoringAudience";
 import { JUDGE_ROLES } from "@/utils/portalAuth";
 import type { Currency } from "@/utils/registrationFee";
 
@@ -125,7 +126,7 @@ export async function loadDashboardData(
   const assignmentModel = new JudgeAssignmentModel();
   await assignmentModel.collapseDuplicates();
 
-  const [allRegistrations, allPayments, allAssignments, judges, competitions, categories] =
+  const [allRegistrations, allPayments, foundAssignments, judges, competitions, categories] =
     await Promise.all([
       new RegistrationModel().find({}, { sort: { created_at: -1 } }),
       new PaymentModel().find({}, { sort: { created_at: -1 } }),
@@ -154,11 +155,14 @@ export async function loadDashboardData(
         registrationIds.has(toIdString(payment.registration_id))
       )
     : allPayments;
+  const judgeAssignments = foundAssignments.filter(
+    (assignment) => scoringAudienceOf(assignment.audience) === "JUDGE"
+  );
   const assignments = educationLevel
-    ? allAssignments.filter((assignment) =>
+    ? judgeAssignments.filter((assignment) =>
         registrationNumbers.has(assignment.registration_number)
       )
-    : allAssignments;
+    : judgeAssignments;
 
   const judgeNames = new Map(
     judges.map((judge) => [toIdString(judge._id), judge.name || judge.email])

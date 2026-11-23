@@ -8,6 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  EDUCATION_LEVEL_LABELS,
+  type EducationLevel,
+} from "@/schemas/educationLevel";
 import type { UserRole } from "@/schemas/userRole";
 import { USER_ROLE_LABELS } from "@/schemas/userRole";
 import {
@@ -17,14 +21,70 @@ import {
   MALAYSIA_UNIVERSITIES,
   type MalaysiaInstitutionType,
 } from "@/utils/institutions";
-import { isScoringJudgeRole } from "@/utils/judgeTypes";
+import { isScoringRole } from "@/utils/judgeTypes";
 
 const selectClassName =
   "h-9 w-full rounded-3xl border border-transparent bg-input/50 px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50";
 
+const CATEGORY_TRACKS: EducationLevel[] = ["UNDERGRADUATE", "POSTGRADUATE"];
+
+function CategoryChoices({
+  categories,
+  categoryIds,
+  onChange,
+}: {
+  categories: InviteCategory[];
+  categoryIds: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  const tracks = CATEGORY_TRACKS.filter((level) =>
+    categories.some((category) => category.education_level === level)
+  );
+
+  function toggle(id: string, checked: boolean) {
+    onChange(
+      checked ? [...categoryIds, id] : categoryIds.filter((current) => current !== id)
+    );
+  }
+
+  return (
+    <div className="flex max-h-48 flex-col gap-3 overflow-y-auto rounded-lg border border-black/10 p-3 dark:border-white/15">
+      {tracks.map((level) => (
+        <div key={level} className="flex flex-col gap-2">
+          {tracks.length > 1 ? (
+            <p className="text-xs font-medium text-muted-foreground">
+              {EDUCATION_LEVEL_LABELS[level]}
+            </p>
+          ) : null}
+          {categories
+            .filter((category) => category.education_level === level)
+            .map((category) => {
+              const inputId = `invite-category-${category.id}`;
+              return (
+                <div key={category.id} className="flex items-start gap-2">
+                  <Checkbox
+                    id={inputId}
+                    checked={categoryIds.includes(category.id)}
+                    onCheckedChange={(checked) =>
+                      toggle(category.id, checked === true)
+                    }
+                  />
+                  <Label htmlFor={inputId} className="font-normal">
+                    {category.name}
+                  </Label>
+                </div>
+              );
+            })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export type InviteCategory = {
   id: string;
   name: string;
+  education_level: EducationLevel;
 };
 
 type InviteAcceptFormProps = {
@@ -43,7 +103,7 @@ export function InviteAcceptForm({
   categories,
 }: InviteAcceptFormProps) {
   const router = useRouter();
-  const needsProfile = roles.some((role) => isScoringJudgeRole(role));
+  const needsProfile = roles.some((role) => isScoringRole(role));
   const [step, setStep] = useState<Step>("account");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
@@ -358,29 +418,11 @@ export function InviteAcceptForm({
                   categories before you accept this invitation.
                 </p>
               ) : (
-                <div className="flex max-h-48 flex-col gap-2 overflow-y-auto rounded-lg border border-black/10 p-3 dark:border-white/15">
-                  {categories.map((category) => {
-                    const inputId = `invite-category-${category.id}`;
-                    return (
-                      <div key={category.id} className="flex items-start gap-2">
-                        <Checkbox
-                          id={inputId}
-                          checked={categoryIds.includes(category.id)}
-                          onCheckedChange={(checked) => {
-                            setCategoryIds((current) =>
-                              checked === true
-                                ? [...current, category.id]
-                                : current.filter((id) => id !== category.id)
-                            );
-                          }}
-                        />
-                        <Label htmlFor={inputId} className="font-normal">
-                          {category.name}
-                        </Label>
-                      </div>
-                    );
-                  })}
-                </div>
+                <CategoryChoices
+                  categories={categories}
+                  categoryIds={categoryIds}
+                  onChange={setCategoryIds}
+                />
               )}
             </fieldset>
           </>

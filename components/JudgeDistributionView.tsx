@@ -71,6 +71,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useScoringAudience } from "@/components/ScoringAudienceSwitch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { formatScore } from "@/utils/formatScore";
@@ -132,6 +133,7 @@ function DistributionSummary({
   rows: JudgeDistributionRow[];
   unassignedParticipants: number;
 }) {
+  const paper = useScoringAudience() === "PAPER_REVIEWER";
   const withParticipants = rows.filter(
     (row) => row.participant_count > 0
   ).length;
@@ -148,7 +150,7 @@ function DistributionSummary({
     <div className="grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4 dark:*:data-[slot=card]:bg-card">
       <Card className="@container/card">
         <CardHeader>
-          <CardDescription>Judges</CardDescription>
+          <CardDescription>{paper ? "Paper reviewers" : "Judges"}</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
             {rows.length.toLocaleString()}
           </CardTitle>
@@ -165,7 +167,7 @@ function DistributionSummary({
           </CardTitle>
         </CardHeader>
         <CardFooter className="text-sm text-muted-foreground">
-          No active judge yet
+          {paper ? "No active paper reviewer yet" : "No active judge yet"}
         </CardFooter>
       </Card>
       <Card className="@container/card">
@@ -176,12 +178,16 @@ function DistributionSummary({
           </CardTitle>
         </CardHeader>
         <CardFooter className="text-sm text-muted-foreground">
-          Participants per judge, including zeros
+          {paper
+            ? "Participants per paper reviewer, including zeros"
+            : "Participants per judge, including zeros"}
         </CardFooter>
       </Card>
       <Card className="@container/card">
         <CardHeader>
-          <CardDescription>Busiest judge</CardDescription>
+          <CardDescription>
+            {paper ? "Busiest paper reviewer" : "Busiest judge"}
+          </CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
             {busiest.toLocaleString()}
           </CardTitle>
@@ -255,15 +261,19 @@ function DistributionChart({ rows }: { rows: JudgeDistributionRow[] }) {
     [rows, nameCounts]
   );
 
+  const paper = useScoringAudience() === "PAPER_REVIEWER";
   if (rows.length === 0) return null;
 
   return (
     <Card className="mx-4 lg:mx-6">
       <CardHeader>
-        <CardTitle>Participants per judge</CardTitle>
+        <CardTitle>
+          {paper ? "Participants per paper reviewer" : "Participants per judge"}
+        </CardTitle>
         <CardDescription>
-          Each bar is the number of participants assigned to that judge.
-          Declined assignments are left out.
+          {paper
+            ? "Each bar is the number of participants assigned to that paper reviewer. Declined assignments are left out."
+            : "Each bar is the number of participants assigned to that judge. Declined assignments are left out."}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -317,6 +327,7 @@ function DistributionChart({ rows }: { rows: JudgeDistributionRow[] }) {
 
 function JudgeDrawer({ item }: { item: JudgeDistributionRow }) {
   const isMobile = useIsMobile();
+  const paper = useScoringAudience() === "PAPER_REVIEWER";
   const active = item.participants.filter(
     (participant) => participant.status !== "REJECTED"
   );
@@ -360,7 +371,9 @@ function JudgeDrawer({ item }: { item: JudgeDistributionRow }) {
           </div>
           {active.length === 0 ? (
             <p className="text-muted-foreground">
-              No participants are assigned to this judge.
+              {paper
+                ? "No participants are assigned to this paper reviewer."
+                : "No participants are assigned to this judge."}
             </p>
           ) : (
             <ul className="flex flex-col gap-3">
@@ -442,7 +455,11 @@ function CountCell({ value }: { value: number }) {
   );
 }
 
-function createColumns(pageIndex: number, pageSize: number) {
+function createColumns(
+  pageIndex: number,
+  pageSize: number,
+  nameHeader: string
+) {
   return columnHelper.columns([
     columnHelper.display({
       id: "index",
@@ -457,7 +474,7 @@ function createColumns(pageIndex: number, pageSize: number) {
     }),
     columnHelper.accessor("name", {
       id: "judge",
-      header: "Judge",
+      header: nameHeader,
       enableHiding: false,
       cell: ({ row }) => <JudgeDrawer item={row.original} />,
     }),
@@ -543,9 +560,16 @@ export function JudgeDistributionView({
     );
   }, [rows, view, query]);
 
+  const audience = useScoringAudience();
+  const paper = audience === "PAPER_REVIEWER";
   const columns = React.useMemo(
-    () => createColumns(pagination.pageIndex, pagination.pageSize),
-    [pagination.pageIndex, pagination.pageSize]
+    () =>
+      createColumns(
+        pagination.pageIndex,
+        pagination.pageSize,
+        paper ? "Paper reviewer" : "Judge"
+      ),
+    [pagination.pageIndex, pagination.pageSize, paper]
   );
 
   const table = useTable({
@@ -568,7 +592,8 @@ export function JudgeDistributionView({
     return (
       <div className="px-4 lg:px-6">
         <p className="text-sm text-muted-foreground">
-          Publish a competition to view judge distribution.
+          Publish a competition to view {paper ? "paper reviewer" : "judge"}{" "}
+          distribution.
         </p>
       </div>
     );
@@ -625,8 +650,8 @@ export function JudgeDistributionView({
                   setQuery(event.target.value);
                   table.setPageIndex(0);
                 }}
-                placeholder="Search judges"
-                aria-label="Search judges"
+                placeholder={paper ? "Search paper reviewers" : "Search judges"}
+                aria-label={paper ? "Search paper reviewers" : "Search judges"}
                 className="h-8 w-48 pl-8 lg:w-64"
               />
             </div>
@@ -697,8 +722,12 @@ export function JudgeDistributionView({
                       className="h-24 text-center"
                     >
                       {rows.length === 0
-                        ? "No judges on this track yet."
-                        : "No judges match this view."}
+                        ? paper
+                          ? "No paper reviewers on this track yet."
+                          : "No judges on this track yet."
+                        : paper
+                          ? "No paper reviewers match this view."
+                          : "No judges match this view."}
                     </TableCell>
                   </TableRow>
                 )}
@@ -709,7 +738,7 @@ export function JudgeDistributionView({
             id="distribution-rows-per-page"
             filteredCount={filtered.length}
             totalCount={rows.length}
-            noun="judge"
+            noun={paper ? "paper reviewer" : "judge"}
             pageIndex={table.state.pagination.pageIndex}
             pageSize={table.state.pagination.pageSize}
             pageCount={table.getPageCount()}

@@ -1,11 +1,18 @@
 import { AuthFormLayout } from "@/components/AuthFormLayout";
-import { InviteAcceptForm } from "@/components/InviteAcceptForm";
+import {
+  InviteAcceptForm,
+  type InviteCategory,
+} from "@/components/InviteAcceptForm";
 import { hashInviteToken } from "@/lib/inviteToken";
 import { CategoryModel } from "@/models/Category";
 import { UserModel } from "@/models/User";
+import { categoryMatchesEligibility } from "@/schemas/educationLevel";
 import { toIdString } from "@/schemas/objectId";
-import { sortRoles } from "@/schemas/userRole";
-import { isScoringJudgeRole } from "@/utils/judgeTypes";
+import {
+  educationEligibilityForJudgeRoles,
+  sortRoles,
+} from "@/schemas/userRole";
+import { isScoringRole } from "@/utils/judgeTypes";
 
 type InvitePageProps = {
   params: Promise<{ token: string }>;
@@ -55,13 +62,22 @@ export default async function InviteAcceptPage({ params }: InvitePageProps) {
     );
   }
 
-  let categories: { id: string; name: string }[] = [];
-  if (invite.roles.some((role) => isScoringJudgeRole(role))) {
+  let categories: InviteCategory[] = [];
+  if (invite.roles.some((role) => isScoringRole(role))) {
     try {
+      const eligibility = educationEligibilityForJudgeRoles(invite.roles);
       const rows = await new CategoryModel().find({}, { sort: { name: 1 } });
       categories = rows.flatMap((category) => {
         const id = toIdString(category._id);
-        return id ? [{ id, name: category.name }] : [];
+        const education_level = category.education_level;
+        if (
+          !id ||
+          !education_level ||
+          !categoryMatchesEligibility(education_level, eligibility)
+        ) {
+          return [];
+        }
+        return [{ id, name: category.name, education_level }];
       });
     } catch {
       categories = [];

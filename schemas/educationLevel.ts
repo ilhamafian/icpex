@@ -75,3 +75,12 @@ export function allowedEducationLevels(
       return ["UNDERGRADUATE", "POSTGRADUATE"];
   }
 }
+
+/** A category is offered only when it belongs to one of the invite's tracks. */
+export function categoryMatchesEligibility(
+  categoryLevel: EducationLevel | undefined,
+  eligibility: CompetitionEligibility | null
+): boolean {
+  if (!eligibility || !categoryLevel) return false;
+  return allowedEducationLevels(eligibility).includes(categoryLevel);
+}

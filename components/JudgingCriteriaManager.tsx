@@ -31,6 +31,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { ScoringAudienceSwitch } from "@/components/ScoringAudienceSwitch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   EDUCATION_LEVEL_LABELS,
@@ -43,6 +44,10 @@ import {
   hasAtMostOneDecimal,
   type ScoreBandKey,
 } from "@/schemas/judgeRubricSchema";
+import {
+  scoringAudienceOf,
+  type ScoringAudience,
+} from "@/schemas/scoringAudience";
 import { weightPercent, weightsSumTo100 } from "@/utils/rubricScore";
 import type { SerializedJudgeRubric } from "@/utils/serializeJudgeRubric";
 
@@ -108,6 +113,7 @@ export function JudgingCriteriaManager({
   const [track, setTrack] = useState<EducationLevel>(
     lockedTrack ?? "UNDERGRADUATE"
   );
+  const [audience, setAudience] = useState<ScoringAudience>("JUDGE");
   const [saving, setSaving] = useState(false);
   const [rubricSheet, setRubricSheet] = useState<{
     id: string | null;
@@ -131,9 +137,13 @@ export function JudgingCriteriaManager({
   const visible = useMemo(
     () =>
       rubrics
-        .filter((rubric) => rubric.education_level === activeTrack)
+        .filter(
+          (rubric) =>
+            rubric.education_level === activeTrack &&
+            scoringAudienceOf(rubric.audience) === audience
+        )
         .sort(compareRubrics),
-    [rubrics, activeTrack]
+    [rubrics, activeTrack, audience]
   );
 
   function replaceRubric(next: SerializedJudgeRubric) {
@@ -160,7 +170,7 @@ export function JudgingCriteriaManager({
           body: JSON.stringify(
             rubricSheet.id
               ? { name }
-              : { name, education_level: activeTrack }
+              : { name, education_level: activeTrack, audience }
           ),
         }
       );
@@ -314,9 +324,9 @@ export function JudgingCriteriaManager({
         <div>
           <h2 className="text-lg font-semibold">Judging Criteria</h2>
           <p className="text-sm text-muted-foreground">
-            Define the rubrics for this education track. Component weights
-            inside a rubric add up to 100%. Judges score every rubric, and the
-            total is the average of those rubric scores.
+            {audience === "PAPER_REVIEWER"
+              ? "Define the paper-reviewer rubrics for this education track. Component weights inside a rubric add up to 100%. Paper reviewers score every rubric in this set, and the total is the average of those rubric scores."
+              : "Define the rubrics for this education track. Component weights inside a rubric add up to 100%. Judges score every rubric, and the total is the average of those rubric scores."}
           </p>
         </div>
         <Button
@@ -327,20 +337,23 @@ export function JudgingCriteriaManager({
         </Button>
       </div>
 
-      {lockedTrack ? null : (
-        <Tabs
-          value={track}
-          onValueChange={(value) => setTrack(value as EducationLevel)}
-        >
-          <TabsList>
-            {TRACKS.map((level) => (
-              <TabsTrigger key={level} value={level}>
-                {EDUCATION_LEVEL_LABELS[level]}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-      )}
+      <div className="flex flex-wrap items-center gap-3">
+        <ScoringAudienceSwitch value={audience} onValueChange={setAudience} />
+        {lockedTrack ? null : (
+          <Tabs
+            value={track}
+            onValueChange={(value) => setTrack(value as EducationLevel)}
+          >
+            <TabsList>
+              {TRACKS.map((level) => (
+                <TabsTrigger key={level} value={level}>
+                  {EDUCATION_LEVEL_LABELS[level]}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        )}
+      </div>
 
       {visible.length === 0 ? (
         <Card>
@@ -371,7 +384,9 @@ export function JudgingCriteriaManager({
                           ? "No components yet. This rubric is not scored."
                           : ready
                             ? "Weights add up to 100%."
-                            : `Weights add up to ${total}%. They must add up to 100% before judges can score.`}
+                            : audience === "PAPER_REVIEWER"
+                              ? `Weights add up to ${total}%. They must add up to 100% before paper reviewers can score.`
+                              : `Weights add up to ${total}%. They must add up to 100% before judges can score.`}
                       </CardDescription>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
