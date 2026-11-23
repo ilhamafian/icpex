@@ -30,6 +30,7 @@ import {
   submissionLetterDetails,
   submissionRecipients,
 } from "@/utils/submissionPayments";
+import { sendAfterPaymentDocumentEmails } from "@/utils/documentUpload";
 import { denyUnlessSubmission } from "@/utils/trackAccess";
 
 /**
@@ -210,9 +211,25 @@ export async function POST(
       warning = "Marked as paid, but the invoice email could not be created.";
     }
 
+    let documentWarning: string | undefined;
+    try {
+      const documents = await sendAfterPaymentDocumentEmails(id);
+      if (documents.total > 0 && documents.sent === 0) {
+        documentWarning =
+          "Marked as paid, but the document upload email could not be sent.";
+      } else if (documents.failed > 0) {
+        documentWarning = `Document upload link sent to ${documents.sent} of ${documents.total} participants.`;
+      }
+    } catch (documentError) {
+      console.error("Document upload email failed:", documentError);
+      documentWarning =
+        "Marked as paid, but the document upload email could not be sent.";
+    }
+
+    const combined = [warning, documentWarning].filter(Boolean).join(" ");
     return createResponse({
       group: await loadSubmissionPaymentGroup(id),
-      warning,
+      warning: combined || undefined,
     });
   } catch (error) {
     return handleError(error);

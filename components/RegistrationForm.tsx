@@ -18,6 +18,7 @@ import {
 } from "@/components/registrationFormUi";
 import {
   requirementsForLevel,
+  requirementsForTiming,
   validateDocumentsAgainstRequirements,
   type DocumentRequirement,
 } from "@/schemas/documentRequirement";
@@ -182,9 +183,9 @@ export function RegistrationForm({
 
     const documentErrors: FieldErrors = {};
     for (const [index, item] of projects.entries()) {
-      const levelDocs = requirementsForLevel(
-        documentRequirements,
-        item.educationLevel
+      const levelDocs = requirementsForTiming(
+        requirementsForLevel(documentRequirements, item.educationLevel),
+        "BEFORE_PAYMENT"
       );
       const payloadDocs = projectToPayload(item, documentRequirements).documents;
       const next = validateDocumentsAgainstRequirements(payloadDocs, levelDocs);

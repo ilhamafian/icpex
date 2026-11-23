@@ -79,6 +79,11 @@ export const registrationSchema = z.object({
       file_url: z.string().min(1),
     })
   ),
+  /** Raw upload-link token, kept so a reminder reuses the same URL. */
+  document_upload_token: z.string().min(1).optional(),
+  document_upload_token_hash: z.string().min(1).optional(),
+  /** Set when the participant submits after-payment documents. The link then locks. */
+  documents_submitted_at: z.coerce.date().optional(),
   status: z.enum([
     "SUBMITTED",
     "REVIEWING",
@@ -100,11 +105,26 @@ export type Registration = z.infer<typeof registrationSchema>;
 
 export const createRegistrationSchema = registrationSchema.omit({
   _id: true,
+  document_upload_token: true,
+  document_upload_token_hash: true,
+  documents_submitted_at: true,
   live_presentation_nominated_at: true,
   live_presentation_invited_at: true,
   live_presentation_order: true,
   created_at: true,
   updated_at: true,
+});
+
+/** Reusable after-payment upload link, written once and kept for reminders. */
+export const registrationDocumentLinkSchema = z.object({
+  document_upload_token: z.string().min(1),
+  document_upload_token_hash: z.string().min(1),
+});
+
+/** Replace the document list, and optionally lock the public upload page. */
+export const registrationDocumentsSchema = z.object({
+  documents: registrationSchema.shape.documents,
+  documents_submitted_at: z.coerce.date().optional(),
 });
 
 export type CreateRegistration = z.infer<typeof createRegistrationSchema>;

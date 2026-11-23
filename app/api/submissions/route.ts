@@ -7,6 +7,7 @@ import { SubmissionModel } from "@/models/Submission";
 import {
   effectiveDocumentRequirements,
   requirementsForLevel,
+  requirementsForTiming,
   validateDocumentsAgainstRequirements,
 } from "@/schemas/documentRequirement";
 import {
@@ -89,12 +90,21 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const documentRequirements = requirementsForLevel(
-        effectiveDocumentRequirements(competition),
-        project.participant.education_level
+      const documentRequirements = requirementsForTiming(
+        requirementsForLevel(
+          effectiveDocumentRequirements(competition),
+          project.participant.education_level
+        ),
+        "BEFORE_PAYMENT"
       );
+      const documents = project.documents.filter((document) =>
+        documentRequirements.some(
+          (requirement) => requirement.id === document.requirement_id
+        )
+      );
+      project.documents = documents;
       const documentErrors = validateDocumentsAgainstRequirements(
-        project.documents,
+        documents,
         documentRequirements
       );
       const firstDocumentError = Object.values(documentErrors)[0];

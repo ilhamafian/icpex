@@ -17,6 +17,7 @@ import { requireSecretarySession } from "@/utils/portalAuth";
 import type { Currency } from "@/utils/registrationFee";
 import {
   applySubmissionFees,
+  deliveryWarning,
   emailEach,
   ensurePaymentUrl,
   loadSubmissionPaymentGroup,
@@ -25,6 +26,7 @@ import {
   submissionRecipients,
 } from "@/utils/submissionPayments";
 import { denyUnlessSubmission } from "@/utils/trackAccess";
+import { sendAfterPaymentDocumentEmails } from "@/utils/documentUpload";
 
 export async function POST(
   req: NextRequest,
@@ -107,10 +109,11 @@ export async function POST(
           400
         );
       }
-      if (!statuses.has("PAID") || statuses.size > 1) {
+      const becamePaid = !statuses.has("PAID") || statuses.size > 1;
+      if (becamePaid) {
         await setSubmissionPaymentsStatus(id, "PAID");
       }
-      await emailEach(recipients, (to) =>
+      const delivery = await emailEach(recipients, (to) =>
         sendNoPaymentDueEmail({
           to,
           submissionNumber: submission.submission_number,
@@ -119,8 +122,37 @@ export async function POST(
           copy,
         })
       );
+      let warning = deliveryWarning(delivery);
+      if (becamePaid) {
+        try {
+          const documents = await sendAfterPaymentDocumentEmails(id);
+          if (documents.total > 0 && documents.sent === 0) {
+            warning = [
+              warning,
+              "Marked as no charge, but the document upload email could not be sent.",
+            ]
+              .filter(Boolean)
+              .join(" ");
+          } else if (documents.failed > 0) {
+            warning = [
+              warning,
+              `Document upload link sent to ${documents.sent} of ${documents.total} participants.`,
+            ]
+              .filter(Boolean)
+              .join(" ");
+          }
+        } catch (documentError) {
+          console.error("Document upload email failed:", documentError);
+          warning = [
+            warning,
+            "Marked as no charge, but the document upload email could not be sent.",
+          ]
+            .filter(Boolean)
+            .join(" ");
+        }
+      }
       const group = await loadSubmissionPaymentGroup(id);
-      return createResponse({ group });
+      return createResponse({ group, warning });
     }
 
     const canRequest = [...statuses].every(

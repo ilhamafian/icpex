@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DocumentReplaceDialog } from "@/components/DocumentReplaceDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -328,6 +329,9 @@ export function PaymentVerificationManager({
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [adjustment, setAdjustment] = useState<AdjustmentDraft | null>(null);
+  const [documentRegistrationId, setDocumentRegistrationId] = useState<
+    string | null
+  >(null);
 
   const educationTabs = lockedEducationLevel
     ? [lockedEducationLevel]
@@ -337,6 +341,17 @@ export function PaymentVerificationManager({
     () => new Map(categories.map((category) => [category.id, category.name])),
     [categories]
   );
+
+  const documentProject = useMemo(() => {
+    if (!documentRegistrationId) return undefined;
+    for (const group of groups) {
+      const project = group.projects.find(
+        (item) => item.registration._id === documentRegistrationId
+      );
+      if (project?.documentUpload) return project;
+    }
+    return undefined;
+  }, [groups, documentRegistrationId]);
 
   const allRows = useMemo(
     () => flattenGroups(groups, categoryNameById),
@@ -532,7 +547,7 @@ export function PaymentVerificationManager({
 
   async function submissionAction(
     group: SubmissionPaymentGroup,
-    path: "verify" | "payment-reminder",
+    path: "verify" | "payment-reminder" | "document-reminder",
     body: Record<string, unknown>,
     success: string
   ) {
@@ -919,6 +934,9 @@ export function PaymentVerificationManager({
             const receiptUrl = group.projects.find(
               (project) => project.payment?.receipt_url
             )?.payment?.receipt_url;
+            const documentUpload = group.projects.find(
+              (project) => project.registration._id === item.registration._id
+            )?.documentUpload;
             const menuLabel = `More actions for ${item.registration.registration_number}`;
             const openAdjustment = (type: AdjustmentType) =>
               setAdjustment({
@@ -1037,6 +1055,38 @@ export function PaymentVerificationManager({
                       </DropdownMenuItem>
                     </RowActionsMenu>
                   </>
+                ) : null}
+                {tab === "PAID" && documentUpload?.open && group.submission ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() =>
+                      void submissionAction(
+                        group,
+                        "document-reminder",
+                        {},
+                        "Document upload reminder sent."
+                      )
+                    }
+                  >
+                    <IconBell />
+                    Document reminder
+                  </Button>
+                ) : null}
+                {tab === "PAID" &&
+                documentUpload?.submittedAt &&
+                group.submission ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() =>
+                      setDocumentRegistrationId(item.registration._id)
+                    }
+                  >
+                    Documents
+                  </Button>
                 ) : null}
                 {tab === "PAID" || tab === "FAILED" ? (
                   <RowActionsMenu label={menuLabel} disabled={busy}>
@@ -1330,6 +1380,18 @@ export function PaymentVerificationManager({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <DocumentReplaceDialog
+        open={documentProject !== undefined}
+        onOpenChange={(open) => {
+          if (!open) setDocumentRegistrationId(null);
+        }}
+        registrationId={documentProject?.registration._id ?? ""}
+        registrationNumber={
+          documentProject?.registration.registration_number ?? ""
+        }
+        files={documentProject?.documentUpload?.files ?? []}
+        onReplaced={(group) => replaceGroup(group)}
+      />
     </div>
   );
 }

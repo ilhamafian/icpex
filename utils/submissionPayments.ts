@@ -5,10 +5,12 @@ import { z } from "zod";
 
 import { getAppOrigin } from "@/lib/appOrigin";
 import { createPaymentToken } from "@/lib/paymentToken";
+import { CompetitionModel } from "@/models/Competition";
 import { PaymentModel } from "@/models/Payment";
 import { RegistrationModel } from "@/models/Registration";
 import { SubmissionModel } from "@/models/Submission";
 import { competitionCategoryLabel } from "@/schemas/educationLevel";
+import { effectiveDocumentRequirements } from "@/schemas/documentRequirement";
 import { toIdString } from "@/schemas/objectId";
 import { paymentUpdateSchema, type PaymentStatus } from "@/schemas/paymentSchema";
 import {
@@ -27,6 +29,10 @@ import {
   serializeRegistration,
   type SerializedRegistration,
 } from "@/utils/serializeRegistration";
+import {
+  documentUploadState,
+} from "@/utils/documentUploadState";
+import type { DocumentUploadState } from "@/utils/documentUploadTypes";
 
 export type SubmissionPaymentGroup = {
   /** Submission id, or `registration:<id>` for a registration with no submission. */
@@ -55,6 +61,8 @@ export type SubmissionPaymentGroup = {
   projects: {
     registration: SerializedRegistration;
     payment: SerializedPayment | null;
+    /** Present when this project has documents collected after payment. */
+    documentUpload?: DocumentUploadState;
   }[];
 };
 
@@ -87,10 +95,11 @@ export async function advanceRegistrationIfPaid(
 export async function loadSubmissionPaymentGroups(): Promise<
   SubmissionPaymentGroup[]
 > {
-  const [registrations, payments, submissions] = await Promise.all([
+  const [registrations, payments, submissions, competitions] = await Promise.all([
     new RegistrationModel().find({}, { sort: { created_at: -1 } }),
     new PaymentModel().find({}, { sort: { created_at: -1 } }),
     new SubmissionModel().find({}),
+    new CompetitionModel().find({}),
   ]);
 
   const paymentByRegistrationId = new Map(
@@ -98,6 +107,12 @@ export async function loadSubmissionPaymentGroups(): Promise<
   );
   const submissionById = new Map(
     submissions.map((submission) => [toIdString(submission._id), submission])
+  );
+  const requirementsByCompetition = new Map(
+    competitions.map((competition) => [
+      toIdString(competition._id),
+      effectiveDocumentRequirements(competition),
+    ])
   );
 
   const groups = new Map<string, SubmissionPaymentGroup>();
@@ -129,6 +144,10 @@ export async function loadSubmissionPaymentGroups(): Promise<
           : new Map()
       ),
       payment: payment ? serializePayment(payment) : null,
+      documentUpload: documentUploadState(
+        registration,
+        requirementsByCompetition.get(toIdString(registration.competition_id))
+      ),
     });
   }
 

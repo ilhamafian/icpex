@@ -995,8 +995,10 @@ export function CompetitionsCategoriesManager({
               {competitionStep === 2 ? (
                 <div className="flex flex-col gap-6">
                   <p className="text-xs text-muted-foreground">
-                    Configure which files or links each stream must upload on
-                    registration. Undergraduate and postgraduate can differ.
+                    Configure which files or links each stream uploads.
+                    Before payment collects them on the registration form.
+                    After payment emails an upload link once payment is
+                    confirmed. Undergraduate and postgraduate can differ.
                   </p>
                   {allowedEducationLevels(competitionForm.eligibility).map(
                     (level) => {
@@ -1068,7 +1070,7 @@ export function CompetitionsCategoriesManager({
                                       <IconTrash />
                                     </Button>
                                   </div>
-                                  <div className="grid gap-3 sm:grid-cols-2">
+                                  <div className="grid gap-3 sm:grid-cols-3">
                                     <Field label="Input type">
                                       <Select
                                         value={requirement.input_type}
@@ -1125,6 +1127,36 @@ export function CompetitionsCategoriesManager({
                                           </SelectItem>
                                           <SelectItem value="optional">
                                             Optional
+                                          </SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </Field>
+                                    <Field label="When to upload">
+                                      <Select
+                                        value={
+                                          requirement.upload_timing ??
+                                          "BEFORE_PAYMENT"
+                                        }
+                                        onValueChange={(value) =>
+                                          updateDocumentRequirement(
+                                            requirement.id,
+                                            {
+                                              upload_timing: value as
+                                                | "BEFORE_PAYMENT"
+                                                | "AFTER_PAYMENT",
+                                            }
+                                          )
+                                        }
+                                      >
+                                        <SelectTrigger className="w-full">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="BEFORE_PAYMENT">
+                                            Before payment
+                                          </SelectItem>
+                                          <SelectItem value="AFTER_PAYMENT">
+                                            After payment
                                           </SelectItem>
                                         </SelectContent>
                                       </Select>

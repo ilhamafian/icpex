@@ -5,6 +5,7 @@ import {
   acceptAttrForFormats,
   formatLabels,
   requirementsForLevel,
+  requirementsForTiming,
   storageTypeForRequirement,
   type DocumentRequirement,
 } from "@/schemas/documentRequirement";
@@ -99,9 +100,9 @@ function projectDocuments(
   requirements: DocumentRequirement[]
 ): SubmissionProject["documents"] {
   const documents: SubmissionProject["documents"] = [];
-  const levelRequirements = requirementsForLevel(
-    requirements,
-    project.educationLevel
+  const levelRequirements = requirementsForTiming(
+    requirementsForLevel(requirements, project.educationLevel),
+    "BEFORE_PAYMENT"
   );
 
   for (const requirement of levelRequirements) {
@@ -203,6 +204,14 @@ export function ProjectFields({
   const levelRequirements = requirementsForLevel(
     documentRequirements,
     project.educationLevel
+  );
+  const beforePayment = requirementsForTiming(
+    levelRequirements,
+    "BEFORE_PAYMENT"
+  );
+  const afterPayment = requirementsForTiming(
+    levelRequirements,
+    "AFTER_PAYMENT"
   );
 
   function set<K extends keyof ProjectState>(key: K, value: ProjectState[K]) {
@@ -707,18 +716,21 @@ export function ProjectFields({
       <Section
         title="Documents"
         description={
-          levelRequirements.length > 0
+          beforePayment.length > 0
             ? `Upload the required files for the ${EDUCATION_LEVEL_LABELS[project.educationLevel].toLowerCase()} stream.`
-            : "No documents are required for this stream."
+            : afterPayment.length > 0
+              ? "These documents are requested after payment is confirmed."
+              : "No documents are required for this stream."
         }
       >
-        {levelRequirements.length === 0 ? (
+        {beforePayment.length === 0 ? (
           <p className={mutedTextClassName}>
-            This competition has no document uploads configured for your
-            education level.
+            {afterPayment.length > 0
+              ? "Nothing to upload now. The secretariat will email a link for the remaining documents after payment is confirmed."
+              : "This competition has no document uploads configured for your education level."}
           </p>
         ) : (
-          levelRequirements.map((requirement) =>
+          beforePayment.map((requirement) =>
             requirement.input_type === "LINK"
               ? renderLinkRequirement(requirement)
               : renderFileRequirement(requirement)

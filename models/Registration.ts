@@ -87,4 +87,10 @@ export class RegistrationModel extends ModelBase<Registration> {
       },
     } as never);
   }
+
+  async findByDocumentUploadTokenHash(tokenHash: string) {
+    return this.findOne({
+      document_upload_token_hash: tokenHash,
+    } as Filter<Registration>);
+  }
 }

@@ -11,6 +11,14 @@ export const documentInputTypeSchema = z.enum(["FILE", "LINK"]);
 
 export type DocumentInputType = z.infer<typeof documentInputTypeSchema>;
 
+/** When the participant is asked for this document. Omitted means before payment. */
+export const documentUploadTimingSchema = z.enum([
+  "BEFORE_PAYMENT",
+  "AFTER_PAYMENT",
+]);
+
+export type DocumentUploadTiming = z.infer<typeof documentUploadTimingSchema>;
+
 /** File extensions (without dot) and link hosts admins can allow. */
 export const FILE_FORMAT_OPTIONS = [
   "pdf",
@@ -50,6 +58,11 @@ export const documentRequirementSchema = z.object({
   /** Allowed extensions (FILE) or link kinds (LINK). */
   accepted_formats: z.array(z.string().trim().min(1)).min(1),
   required: z.boolean(),
+  /**
+   * Before payment: collected on the registration form.
+   * After payment: emailed once payment is confirmed. Omitted on older rows.
+   */
+  upload_timing: documentUploadTimingSchema.optional(),
 });
 
 export type DocumentRequirement = z.infer<typeof documentRequirementSchema>;
@@ -75,6 +88,22 @@ export function requirementsForLevel(
 ) {
   return (requirements ?? []).filter(
     (requirement) => requirement.education_level === level
+  );
+}
+
+/** Missing timing stays before payment so existing competitions keep today's form. */
+export function uploadTiming(
+  requirement: Pick<DocumentRequirement, "upload_timing">
+): DocumentUploadTiming {
+  return requirement.upload_timing ?? "BEFORE_PAYMENT";
+}
+
+export function requirementsForTiming(
+  requirements: DocumentRequirement[],
+  timing: DocumentUploadTiming
+) {
+  return requirements.filter(
+    (requirement) => uploadTiming(requirement) === timing
   );
 }
 
@@ -207,6 +236,7 @@ export function emptyDocumentRequirement(
     input_type: "FILE",
     accepted_formats: ["pdf"],
     required: true,
+    upload_timing: "BEFORE_PAYMENT",
   };
 }
 
@@ -304,12 +334,18 @@ export function documentsSatisfyRequirements(
  */
 export function documentDeadlineLines(
   requirements: DocumentRequirement[],
-  deadline: string
+  deadline: string,
+  options?: { includeAbstract?: boolean }
 ) {
   const seen = new Set<string>();
   const lines: string[] = [];
   for (const requirement of requirements) {
-    if (requirement.name.trim().toLowerCase().includes("abstract")) continue;
+    if (
+      !options?.includeAbstract &&
+      requirement.name.trim().toLowerCase().includes("abstract")
+    ) {
+      continue;
+    }
     const key = `${requirement.name.trim().toLowerCase()}|${requirement.required}`;
     if (seen.has(key)) continue;
     seen.add(key);

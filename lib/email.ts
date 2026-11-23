@@ -11,6 +11,7 @@ import {
   documentDeadlineLines,
   documentReviewPhrase,
   requirementsForLevel,
+  requirementsForTiming,
   type DocumentRequirement,
 } from "@/schemas/documentRequirement";
 import {
@@ -621,12 +622,17 @@ export async function sendRegistrationSubmittedEmail(options: {
 ${instructions?.html ?? ""}
 <p>${escapeHtml(paymentNote)}</p>`
     : `<p>${escapeHtml(paymentNote)}</p>`;
-  const levelRequirements = requirementsForLevel(
-    options.documentRequirements ?? [],
-    options.educationLevel
+  const levelRequirements = requirementsForTiming(
+    requirementsForLevel(
+      options.documentRequirements ?? [],
+      options.educationLevel
+    ),
+    "AFTER_PAYMENT"
   );
   const documentDeadlines = copy.paymentDeadline
-    ? documentDeadlineLines(levelRequirements, copy.paymentDeadline)
+    ? documentDeadlineLines(levelRequirements, copy.paymentDeadline, {
+        includeAbstract: true,
+      })
     : [];
   const nextSteps = [
     "Next steps and important dates:",
@@ -1397,6 +1403,213 @@ export async function sendClosingCeremonyJudgeEmail(options: {
       event.meeting.text,
       `Programme highlights\n${highlights.text}`,
       confirm,
+      contact,
+      close,
+      signOffText(copy),
+    ]),
+  });
+}
+
+function documentNamePhrase(requirements: DocumentRequirement[]) {
+  const names = requirements
+    .map((requirement) => requirement.name.trim())
+    .filter(Boolean);
+  if (names.length === 0) return "Document";
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
+}
+
+function paperPublicationNote(requirements: DocumentRequirement[]) {
+  const hasPaper = requirements.some((requirement) =>
+    requirement.name.trim().toLowerCase().includes("paper")
+  );
+  if (!hasPaper) return "";
+  return "If you submitted a full paper, it will be considered for publication in a special issue of the Journal of Computing Technologies and Creative Content (JTeC), subject to peer review and editorial acceptance. Please note that the journal review process is separate from the main competition evaluation.";
+}
+
+/** Upload link emailed once payment is confirmed, and again when the secretariat reminds. */
+export async function sendDocumentUploadReminderEmail(options: {
+  to: string;
+  participantName: string;
+  registrationNumber: string;
+  trackName: string;
+  projectTitle: string;
+  educationLevel: EducationLevel;
+  uploadUrl: string;
+  requirements: DocumentRequirement[];
+  copy: CompetitionEmailCopy;
+}) {
+  const { copy } = options;
+  const greet = greeting(options.participantName);
+  const contact = contactSentence();
+  const phrase = documentNamePhrase(options.requirements);
+  const stream = streamNameForLevel(copy, options.educationLevel);
+  const details = detailList([
+    ["Registration ID", options.registrationNumber],
+    ["Category", stream],
+    ["Track", options.trackName],
+    ["Project Title", options.projectTitle],
+  ]);
+  const deadlines = copy.paymentDeadline
+    ? documentDeadlineLines(options.requirements, copy.paymentDeadline, {
+        includeAbstract: true,
+      })
+    : options.requirements.map((requirement) => {
+        const optional = requirement.required ? "" : " (optional)";
+        return `${requirement.name.trim()} Submission${optional}`;
+      });
+  const deadlineIntro = "Please note the following submission deadlines:";
+  const numbered = options.requirements
+    .map((requirement, index) => {
+      const optional = requirement.required ? "compulsory" : "optional";
+      return `${index + 1}. ${requirement.name.trim()} (${optional})`;
+    })
+    .join("\n");
+  const link = uploadLink(options.uploadUrl, "Upload your documents");
+  const opening = `This is a friendly reminder for ${stream} participants of the ${themedCompetition(copy)}.`;
+  const uploadNote =
+    "Open the link below to upload every document listed for this project. The page closes after you submit. To replace a file after that, contact the secretariat.";
+  const late =
+    "Late submissions will not be accepted, so we encourage you to upload your files early to avoid last-minute technical issues.";
+  const nextSteps = [
+    "What comes next",
+    copy.judgingPeriod
+      ? options.educationLevel === "POSTGRADUATE"
+        ? `Judging Period: ${copy.judgingPeriod} (Master's and PhD participants are assessed separately.)`
+        : `Judging Period: ${copy.judgingPeriod}`
+      : undefined,
+    copy.closingCeremony
+      ? `Closing Ceremony & Result Announcement: ${copy.closingCeremony}`
+      : undefined,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  await sendMail({
+    to: options.to,
+    educationLevel: options.educationLevel,
+    subject: `Reminder: ${copy.name} ${phrase} Submission`,
+    html: joinHtml([
+      greet.html,
+      INTRO_HTML,
+      `<p>${escapeHtml(opening)}</p>`,
+      "<p>Your registration details:</p>",
+      details.html,
+      `<p>${escapeHtml(deadlineIntro)}</p>`,
+      `<p>${escapeHtml(deadlines.join("\n")).replace(/\n/g, "<br>")}</p>`,
+      `<p>${escapeHtml(numbered).replace(/\n/g, "<br>")}</p>`,
+      `<p>${escapeHtml(uploadNote)}</p>`,
+      link.html,
+      nextSteps ? `<p>${escapeHtml(nextSteps).replace(/\n/g, "<br>")}</p>` : "",
+      `<p>${escapeHtml(late)}</p>`,
+      contact ? `<p>${escapeHtml(contact)}</p>` : "",
+      signOffHtml(copy),
+    ]),
+    text: joinText([
+      greet.text,
+      INTRO_TEXT,
+      opening,
+      `Your registration details:\n${details.text}`,
+      `${deadlineIntro}\n${deadlines.join("\n")}`,
+      numbered,
+      uploadNote,
+      link.text,
+      nextSteps,
+      late,
+      contact,
+      signOffText(copy),
+    ]),
+  });
+}
+
+/** Sent when the participant submits the after-payment documents. */
+export async function sendDocumentSubmissionReceivedEmail(options: {
+  to: string;
+  participantName: string;
+  registrationNumber: string;
+  trackName: string;
+  projectTitle: string;
+  educationLevel: EducationLevel;
+  requirements: DocumentRequirement[];
+  /** Requirement ids that were included in this submission. */
+  receivedIds: string[];
+  receivedAt: Date;
+  copy: CompetitionEmailCopy;
+}) {
+  const { copy } = options;
+  const greet = greeting(options.participantName);
+  const contact = contactSentence();
+  const phrase = documentNamePhrase(options.requirements);
+  const stream = streamNameForLevel(copy, options.educationLevel);
+  const receivedOn = formatEmailDate(options.receivedAt);
+  const details = detailList([
+    ["Registration ID", options.registrationNumber],
+    ["Category", stream],
+    ["Track", options.trackName],
+    ["Project Title", options.projectTitle],
+  ]);
+  const received = new Set(options.receivedIds);
+  const items = options.requirements.map((requirement) => {
+    const optional = requirement.required ? "" : " (optional)";
+    const status = received.has(requirement.id)
+      ? `Received on ${receivedOn}`
+      : "Not submitted";
+    return `${requirement.name.trim()}${optional}: ${status}`;
+  });
+  const opening = `Thank you for participating in the ${themedCompetition(copy)}. We are pleased to confirm that your submission has been received successfully.`;
+  const publication = paperPublicationNote(options.requirements);
+  const replaceBy = copy.paymentDeadline
+    ? `If you wish to correct or replace your submission, please contact the secretariat before the submission deadline of ${copy.paymentDeadline}.`
+    : "If you wish to correct or replace your submission, please contact the secretariat.";
+  const nextSteps = [
+    "What happens next",
+    copy.judgingPeriod
+      ? options.educationLevel === "POSTGRADUATE"
+        ? `Judging Period: ${copy.judgingPeriod} (Master's and PhD participants are assessed separately.)`
+        : `Judging Period: ${copy.judgingPeriod}`
+      : undefined,
+    copy.closingCeremony
+      ? `Closing Ceremony & Result Announcement: ${copy.closingCeremony}`
+      : undefined,
+  ]
+    .filter(Boolean)
+    .join("\n");
+  const close =
+    options.educationLevel === "POSTGRADUATE"
+      ? "Well done on completing your submission, and all the best as your research goes forward to the judges."
+      : "Thank you for your submission, and we wish you every success in the judging round.";
+
+  await sendMail({
+    to: options.to,
+    educationLevel: options.educationLevel,
+    subject: `${copy.name}: ${phrase} Submission Successful`,
+    html: joinHtml([
+      greet.html,
+      INTRO_HTML,
+      `<p>${escapeHtml(opening)}</p>`,
+      "<p>Submission details:</p>",
+      details.html,
+      "<p>Items received:</p>",
+      `<p>${escapeHtml(items.join("\n")).replace(/\n/g, "<br>")}</p>`,
+      publication ? `<p>${escapeHtml(publication)}</p>` : "",
+      nextSteps ? `<p>${escapeHtml(nextSteps).replace(/\n/g, "<br>")}</p>` : "",
+      "<p>You do not need to take further action unless the secretariat contacts you.</p>",
+      `<p>${escapeHtml(replaceBy)}</p>`,
+      contact ? `<p>${escapeHtml(contact)}</p>` : "",
+      `<p>${escapeHtml(close)}</p>`,
+      signOffHtml(copy),
+    ]),
+    text: joinText([
+      greet.text,
+      INTRO_TEXT,
+      opening,
+      `Submission details:\n${details.text}`,
+      `Items received:\n${items.join("\n")}`,
+      publication,
+      nextSteps,
+      "You do not need to take further action unless the secretariat contacts you.",
+      replaceBy,
       contact,
       close,
       signOffText(copy),
