@@ -12,7 +12,10 @@ import { LiquidGlass } from "@/components/ui/liquid-glass";
 export default function HomePage() {
   return (
     <LandingSmoothScroll>
-      <section className="mx-auto flex min-h-[calc(100vh-4.25rem)] w-full max-w-6xl flex-col justify-center px-6 py-16">
+      <section
+        data-ring-section
+        className="mx-auto flex min-h-[calc(100vh-4.25rem)] w-full max-w-6xl flex-col justify-center px-6 py-16"
+      >
         <div>
           <Rise when="load">
             <p className="text-sm font-semibold tracking-[0.18em] text-[#e8b84a] uppercase sm:text-base">
@@ -55,7 +58,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="mx-auto flex min-h-[90vh] w-full max-w-6xl flex-col items-center justify-center px-6 py-28 text-center">
+      <section
+        data-ring-section
+        className="mx-auto flex min-h-[90vh] w-full max-w-6xl flex-col items-center justify-center px-6 py-28 text-center"
+      >
         <Rise>
           <h2 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
             Welcome to I-CRIVE 2027
@@ -82,7 +88,11 @@ export default function HomePage() {
         </Rise>
       </section>
 
-      <section id="categories" className="scroll-mt-24 mx-auto w-full max-w-5xl px-6 py-32">
+      <section
+        id="categories"
+        data-ring-section
+        className="scroll-mt-24 mx-auto w-full max-w-5xl px-6 py-32"
+      >
         <Rise>
           <SectionHeading
             title="Competition Categories"
@@ -111,7 +121,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-6xl px-6 py-20">
+      <section data-ring-section className="mx-auto w-full max-w-6xl px-6 py-20">
         <Rise>
           <SectionHeading
             title="Why Join I-CRIVE 2027?"
@@ -129,7 +139,7 @@ export default function HomePage() {
         </ul>
       </section>
 
-      <section className="mx-auto w-full max-w-6xl px-6 py-20">
+      <section data-ring-section className="mx-auto w-full max-w-6xl px-6 py-20">
         <Rise>
           <SectionHeading title="Important Dates" />
         </Rise>

@@ -1,11 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 
 import { RingField } from "@/components/ring-field";
 
-/** Pose behind the hero, before the page has moved. */
+const SECTION_SELECTOR = "[data-ring-section]";
+/** A section becomes the active pose once its top crosses this share of the viewport. */
+const ACTIVATION = 0.46;
+const TRANSITION_MS = 900;
+
+/** Pose behind the hero, the first landing section. */
 const START = {
   centerX: 0.62,
   centerY: 0,
@@ -18,7 +23,7 @@ const START = {
   rotation: 0.01,
 };
 
-/** Pose at the bottom of the landing page. */
+/** Pose once the last landing section is active. */
 const END = {
   centerX: -0.55,
   centerY: 0.48,
@@ -51,35 +56,86 @@ function poseAt(progress: number): Pose {
   };
 }
 
+function landingSections() {
+  return Array.from(document.querySelectorAll<HTMLElement>(SECTION_SELECTOR));
+}
+
+/** Index of the section the viewport has entered, not a continuous scroll amount. */
+function activeSectionIndex(sections: HTMLElement[]) {
+  const count = sections.length;
+  if (count === 0) return 0;
+  const marker = window.innerHeight * ACTIVATION;
+  const atEnd =
+    window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
+  if (atEnd) return count - 1;
+  let index = 0;
+  for (let i = 0; i < count; i++) {
+    if (sections[i].getBoundingClientRect().top <= marker) index = i;
+  }
+  return index;
+}
+
 export function ScrollRingField() {
   const pathname = usePathname();
   const onLanding = pathname === "/";
   const [progress, setProgress] = useState(0);
+  const progressRef = useRef(0);
 
   useEffect(() => {
-    if (!onLanding) return;
-    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (media.matches) return;
+    if (!onLanding) {
+      progressRef.current = 0;
+      setProgress(0);
+      return;
+    }
 
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
     let frame = 0;
-    const update = () => {
-      frame = 0;
-      const range = document.documentElement.scrollHeight - window.innerHeight;
-      const next = range > 0 ? Math.min(1, Math.max(0, window.scrollY / range)) : 0;
-      setProgress((current) => (Math.abs(current - next) < 0.002 ? current : next));
-    };
-    const onScroll = () => {
-      if (frame) return;
-      frame = window.requestAnimationFrame(update);
+    let active = -1;
+
+    const write = (value: number) => {
+      progressRef.current = value;
+      setProgress((current) => (Math.abs(current - value) < 0.001 ? current : value));
     };
 
-    update();
+    const go = (index: number, immediate: boolean) => {
+      const count = landingSections().length;
+      const target = count <= 1 ? 0 : index / (count - 1);
+      if (index === active && !immediate) return;
+      active = index;
+      if (frame) cancelAnimationFrame(frame);
+      frame = 0;
+      if (immediate || reduced.matches) {
+        write(target);
+        return;
+      }
+      const from = progressRef.current;
+      const start = performance.now();
+      const tick = (now: number) => {
+        const t = Math.min(1, (now - start) / TRANSITION_MS);
+        const eased = 1 - (1 - t) ** 3;
+        write(from + (target - from) * eased);
+        frame = t < 1 ? requestAnimationFrame(tick) : 0;
+      };
+      frame = requestAnimationFrame(tick);
+    };
+
+    const sync = (immediate: boolean) => {
+      const sections = landingSections();
+      if (sections.length === 0) return;
+      go(activeSectionIndex(sections), immediate);
+    };
+
+    sync(true);
+    const onScroll = () => sync(false);
+    const onPreference = () => sync(true);
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll);
+    reduced.addEventListener("change", onPreference);
     return () => {
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
-      if (frame) window.cancelAnimationFrame(frame);
+      reduced.removeEventListener("change", onPreference);
+      if (frame) cancelAnimationFrame(frame);
     };
   }, [onLanding]);
 
