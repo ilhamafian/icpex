@@ -1,10 +1,27 @@
 import Image from "next/image";
 import Link from "next/link";
+import { headers } from "next/headers";
 
 import { Rise } from "@/components/marketing/Rise";
 import { LiquidGlass } from "@/components/ui/liquid-glass";
+import { CoOrganiserModel } from "@/models/CoOrganiser";
+import {
+  serializeCoOrganiser,
+  type SerializedCoOrganiser,
+} from "@/utils/serializeCoOrganiser";
 
-export function SiteFooter() {
+async function loadCoOrganisers(): Promise<SerializedCoOrganiser[]> {
+  try {
+    const logos = await new CoOrganiserModel().list();
+    return logos.map(serializeCoOrganiser);
+  } catch {
+    return [];
+  }
+}
+
+export async function SiteFooter() {
+  await headers();
+  const coOrganisers = await loadCoOrganisers();
   return (
     <footer className="border-t border-white/10">
       <div className="mx-auto w-full max-w-6xl px-6 py-16">
@@ -53,7 +70,25 @@ export function SiteFooter() {
         <Rise delay={0.1}>
           <div className="mt-12 text-center">
             <p className="text-sm font-bold tracking-[0.16em] text-[#e8b84a]">Co-organisers</p>
-            <p className="mt-3 text-sm text-white/70">To be announced</p>
+            {coOrganisers.length === 0 ? (
+              <p className="mt-3 text-sm text-white/70">To be announced</p>
+            ) : (
+              <ul className="mt-6 flex flex-wrap items-center justify-center gap-4">
+                {coOrganisers.map((logo) => (
+                  <li
+                    key={logo._id}
+                    className="flex h-20 items-center justify-center rounded-2xl bg-white px-4"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={logo.image_src}
+                      alt={logo.name}
+                      className="h-12 w-auto max-w-40 object-contain"
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </Rise>
       </div>
