@@ -1,17 +1,21 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { Rise } from "@/components/marketing/Rise";
 import { LiquidGlass } from "@/components/ui/liquid-glass";
 
 export function SiteFooter() {
   return (
     <footer className="border-t border-white/10">
       <div className="mx-auto w-full max-w-6xl px-6 py-16">
-        <h2 className="text-center text-2xl font-bold tracking-tight sm:text-3xl">
-          Organised by • Publication • Co-Organisers
-        </h2>
+        <Rise>
+          <h2 className="text-center text-2xl font-bold tracking-tight sm:text-3xl">
+            Organised by • Publication • Co-Organisers
+          </h2>
+        </Rise>
         <div className="mt-12 grid items-start gap-12 lg:grid-cols-2">
-          <div>
+          <Rise delay={0.06}>
+            <div>
             <p className="text-sm font-bold tracking-[0.16em] text-[#e8b84a]">Organised by</p>
             <Image
               src="/brand/unikl-logo.png"
@@ -24,8 +28,10 @@ export function SiteFooter() {
               Research & Innovation Section, Universiti Kuala Lumpur Malaysian Institute of
               Information Technology.
             </p>
-          </div>
-          <div>
+            </div>
+          </Rise>
+          <Rise delay={0.14}>
+            <div>
             <p className="text-sm font-bold tracking-[0.16em] text-[#e8b84a]">
               Publication opportunities
             </p>
@@ -41,12 +47,15 @@ export function SiteFooter() {
               </p>
               <p className="mt-3 text-sm">e-ISSN : 2550-1550</p>
             </LiquidGlass>
+            </div>
+          </Rise>
+        </div>
+        <Rise delay={0.1}>
+          <div className="mt-12 text-center">
+            <p className="text-sm font-bold tracking-[0.16em] text-[#e8b84a]">Co-organisers</p>
+            <p className="mt-3 text-sm text-white/70">To be announced</p>
           </div>
-        </div>
-        <div className="mt-12 text-center">
-          <p className="text-sm font-bold tracking-[0.16em] text-[#e8b84a]">Co-organisers</p>
-          <p className="mt-3 text-sm text-white/70">To be announced</p>
-        </div>
+        </Rise>
       </div>
       <div className="border-t border-white/10">
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 px-6 py-4 text-xs text-white/60 sm:flex-row">

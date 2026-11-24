@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { DatesList, SectionHeading } from "@/components/marketing/blocks";
 import { WHY_JOIN } from "@/components/marketing/content";
+import { Rise } from "@/components/marketing/Rise";
 import { WelcomeHighlight } from "@/components/marketing/WelcomeHighlight";
 import { LiquidGlass } from "@/components/ui/liquid-glass";
 
@@ -12,14 +13,18 @@ export default function HomePage() {
     <>
       <section className="mx-auto flex min-h-[calc(100vh-4.25rem)] w-full max-w-6xl flex-col justify-center px-6 py-16">
         <div>
-          <p className="text-sm font-semibold tracking-[0.18em] text-[#e8b84a] uppercase sm:text-base">
-            International Competition for
-          </p>
-          <h1 className="mt-4 text-[clamp(1.45rem,4.2vw,3.75rem)] leading-[1.05] font-bold tracking-tight uppercase">
-            <span className="block whitespace-nowrap">Research, Innovation &</span>
-            <span className="block">Value Excellence</span>
-          </h1>
-          <div className="max-w-xl">
+          <Rise when="load">
+            <p className="text-sm font-semibold tracking-[0.18em] text-[#e8b84a] uppercase sm:text-base">
+              International Competition for
+            </p>
+          </Rise>
+          <Rise when="load" delay={0.1}>
+            <h1 className="mt-4 text-[clamp(1.45rem,4.2vw,3.75rem)] leading-[1.05] font-bold tracking-tight uppercase">
+              <span className="block whitespace-nowrap">Research, Innovation &</span>
+              <span className="block">Value Excellence</span>
+            </h1>
+          </Rise>
+          <Rise when="load" delay={0.2} className="max-w-xl">
             <p className="mt-8 text-3xl font-bold sm:text-4xl">
               <span className="text-[#e8b84a]">I-CRIVE</span> 2027
             </p>
@@ -45,17 +50,23 @@ export default function HomePage() {
                 </LiquidGlass>
               </Link>
             </div>
-          </div>
+          </Rise>
         </div>
       </section>
 
       <section className="mx-auto flex min-h-[90vh] w-full max-w-6xl flex-col items-center justify-center px-6 py-28 text-center">
-        <h2 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
-          Welcome to I-CRIVE 2027
-        </h2>
-        <div className="mt-6 h-px w-16 bg-[#e8b84a]" aria-hidden />
-        <WelcomeHighlight className="mt-8 max-w-3xl text-lg leading-relaxed font-normal text-pretty sm:text-xl" />
-        <div className="mt-14">
+        <Rise>
+          <h2 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
+            Welcome to I-CRIVE 2027
+          </h2>
+        </Rise>
+        <Rise delay={0.08}>
+          <div className="mt-6 h-px w-16 bg-[#e8b84a]" aria-hidden />
+        </Rise>
+        <Rise delay={0.14} className="mt-8">
+          <WelcomeHighlight className="max-w-3xl text-lg leading-relaxed font-normal text-pretty sm:text-xl" />
+        </Rise>
+        <Rise delay={0.22} className="mt-14">
           <Link href="/about" className="inline-flex rounded-full">
             <LiquidGlass
               tint={0}
@@ -67,49 +78,63 @@ export default function HomePage() {
               <IconArrowRight className="size-4" aria-hidden />
             </LiquidGlass>
           </Link>
-        </div>
+        </Rise>
       </section>
 
       <section id="categories" className="scroll-mt-24 mx-auto w-full max-w-5xl px-6 py-32">
-        <SectionHeading
-          title="Competition Categories"
-          description="Choose your category and showcase your excellence in innovation and research."
-        />
+        <Rise>
+          <SectionHeading
+            title="Competition Categories"
+            description="Choose your category and showcase your excellence in innovation and research."
+          />
+        </Rise>
         <div className="grid gap-6 md:grid-cols-2">
-          <CategoryCard
-            href="/categories/undergraduate"
-            icon={<IconBulb className="size-8 text-[#e8b84a]" aria-hidden />}
-            title="Undergraduate"
-            subtitle="Innovation Project Competition"
-            tracks="6 Tracks"
-          />
-          <CategoryCard
-            href="/categories/postgraduate"
-            icon={<IconSchool className="size-8 text-[#e8b84a]" aria-hidden />}
-            title="Postgraduate"
-            subtitle="Five-Minute Thesis (5MT) Competition"
-            tracks="3 Tracks"
-          />
+          <Rise delay={0.06} className="h-full">
+            <CategoryCard
+              href="/categories/undergraduate"
+              icon={<IconBulb className="size-8 text-[#e8b84a]" aria-hidden />}
+              title="Undergraduate"
+              subtitle="Innovation Project Competition"
+              tracks="6 Tracks"
+            />
+          </Rise>
+          <Rise delay={0.14} className="h-full">
+            <CategoryCard
+              href="/categories/postgraduate"
+              icon={<IconSchool className="size-8 text-[#e8b84a]" aria-hidden />}
+              title="Postgraduate"
+              subtitle="Five-Minute Thesis (5MT) Competition"
+              tracks="3 Tracks"
+            />
+          </Rise>
         </div>
       </section>
 
       <section className="mx-auto w-full max-w-6xl px-6 py-20">
-        <SectionHeading
-          title="Why Join I-CRIVE 2027?"
-          description="Discover opportunities to showcase your talent, advance your research and gain international recognition."
-        />
+        <Rise>
+          <SectionHeading
+            title="Why Join I-CRIVE 2027?"
+            description="Discover opportunities to showcase your talent, advance your research and gain international recognition."
+          />
+        </Rise>
         <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {WHY_JOIN.map((item) => (
+          {WHY_JOIN.map((item, index) => (
             <li key={item.title} className="h-full">
-              <WhyJoinCard title={item.title} body={item.body} />
+              <Rise className="h-full" delay={index * 0.06}>
+                <WhyJoinCard title={item.title} body={item.body} />
+              </Rise>
             </li>
           ))}
         </ul>
       </section>
 
       <section className="mx-auto w-full max-w-6xl px-6 py-20">
-        <SectionHeading title="Important Dates" />
-        <DatesList />
+        <Rise>
+          <SectionHeading title="Important Dates" />
+        </Rise>
+        <Rise delay={0.08}>
+          <DatesList />
+        </Rise>
       </section>
     </>
   );
