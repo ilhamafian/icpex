@@ -4,13 +4,14 @@ import type { ReactNode } from "react";
 
 import { DatesList, SectionHeading } from "@/components/marketing/blocks";
 import { WHY_JOIN } from "@/components/marketing/content";
+import { LandingSmoothScroll } from "@/components/marketing/LandingSmoothScroll";
 import { Rise } from "@/components/marketing/Rise";
 import { WelcomeHighlight } from "@/components/marketing/WelcomeHighlight";
 import { LiquidGlass } from "@/components/ui/liquid-glass";
 
 export default function HomePage() {
   return (
-    <>
+    <LandingSmoothScroll>
       <section className="mx-auto flex min-h-[calc(100vh-4.25rem)] w-full max-w-6xl flex-col justify-center px-6 py-16">
         <div>
           <Rise when="load">
@@ -136,7 +137,7 @@ export default function HomePage() {
           <DatesList />
         </Rise>
       </section>
-    </>
+    </LandingSmoothScroll>
   );
 }
 
