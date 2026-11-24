@@ -1,5 +1,6 @@
 "use client";
 
+import { IconCheck } from "@tabler/icons-react";
 import { FormEvent, useState } from "react";
 
 import {
@@ -9,13 +10,15 @@ import {
   projectToPayload,
   type ProjectState,
 } from "@/components/ProjectFields";
+import { cardGlassClass, cardGlassStyle } from "@/components/marketing/blocks";
 import {
   Field,
   FieldError,
   inputClassName,
   mutedTextClassName,
   Section,
-} from "@/components/registrationFormUi";
+} from "@/components/marketing/registrationFormUi";
+import { LiquidGlass } from "@/components/ui/liquid-glass";
 import {
   requirementsForLevel,
   requirementsForTiming,
@@ -52,9 +55,12 @@ type SubmissionResult = {
 };
 
 const STEPS: { id: FormStep; label: string }[] = [
-  { id: "university", label: "1. University" },
-  { id: "projects", label: "2. Project" },
+  { id: "university", label: "University" },
+  { id: "projects", label: "Project" },
 ];
+
+const primaryButtonClassName =
+  "inline-flex h-12 w-full items-center justify-center rounded-full bg-[#d6a11e] px-8 text-sm font-bold tracking-wide text-[#1a1408] transition-colors hover:bg-[#e2b43a] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto";
 
 function issuesToErrors(issues: { path: PropertyKey[]; message: string }[]) {
   const next: FieldErrors = {};
@@ -250,50 +256,101 @@ export function RegistrationForm({
 
   if (result) {
     return (
-      <div className="flex flex-col gap-6 rounded-lg border border-black/10 px-5 py-6 dark:border-white/10">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight">
-            Registration submitted
-          </h2>
-          <p className={`mt-1 ${mutedTextClassName}`}>
-            Your submission number is{" "}
-            <span className="font-medium text-foreground">
-              {result.submission_number}
-            </span>
-            . The secretariat will follow up after reviewing your submission.
-            Keep these numbers for your records.
-          </p>
-        </div>
-        <ul className="flex flex-col divide-y divide-black/10 text-sm dark:divide-white/10">
+      <LiquidGlass
+        tint={0}
+        radius={28}
+        className={cardGlassClass}
+        style={cardGlassStyle}
+        contentClassName="px-6 py-8 sm:px-8"
+      >
+        <p className="text-xs font-semibold tracking-[0.2em] text-[#e8b84a] uppercase">
+          Submitted
+        </p>
+        <h2 className="mt-3 text-2xl font-bold tracking-tight">Registration submitted</h2>
+        <p className={`mt-3 ${mutedTextClassName}`}>
+          Your submission number is{" "}
+          <span className="font-semibold text-white">{result.submission_number}</span>
+          . The secretariat will follow up after reviewing your submission. Keep these
+          numbers for your records.
+        </p>
+        <ul className="mt-6 flex flex-col divide-y divide-white/10 text-sm">
           {result.projects.map((item) => (
-            <li key={item.registration_number} className="py-2.5">
-              <p className="truncate font-medium">{item.title}</p>
+            <li key={item.registration_number} className="py-3">
+              <p className="truncate font-semibold text-white">{item.title}</p>
               <p className={mutedTextClassName}>{item.registration_number}</p>
             </li>
           ))}
         </ul>
-      </div>
+      </LiquidGlass>
     );
   }
 
   const stepIndex = STEPS.findIndex((s) => s.id === step);
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-8" noValidate>
-      <div className={`flex flex-wrap items-center gap-3 ${mutedTextClassName}`}>
-        {STEPS.map((s, index) => (
-          <span key={s.id} className="flex items-center gap-3">
-            {index > 0 ? <span aria-hidden="true">→</span> : null}
-            <span
-              className={
-                index === stepIndex ? "font-medium text-foreground" : undefined
-              }
-            >
-              {s.label}
-            </span>
-          </span>
-        ))}
-      </div>
+    <form
+      onSubmit={handleSubmit}
+      className="flex flex-col gap-8"
+      style={{ colorScheme: "dark" }}
+      noValidate
+    >
+      <ol className="grid gap-3 sm:grid-cols-2">
+        {STEPS.map((s, index) => {
+          const active = index === stepIndex;
+          const done = index < stepIndex;
+          const marker = (
+            <>
+              <span
+                className={
+                  active || done
+                    ? "flex size-8 shrink-0 items-center justify-center rounded-full bg-[#e8b84a] text-sm font-bold text-[#1a1408]"
+                    : "flex size-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white/55"
+                }
+              >
+                {done ? <IconCheck className="size-4" stroke={2.5} aria-hidden /> : index + 1}
+              </span>
+              <span
+                className={
+                  active
+                    ? "text-sm font-bold text-white"
+                    : "text-sm font-semibold text-white/55"
+                }
+              >
+                {s.label}
+              </span>
+            </>
+          );
+
+          return (
+            <li key={s.id} aria-current={active ? "step" : undefined}>
+              {done ? (
+                <LiquidGlass
+                  as="button"
+                  type="button"
+                  onClick={() => goTo(s.id)}
+                  tint={0}
+                  radius={20}
+                  className={`${cardGlassClass} w-full text-left transition-transform duration-200 hover:scale-[1.02] motion-reduce:hover:scale-100`}
+                  style={cardGlassStyle}
+                  contentClassName="flex items-center gap-3 px-4 py-3"
+                >
+                  {marker}
+                </LiquidGlass>
+              ) : (
+                <LiquidGlass
+                  tint={0}
+                  radius={20}
+                  className={`${cardGlassClass} w-full`}
+                  style={cardGlassStyle}
+                  contentClassName="flex items-center gap-3 px-4 py-3"
+                >
+                  {marker}
+                </LiquidGlass>
+              )}
+            </li>
+          );
+        })}
+      </ol>
 
       {step === "university" ? (
         <Section
@@ -402,17 +459,12 @@ export function RegistrationForm({
       ) : null}
 
       {step === "projects" && project ? (
-        <div className="flex flex-col gap-4">
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight">Project</h2>
-            <p className={`mt-1 ${mutedTextClassName}`}>
-              Enter your project details for{" "}
-              <span className="font-medium text-foreground">
-                {institutionName}
-              </span>
-              , including participant, team, supervisors and documents.
-            </p>
-          </div>
+        <div className="flex flex-col gap-8">
+          <p className={mutedTextClassName}>
+            Enter your project details for{" "}
+            <span className="font-semibold text-white">{institutionName}</span>, including
+            participant, team, supervisors and documents.
+          </p>
           <FieldError message={errors.projects} />
           <ProjectFields
             index={0}
@@ -430,16 +482,20 @@ export function RegistrationForm({
 
       <FieldError message={errors.form} />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         {step !== "university" ? (
-          <button
+          <LiquidGlass
+            as="button"
             type="button"
             onClick={() => goTo("university")}
             disabled={loading}
-            className="h-11 rounded-full border border-black/10 px-6 text-sm font-medium text-foreground transition-colors hover:bg-black/5 disabled:opacity-60 dark:border-white/15 dark:hover:bg-white/5"
+            tint={0}
+            className={`${cardGlassClass} text-white transition-transform duration-200 hover:scale-[1.03] active:scale-[0.97] disabled:opacity-60 motion-reduce:transition-none motion-reduce:hover:scale-100`}
+            style={cardGlassStyle}
+            contentClassName="flex h-12 items-center justify-center px-7 text-sm font-bold tracking-wide"
           >
             Back
-          </button>
+          </LiquidGlass>
         ) : null}
         <button
           type="submit"
@@ -449,7 +505,7 @@ export function RegistrationForm({
             !competitionId ||
             categories.length === 0
           }
-          className="h-11 flex-1 rounded-full bg-foreground text-sm font-medium text-background transition-colors hover:bg-[#383838] disabled:opacity-60 dark:hover:bg-[#ccc] sm:flex-none sm:px-10"
+          className={primaryButtonClassName}
         >
           {loading
             ? "Submitting…"

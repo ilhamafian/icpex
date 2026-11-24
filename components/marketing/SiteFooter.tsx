@@ -2,8 +2,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { headers } from "next/headers";
 
-import { Rise } from "@/components/marketing/Rise";
-import { LiquidGlass } from "@/components/ui/liquid-glass";
 import { CoOrganiserModel } from "@/models/CoOrganiser";
 import {
   serializeCoOrganiser,
@@ -19,82 +17,69 @@ async function loadCoOrganisers(): Promise<SerializedCoOrganiser[]> {
   }
 }
 
+const labelClass = "text-[0.68rem] font-bold tracking-[0.16em] text-[#e8b84a] uppercase";
+
 export async function SiteFooter() {
   await headers();
   const coOrganisers = await loadCoOrganisers();
+
   return (
     <footer className="border-t border-white/10">
-      <div className="mx-auto w-full max-w-6xl px-6 py-16">
-        <Rise>
-          <h2 className="text-center text-2xl font-bold tracking-tight sm:text-3xl">
-            Organised by • Publication • Co-Organisers
-          </h2>
-        </Rise>
-        <div className="mt-12 grid items-start gap-12 lg:grid-cols-2">
-          <Rise delay={0.06}>
-            <div>
-            <p className="text-sm font-bold tracking-[0.16em] text-[#e8b84a]">Organised by</p>
+      <div className="mx-auto grid w-full max-w-6xl gap-8 px-6 py-8 sm:grid-cols-2 lg:grid-cols-3 lg:gap-10 lg:py-7">
+        <div>
+          <p className={labelClass}>Organised by</p>
+          <div className="mt-3 flex items-center gap-3">
             <Image
               src="/brand/unikl-logo.png"
               alt="Universiti Kuala Lumpur"
               width={473}
               height={295}
-              className="mt-6 h-24 w-auto sm:h-28"
+              className="h-12 w-auto shrink-0"
             />
-            <p className="mt-4 max-w-sm text-sm text-white/70">
+            <p className="text-xs leading-snug text-white/70">
               Research & Innovation Section, Universiti Kuala Lumpur Malaysian Institute of
               Information Technology.
             </p>
-            </div>
-          </Rise>
-          <Rise delay={0.14}>
-            <div>
-            <p className="text-sm font-bold tracking-[0.16em] text-[#e8b84a]">
-              Publication opportunities
-            </p>
-            <LiquidGlass
-              tint={0}
-              radius={28}
-              className="mt-6 max-w-md shadow-[0_10px_40px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.45)]"
-              style={{ backgroundColor: "rgb(27 122 67 / 0.72)" }}
-              contentClassName="px-6 py-5 text-white"
-            >
-              <p className="text-2xl leading-tight font-semibold">
-                Journal of Computing Technologies and Creative Content
-              </p>
-              <p className="mt-3 text-sm">e-ISSN : 2550-1550</p>
-            </LiquidGlass>
-            </div>
-          </Rise>
-        </div>
-        <Rise delay={0.1}>
-          <div className="mt-12 text-center">
-            <p className="text-sm font-bold tracking-[0.16em] text-[#e8b84a]">Co-organisers</p>
-            {coOrganisers.length === 0 ? (
-              <p className="mt-3 text-sm text-white/70">To be announced</p>
-            ) : (
-              <ul className="mt-6 flex flex-wrap items-center justify-center gap-4">
-                {coOrganisers.map((logo) => (
-                  <li
-                    key={logo._id}
-                    className="flex h-20 items-center justify-center rounded-2xl bg-white px-4"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={logo.image_src}
-                      alt={logo.name}
-                      className="h-12 w-auto max-w-40 object-contain"
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
-        </Rise>
+        </div>
+
+        <div>
+          <p className={labelClass}>Publication</p>
+          <div className="mt-3 border-l-2 border-[#1b7a43] pl-3">
+            <p className="text-sm leading-snug font-semibold text-white">
+              Journal of Computing Technologies and Creative Content
+            </p>
+            <p className="mt-1 text-xs text-white/60">e-ISSN 2550-1550</p>
+          </div>
+        </div>
+
+        <div className="sm:col-span-2 lg:col-span-1">
+          <p className={labelClass}>Co-organisers</p>
+          {coOrganisers.length === 0 ? (
+            <p className="mt-3 text-sm text-white/60">To be announced</p>
+          ) : (
+            <ul className="mt-3 flex flex-wrap items-center gap-2">
+              {coOrganisers.map((logo) => (
+                <li
+                  key={logo._id}
+                  className="flex h-12 items-center justify-center rounded-xl bg-white px-3"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={logo.image_src}
+                    alt={logo.name}
+                    className="h-8 w-auto max-w-28 object-contain"
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
+
       <div className="border-t border-white/10">
-        <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 px-6 py-4 text-xs text-white/60 sm:flex-row">
-          <p>© 2027 I-CRIVE | Universiti Kuala Lumpur MIIT. All rights reserved.</p>
+        <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-2 px-6 py-3 text-xs text-white/55 sm:flex-row">
+          <p>© 2027 I-CRIVE · Universiti Kuala Lumpur MIIT. All rights reserved.</p>
           <Link href="/portal/login" className="transition-colors hover:text-white">
             Staff login
           </Link>

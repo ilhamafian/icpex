@@ -49,7 +49,7 @@ export default function AboutPage() {
                 tint={0}
                 radius={28}
                 className="h-full shadow-[0_10px_40px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.45)]"
-                style={{ backgroundColor: "rgb(53 86 127 / 0.72)" }}
+                style={{ backgroundColor: "rgb(14 32 56 / 0.82)" }}
                 contentClassName="flex h-full flex-col px-6 py-8 text-center sm:px-8"
               >
                 <h3 className="text-lg font-bold text-[#e8b84a]">{item.title}</h3>

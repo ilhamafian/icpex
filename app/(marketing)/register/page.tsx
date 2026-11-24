@@ -1,11 +1,22 @@
+import { IconArrowLeft } from "@tabler/icons-react";
+import type { Metadata } from "next";
 import Link from "next/link";
+
 import { RegistrationForm } from "@/components/RegistrationForm";
+import { cardGlassClass, cardGlassStyle } from "@/components/marketing/blocks";
+import { LiquidGlass } from "@/components/ui/liquid-glass";
 import { effectiveDocumentRequirements } from "@/schemas/documentRequirement";
 import { allowedEducationLevels } from "@/schemas/educationLevel";
 import { toIdString } from "@/schemas/objectId";
 import { CategoryModel } from "@/models/Category";
 import { getCurrentCompetition } from "@/utils/currentCompetition";
 import { parseLevelParam } from "@/utils/registrationLinks";
+
+export const metadata: Metadata = {
+  title: "Register",
+  description:
+    "Register one project for I-CRIVE 2027. Payment is by bank transfer after the secretariat reviews your submission.",
+};
 
 async function loadOptions() {
   try {
@@ -16,7 +27,6 @@ async function loadOptions() {
 
     return {
       competitionId: competition ? toIdString(competition._id) : "",
-      competitionName: competition?.name ?? "",
       educationLevels: allowedEducationLevels(competition?.eligibility),
       documentRequirements: effectiveDocumentRequirements(competition),
       categories: (categories ?? []).map((c) => ({
@@ -28,7 +38,6 @@ async function loadOptions() {
   } catch {
     return {
       competitionId: "",
-      competitionName: "",
       educationLevels: allowedEducationLevels(undefined),
       documentRequirements: effectiveDocumentRequirements(null),
       categories: [],
@@ -42,7 +51,6 @@ export default async function RegisterPage({
   const [
     {
       competitionId,
-      competitionName,
       educationLevels,
       documentRequirements,
       categories,
@@ -56,31 +64,27 @@ export default async function RegisterPage({
       : undefined;
 
   return (
-    <div className="flex min-h-full flex-1 flex-col">
-      <header className="flex w-full items-center justify-between border-b border-black/10 px-6 py-4 dark:border-white/10">
-        <Link
-          href="/"
-          className="text-sm font-medium text-zinc-600 transition-colors hover:text-foreground dark:text-zinc-400"
-        >
-          ← Home
-        </Link>
-      </header>
-      <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
-        <div className="mb-10">
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-            Competition registration
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">
-            Register one project with its participant, team, supervisors and
-            documents. Payment is by manual bank transfer after the secretariat
-            reviews your submission. No account or password is required.
-          </p>
-          {competitionName ? (
-            <p className="mt-3 text-sm font-medium text-foreground">
-              {competitionName}
-            </p>
-          ) : null}
-        </div>
+    <div className="mx-auto w-full max-w-5xl px-6 pt-8 pb-14 sm:pt-10 sm:pb-16">
+      <Link
+        href="/"
+        className="inline-flex items-center gap-1.5 text-sm font-semibold text-white/80 transition-colors hover:text-[#e8b84a]"
+      >
+        <IconArrowLeft className="size-4" aria-hidden />
+        Home
+      </Link>
+      <p className="mt-8 text-xs font-semibold tracking-[0.2em] text-[#e8b84a] uppercase">
+        I-CRIVE 2027
+      </p>
+      <h1 className="mt-3 text-4xl font-bold tracking-tight text-balance sm:text-5xl">
+        Register
+      </h1>
+      <p className="mt-4 max-w-2xl text-base leading-relaxed text-white/80">
+        Register one project with its participant, team, supervisors and documents.
+        Payment is by bank transfer after the secretariat reviews your submission.
+        No account is required.
+      </p>
+      <div className="mt-6 h-px w-full bg-[#e8b84a]" />
+      <div className="mt-10">
         {competitionId ? (
           <RegistrationForm
             competitionId={competitionId}
@@ -91,12 +95,20 @@ export default async function RegisterPage({
             categories={categories}
           />
         ) : (
-          <p className="rounded-lg border border-black/10 px-4 py-6 text-sm text-zinc-600 dark:border-white/10 dark:text-zinc-400">
-            Registration is closed — there is no published competition right
-            now. Please check back later.
-          </p>
+          <LiquidGlass
+            tint={0}
+            radius={28}
+            className={cardGlassClass}
+            style={cardGlassStyle}
+            contentClassName="px-6 py-8 sm:px-8"
+          >
+            <h2 className="text-lg font-bold text-[#e8b84a]">Registration is closed</h2>
+            <p className="mt-2 text-sm leading-relaxed text-white/70">
+              There is no published competition right now. Please check back later.
+            </p>
+          </LiquidGlass>
         )}
-      </main>
+      </div>
     </div>
   );
 }

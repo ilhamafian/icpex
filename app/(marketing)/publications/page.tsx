@@ -15,7 +15,7 @@ export default function PublicationsPage() {
         tint={0}
         radius={28}
         className="mx-auto max-w-3xl shadow-[0_10px_40px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.45)]"
-        style={{ backgroundColor: "rgb(53 86 127 / 0.72)" }}
+        style={{ backgroundColor: "rgb(14 32 56 / 0.82)" }}
         contentClassName="px-6 py-8 text-center sm:px-10 sm:py-10"
       >
         <h2 className="text-lg font-bold text-[#e8b84a]">Full Paper (Optional)</h2>

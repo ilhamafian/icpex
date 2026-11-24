@@ -47,7 +47,7 @@ export default function HomePage() {
                 <LiquidGlass
                   tint={0}
                   className="text-white shadow-[0_10px_40px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.45)] transition-transform duration-200 hover:scale-[1.03] active:scale-[0.97] motion-reduce:transition-none motion-reduce:hover:scale-100"
-                  style={{ backgroundColor: "rgb(53 86 127 / 0.72)" }}
+                  style={{ backgroundColor: "rgb(14 32 56 / 0.82)" }}
                   contentClassName="flex h-12 items-center justify-center px-7 text-sm font-bold tracking-wide"
                 >
                   Explore Tracks
@@ -78,7 +78,7 @@ export default function HomePage() {
             <LiquidGlass
               tint={0}
               className="shadow-[0_10px_40px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.45)] transition-transform duration-200 hover:scale-[1.03] active:scale-[0.97] motion-reduce:transition-none motion-reduce:hover:scale-100"
-              style={{ backgroundColor: "rgb(53 86 127 / 0.72)" }}
+              style={{ backgroundColor: "rgb(14 32 56 / 0.82)" }}
               contentClassName="flex h-12 items-center justify-center gap-2 px-7 text-sm font-bold tracking-wide text-[#e8b84a]"
             >
               Learn More
@@ -157,7 +157,7 @@ function WhyJoinCard({ title, body }: { title: string; body: string }) {
       tint={0}
       radius={28}
       className="h-full shadow-[0_10px_40px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.45)]"
-      style={{ backgroundColor: "rgb(53 86 127 / 0.72)" }}
+      style={{ backgroundColor: "rgb(14 32 56 / 0.82)" }}
       contentClassName="flex h-full flex-col px-6 py-8 text-center sm:px-8"
     >
       <h3 className="text-lg font-bold text-[#e8b84a]">{title}</h3>
@@ -184,7 +184,7 @@ function CategoryCard({
       tint={0}
       radius={28}
       className="shadow-[0_10px_40px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.45)]"
-      style={{ backgroundColor: "rgb(53 86 127 / 0.72)" }}
+      style={{ backgroundColor: "rgb(14 32 56 / 0.82)" }}
       contentClassName="flex flex-col items-center px-6 py-12 text-center sm:px-8"
     >
       {icon}

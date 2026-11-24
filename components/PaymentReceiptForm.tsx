@@ -3,12 +3,8 @@
 import { useState } from "react";
 import { upload } from "@vercel/blob/client";
 
-import {
-  Field,
-  FieldError,
-  fileInputClassName,
-  mutedTextClassName,
-} from "@/components/registrationFormUi";
+import { FilePicker } from "@/components/FilePicker";
+import { Field, FieldError, mutedTextClassName } from "@/components/registrationFormUi";
 
 const RECEIPT_ACCEPT = "image/jpeg,image/png,image/webp,application/pdf";
 
@@ -95,21 +91,14 @@ export function PaymentReceiptForm({
   return (
     <form onSubmit={(event) => void handleSubmit(event)} className="flex flex-col gap-4">
       <Field id="receipt" label={replacing ? "Replace receipt" : "Transfer receipt"}>
-        <input
+        <FilePicker
           id="receipt"
-          type="file"
           accept={RECEIPT_ACCEPT}
-          disabled={uploading || submitting}
-          onChange={(event) => {
-            void handleFile(event.target.files?.[0]);
-            event.target.value = "";
-          }}
-          className={fileInputClassName}
+          disabled={submitting}
+          uploading={uploading}
+          fileName={receiptUrl || uploading ? fileName : ""}
+          onFile={(file) => void handleFile(file)}
         />
-        {uploading ? <p className={mutedTextClassName}>Uploading…</p> : null}
-        {receiptUrl && !uploading ? (
-          <p className={`truncate ${mutedTextClassName}`}>Uploaded: {fileName}</p>
-        ) : null}
       </Field>
       <FieldError message={error} />
       <button

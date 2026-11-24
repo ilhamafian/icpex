@@ -1,7 +1,15 @@
+import { IconArrowRight } from "@tabler/icons-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { GuidelineSection, RegisterButton, RulesSection, TrackList } from "@/components/marketing/blocks";
+import {
+  cardGlassClass,
+  cardGlassStyle,
+  GuidelineSection,
+  RulesSection,
+  TrackList,
+} from "@/components/marketing/blocks";
+import { LiquidGlass } from "@/components/ui/liquid-glass";
 import {
   ABSTRACT_CONTENT,
   ABSTRACT_REQUIREMENTS,
@@ -22,8 +30,8 @@ export const metadata: Metadata = {
 export default function PostgraduatePage() {
   return (
     <>
-      <section className="mx-auto grid w-full max-w-6xl items-start gap-10 px-6 py-14 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-14">
-        <div className="lg:border-r lg:border-[#e8b84a] lg:pr-10">
+      <section className="mx-auto grid w-full max-w-6xl gap-10 px-6 py-14 lg:grid-cols-[minmax(0,0.9fr)_1px_minmax(0,1.1fr)] lg:items-stretch lg:gap-x-14">
+        <div className="flex flex-col justify-center">
           <p className="text-5xl font-bold text-[#e8b84a]">
             5 <span className="text-2xl font-semibold text-white">minute live presentation</span>
           </p>
@@ -35,12 +43,26 @@ export default function PostgraduatePage() {
             concisely and persuasively within five minutes.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <RegisterButton href="/register?level=postgraduate">Register now</RegisterButton>
-            <RegisterButton href="#guidelines" tone="slate">
-              Guidelines
-            </RegisterButton>
+            <Link
+              href="/register?level=postgraduate"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#d6a11e] px-7 text-sm font-bold tracking-wide text-[#1a1408] transition-colors hover:bg-[#e2b43a]"
+            >
+              Register Now
+              <IconArrowRight className="size-4" aria-hidden />
+            </Link>
+            <a href="#guidelines" className="inline-flex rounded-full">
+              <LiquidGlass
+                tint={0}
+                className={`${cardGlassClass} text-white transition-transform duration-200 hover:scale-[1.03] active:scale-[0.97] motion-reduce:transition-none motion-reduce:hover:scale-100`}
+                style={cardGlassStyle}
+                contentClassName="flex h-12 items-center justify-center px-7 text-sm font-bold tracking-wide"
+              >
+                Guidelines
+              </LiquidGlass>
+            </a>
           </div>
         </div>
+        <div className="hidden bg-[#e8b84a] lg:block" aria-hidden />
         <TrackList tracks={PG_TRACKS} />
       </section>
 

@@ -15,16 +15,16 @@ import {
 } from "@/schemas/educationLevel";
 import { MAX_TEAM_MEMBERS } from "@/schemas/registrationSchema";
 import type { SubmissionProject } from "@/schemas/submissionSchema";
+import { FilePicker } from "@/components/FilePicker";
 import {
   Field,
   FieldError,
-  fileInputClassName,
   inputClassName,
   linkButtonClassName,
   mutedTextClassName,
   Section,
   textareaClassName,
-} from "@/components/registrationFormUi";
+} from "@/components/marketing/registrationFormUi";
 import { DEFAULT_PHONE_CODE, DIAL_CODES } from "@/utils/phoneCodes";
 
 type Option = {
@@ -289,6 +289,7 @@ export function ProjectFields({
     } catch (error) {
       updateUpload(requirementId, {
         uploading: false,
+        file_name: "",
         file_url: "",
         uploadError:
           error instanceof Error ? error.message : "Upload failed. Try again.",
@@ -309,39 +310,23 @@ export function ProjectFields({
         label={label}
         error={state.uploadError || errors[`documents.${requirement.id}`]}
       >
-        <div className="flex items-center gap-3">
-          <input
-            id={inputId}
-            type="file"
-            accept={acceptAttrForFormats(requirement.accepted_formats)}
-            disabled={state.uploading || disabled}
-            onChange={(e) => {
-              void handleDocumentUpload(requirement.id, e.target.files?.[0]);
-              e.target.value = "";
-            }}
-            className={fileInputClassName}
-          />
-          {state.file_url && !state.uploading ? (
-            <button
-              type="button"
-              onClick={() =>
-                updateUpload(requirement.id, emptyUpload())
-              }
-              className={`shrink-0 ${mutedTextClassName} underline-offset-4 hover:underline`}
-            >
-              Remove
-            </button>
-          ) : null}
-        </div>
+        <FilePicker
+          id={inputId}
+          accept={acceptAttrForFormats(requirement.accepted_formats)}
+          disabled={disabled}
+          uploading={Boolean(state.uploading)}
+          fileName={state.file_url || state.uploading ? state.file_name : ""}
+          onFile={(file) => void handleDocumentUpload(requirement.id, file)}
+          onRemove={
+            state.file_url && !state.uploading
+              ? () => updateUpload(requirement.id, emptyUpload())
+              : undefined
+          }
+          variant="marketing"
+        />
         <p className={mutedTextClassName}>
           Accepted: {formatLabels(requirement.accepted_formats)} (up to 100 MB).
         </p>
-        {state.uploading ? <p className={mutedTextClassName}>Uploading…</p> : null}
-        {state.file_url && !state.uploading ? (
-          <p className={`truncate ${mutedTextClassName}`}>
-            Uploaded: {state.file_name}
-          </p>
-        ) : null}
       </Field>
     );
   }

@@ -3,10 +3,10 @@
 import { FormEvent, useState } from "react";
 import { upload } from "@vercel/blob/client";
 
+import { FilePicker } from "@/components/FilePicker";
 import {
   Field,
   FieldError,
-  fileInputClassName,
   inputClassName,
   mutedTextClassName,
 } from "@/components/registrationFormUi";
@@ -200,32 +200,18 @@ export function DocumentUploadForm({
             id={requirement.requirementId}
             label={label}
           >
-            <input
+            <FilePicker
               id={requirement.requirementId}
-              type="file"
               accept={acceptAttrForFormats(requirement.acceptedFormats)}
-              disabled={submitting || file?.uploading}
-              onChange={(event) => {
-                void handleFile(
-                  requirement.requirementId,
-                  event.target.files?.[0]
-                );
-                event.target.value = "";
-              }}
-              className={fileInputClassName}
+              disabled={submitting}
+              uploading={Boolean(file?.uploading)}
+              fileName={file?.fileUrl || file?.uploading ? file.fileName : ""}
+              onFile={(chosen) => void handleFile(requirement.requirementId, chosen)}
             />
             <p className={mutedTextClassName}>
               Accepted: {formatLabels(requirement.acceptedFormats)} (up to 100
               MB).
             </p>
-            {file?.uploading ? (
-              <p className={mutedTextClassName}>Uploading…</p>
-            ) : null}
-            {file?.fileUrl && !file.uploading ? (
-              <p className={`truncate ${mutedTextClassName}`}>
-                Uploaded: {file.fileName}
-              </p>
-            ) : null}
           </Field>
         );
       })}

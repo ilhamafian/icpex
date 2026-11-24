@@ -4,6 +4,10 @@ import type { ReactNode } from "react";
 import { DATES } from "@/components/marketing/content";
 import { LiquidGlass } from "@/components/ui/liquid-glass";
 
+export const cardGlassClass =
+  "shadow-[0_10px_40px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.45)]";
+export const cardGlassStyle = { backgroundColor: "rgb(14 32 56 / 0.82)" };
+
 export function SectionHeading({
   title,
   description,
@@ -60,14 +64,18 @@ export function InfoCard({
   className?: string;
 }) {
   return (
-    <article
-      className={`rounded-3xl bg-[#123056]/95 px-6 py-8 ring-1 ring-white/10 sm:px-8 ${className}`}
+    <LiquidGlass
+      tint={0}
+      radius={28}
+      className={`${cardGlassClass} ${className}`}
+      style={cardGlassStyle}
+      contentClassName="px-6 py-8 sm:px-8"
     >
       {title ? (
         <h3 className="text-center text-lg font-bold text-[#e8b84a]">{title}</h3>
       ) : null}
       <div className={title ? "mt-3" : undefined}>{children}</div>
-    </article>
+    </LiquidGlass>
   );
 }
 
@@ -81,7 +89,13 @@ export function BulletPanel({
   children?: ReactNode;
 }) {
   return (
-    <article className="rounded-3xl bg-[#123056]/95 px-6 py-8 ring-1 ring-white/10 sm:px-8 sm:py-10">
+    <LiquidGlass
+      tint={0}
+      radius={28}
+      className={`h-full ${cardGlassClass}`}
+      style={cardGlassStyle}
+      contentClassName="px-6 py-8 sm:px-8 sm:py-10"
+    >
       <h3 className="text-center text-sm font-bold tracking-[0.14em] text-[#e8b84a] uppercase">
         {title}
       </h3>
@@ -91,7 +105,7 @@ export function BulletPanel({
         ))}
       </ul>
       {children}
-    </article>
+    </LiquidGlass>
   );
 }
 
@@ -132,11 +146,16 @@ export function TrackList({
   tracks: readonly { title: string; body?: string; label?: string }[];
 }) {
   return (
-    <ul className="flex flex-col gap-4">
+    <ul className="flex h-full flex-col justify-center gap-4">
       {tracks.map((track) => (
-        <li
+        <LiquidGlass
           key={track.title}
-          className="rounded-2xl bg-[#123056]/95 px-5 py-4 text-center ring-1 ring-white/10"
+          as="li"
+          tint={0}
+          radius={20}
+          className={cardGlassClass}
+          style={cardGlassStyle}
+          contentClassName="px-5 py-4 text-center"
         >
           {track.label ? (
             <p className="text-xs font-semibold tracking-[0.16em] text-white/55 uppercase">
@@ -147,7 +166,7 @@ export function TrackList({
           {track.body ? (
             <p className="mt-1 text-sm leading-relaxed text-white/80">{track.body}</p>
           ) : null}
-        </li>
+        </LiquidGlass>
       ))}
     </ul>
   );
@@ -166,7 +185,13 @@ export function RulesSection({
     <section id={id} className="mx-auto w-full max-w-6xl scroll-mt-24 px-6 py-16">
       <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">{title}</h2>
       <div className="mx-auto mt-4 h-px max-w-5xl bg-[#e8b84a]" />
-      <article className="mt-10 rounded-3xl bg-[#123056]/95 px-6 py-8 ring-1 ring-white/10 sm:px-10 sm:py-10">
+      <LiquidGlass
+        tint={0}
+        radius={28}
+        className={`mt-10 ${cardGlassClass}`}
+        style={cardGlassStyle}
+        contentClassName="px-6 py-8 sm:px-10 sm:py-10"
+      >
         <ol className="list-decimal space-y-4 pl-5 text-sm leading-relaxed text-white/90 marker:font-semibold marker:text-[#e8b84a] sm:text-base">
           {rules.map((rule) => (
             <li key={rule.text} className="pl-1">
@@ -181,7 +206,7 @@ export function RulesSection({
             </li>
           ))}
         </ol>
-      </article>
+      </LiquidGlass>
     </section>
   );
 }
@@ -191,8 +216,8 @@ export function DatesList() {
     <LiquidGlass
       tint={0}
       radius={32}
-      className="shadow-[0_10px_40px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.45)]"
-      style={{ backgroundColor: "rgb(53 86 127 / 0.72)" }}
+      className={cardGlassClass}
+      style={cardGlassStyle}
       contentClassName="px-5 py-6 sm:px-8 sm:py-8"
     >
       <ul className="flex flex-col gap-5">

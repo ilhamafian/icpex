@@ -4,6 +4,7 @@ import { useState } from "react";
 import { upload } from "@vercel/blob/client";
 import { toast } from "sonner";
 
+import { FilePicker } from "@/components/FilePicker";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -161,15 +162,14 @@ export function DocumentReplaceDialog({
                     </Button>
                   </div>
                 ) : (
-                  <Input
+                  <FilePicker
                     id={file.requirementId}
-                    type="file"
                     accept={acceptAttrForFormats(file.acceptedFormats)}
                     disabled={busyId !== null}
-                    onChange={(event) => {
-                      void handleFile(file, event.target.files?.[0]);
-                      event.target.value = "";
-                    }}
+                    uploading={busy}
+                    fileName={file.fileName}
+                    showName={false}
+                    onFile={(chosen) => void handleFile(file, chosen)}
                   />
                 )}
               </div>

@@ -4,9 +4,6 @@ export const inputClassName =
 export const textareaClassName =
   "min-h-28 w-full rounded-lg border border-black/10 bg-transparent px-3 py-2.5 text-sm outline-none transition-colors focus:border-foreground dark:border-white/15";
 
-export const fileInputClassName =
-  "block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border file:border-black/10 file:bg-transparent file:px-3 file:py-2 file:text-sm file:font-medium file:text-foreground dark:text-zinc-400 dark:file:border-white/15";
-
 export const linkButtonClassName =
   "text-sm font-medium text-foreground underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:text-zinc-400 disabled:no-underline";
 

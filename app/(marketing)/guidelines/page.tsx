@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 
-import { ContentPage } from "@/components/marketing/blocks";
 import {
   AWARDS,
   FULL_PAPER_CRITERIA,
@@ -19,7 +18,7 @@ export const metadata: Metadata = {
 
 const GLASS_CLASS =
   "shadow-[0_10px_40px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.45)]";
-const GLASS_STYLE = { backgroundColor: "rgb(53 86 127 / 0.72)" };
+const GLASS_STYLE = { backgroundColor: "rgb(14 32 56 / 0.82)" };
 
 const CRITERIA = [
   {
@@ -77,7 +76,8 @@ function CriteriaCard({ title, items }: { title: string; items: readonly string[
 
 export default function GuidelinesPage() {
   return (
-    <ContentPage eyebrow="Guidelines / Recognition" title="Guidelines & Awards">
+    <div className="mx-auto w-full max-w-6xl px-6 py-14 sm:py-16">
+      <h1 className="sr-only">Guidelines & Awards</h1>
       <div className="flex flex-col gap-16">
         {CRITERIA.map((group) => (
           <section key={group.title}>
@@ -124,6 +124,6 @@ export default function GuidelinesPage() {
           </LiquidGlass>
         </section>
       </div>
-    </ContentPage>
+    </div>
   );
 }
