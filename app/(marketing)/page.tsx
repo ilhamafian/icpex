@@ -1,31 +1,48 @@
-import { IconBulb, IconSchool } from "@tabler/icons-react";
+import { IconArrowRight, IconBulb, IconSchool } from "@tabler/icons-react";
 import Link from "next/link";
 
 import { DatesList, InfoCard, RegisterButton, SectionHeading } from "@/components/marketing/blocks";
 import { WHY_JOIN } from "@/components/marketing/content";
+import { LiquidGlass } from "@/components/ui/liquid-glass";
 
 export default function HomePage() {
   return (
     <>
       <section className="mx-auto flex min-h-[calc(100vh-4.25rem)] w-full max-w-6xl flex-col justify-center px-6 py-16">
-        <div className="max-w-xl">
+        <div>
           <p className="text-sm font-semibold tracking-[0.18em] text-[#e8b84a] uppercase sm:text-base">
             International Competition for
           </p>
-          <h1 className="mt-4 text-4xl leading-[1.05] font-bold tracking-tight uppercase sm:text-5xl lg:text-6xl">
-            Research, Innovation & Value Excellence
+          <h1 className="mt-4 text-[clamp(1.45rem,4.2vw,3.75rem)] leading-[1.05] font-bold tracking-tight uppercase">
+            <span className="block whitespace-nowrap">Research, Innovation &</span>
+            <span className="block">Value Excellence</span>
           </h1>
-          <p className="mt-8 text-3xl font-bold sm:text-4xl">
-            <span className="text-[#e8b84a]">I-CRIVE</span> 2027
-          </p>
-          <p className="mt-2 text-lg text-white/90">
-            Innovating for a Smarter, Sustainable Future
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <RegisterButton href="/register">Register now</RegisterButton>
-            <RegisterButton href="#categories" tone="slate">
-              Explore tracks
-            </RegisterButton>
+          <div className="max-w-xl">
+            <p className="mt-8 text-3xl font-bold sm:text-4xl">
+              <span className="text-[#e8b84a]">I-CRIVE</span> 2027
+            </p>
+            <p className="mt-2 text-lg text-white/90">
+              Innovating for a Smarter, Sustainable Future
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link
+                href="/register"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#d6a11e] px-7 text-sm font-bold tracking-wide text-[#1a1408] transition-colors hover:bg-[#e2b43a]"
+              >
+                Register Now
+                <IconArrowRight className="size-4" aria-hidden />
+              </Link>
+              <Link href="#categories" className="inline-flex rounded-full">
+                <LiquidGlass
+                  tint={0}
+                  className="text-white shadow-[0_10px_40px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.45)] transition-transform duration-200 hover:scale-[1.03] active:scale-[0.97] motion-reduce:transition-none motion-reduce:hover:scale-100"
+                  style={{ backgroundColor: "rgb(53 86 127 / 0.72)" }}
+                  contentClassName="flex h-12 items-center justify-center px-7 text-sm font-bold tracking-wide"
+                >
+                  Explore Tracks
+                </LiquidGlass>
+              </Link>
+            </div>
           </div>
         </div>
       </section>
