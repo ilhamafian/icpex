@@ -3,8 +3,21 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import { IconChevronDown, IconMenu2, IconX } from "@tabler/icons-react";
+import { useEffect, useState } from "react";
+import { IconChevronDown } from "@tabler/icons-react";
+import { motion } from "motion/react";
+
+import { LiquidGlass } from "@/components/ui/liquid-glass";
+import {
+  MobileNav,
+  MobileNavHeader,
+  MobileNavMenu,
+  MobileNavToggle,
+  Navbar,
+  NavbarButton,
+  NavBody,
+} from "@/components/ui/resizable-navbar";
+import { cn } from "@/lib/utils";
 
 const CATEGORIES = [
   { href: "/categories/undergraduate", label: "Undergraduate" },
@@ -18,202 +31,318 @@ const MORE = [
   { href: "/contact", label: "Contact Us" },
 ];
 
+const GLASS_SHADOW =
+  "shadow-[0_10px_40px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.45)]";
+
+/** Navy fill so the scrolled bar refracts the page instead of turning solid white. */
+const scrolledTint = "rgb(7 17 29 / 0.55)";
+
+const linkClassName =
+  "text-white hover:text-white group-data-[state=scrolled]/nav:text-zinc-100 group-data-[state=scrolled]/nav:hover:text-white";
+
 function navActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function DesktopMenu({
-  label,
-  hrefs,
-  items,
+function navSurface(visible: boolean) {
+  if (!visible) return null;
+  return (
+    <LiquidGlass
+      aria-hidden
+      className="pointer-events-none absolute inset-0"
+      radius={999}
+      tint={0}
+      style={{ backgroundColor: scrolledTint }}
+    />
+  );
+}
+
+function BrandLogo() {
+  return (
+    <Link href="/" className="relative z-20 shrink-0" aria-label="I-CRIVE home">
+      <Image
+        src="/brand/logo-on-dark.png"
+        alt="I-CRIVE — Research, Innovation & Excellence"
+        width={942}
+        height={373}
+        priority
+        className="h-10 w-auto sm:h-11"
+      />
+    </Link>
+  );
+}
+
+function RegisterGlassButton({
+  className,
+  contentClassName,
+  onClick,
 }: {
-  label: string;
-  hrefs: string[];
-  items: { href: string; label: string }[];
+  className?: string;
+  contentClassName?: string;
+  onClick?: () => void;
 }) {
+  return (
+    <Link href="/register" onClick={onClick} className={cn("inline-flex rounded-full", className)}>
+      <LiquidGlass
+        tint={0.2}
+        className={cn(GLASS_SHADOW, "w-full text-white transition-transform duration-200 hover:scale-[1.03] active:scale-[0.97] motion-reduce:transition-none motion-reduce:hover:scale-100")}
+        contentClassName={cn(
+          "flex items-center justify-center px-5 py-2 text-sm font-medium [text-shadow:0_1px_2px_rgb(0_0_0/0.25)]",
+          contentClassName
+        )}
+      >
+        Register
+      </LiquidGlass>
+    </Link>
+  );
+}
+
+function HoverPill() {
+  return (
+    <motion.div
+      layoutId="nav-hover"
+      className="absolute inset-0 h-full w-full rounded-full bg-white/10"
+    />
+  );
+}
+
+function DesktopNav() {
   const pathname = usePathname();
-  const active = hrefs.some((href) => navActive(pathname, href));
+  const [hovered, setHovered] = useState<string | null>(null);
+
+  const itemClass = (active: boolean) =>
+    cn(
+      "relative px-3 py-2 text-sm font-medium text-inherit xl:px-4",
+      active && "text-[#e8b84a]"
+    );
 
   return (
-    <div className="group relative">
-      <button
-        type="button"
-        className={`inline-flex items-center gap-1 text-[13px] font-semibold tracking-[0.14em] uppercase ${
-          active ? "text-[#b8860b]" : "text-[#0c2340] hover:text-[#b8860b]"
-        }`}
-        aria-haspopup="true"
+    <div
+      onMouseLeave={() => setHovered(null)}
+      className={cn(
+        "absolute inset-0 hidden flex-1 flex-row items-center justify-center text-sm font-medium transition duration-200 lg:flex",
+        linkClassName
+      )}
+    >
+      <Link
+        href="/"
+        onMouseEnter={() => setHovered("home")}
+        className={itemClass(navActive(pathname, "/"))}
       >
-        {label}
-        <IconChevronDown className="size-3.5" aria-hidden />
-      </button>
-      <div className="invisible absolute top-full left-1/2 z-50 w-64 -translate-x-1/2 pt-3 opacity-0 transition group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
-        <div className="rounded-xl bg-white p-2 text-sm shadow-xl ring-1 ring-black/10">
-          {items.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`block rounded-lg px-3 py-2 font-medium ${
-                navActive(pathname, item.href)
-                  ? "bg-[#f6f1e4] text-[#8a6810]"
-                  : "text-[#0c2340] hover:bg-[#f6f1e4]"
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </div>
+        {hovered === "home" ? <HoverPill /> : null}
+        <span className="relative z-20">Home</span>
+      </Link>
+      <Link
+        href="/about"
+        onMouseEnter={() => setHovered("about")}
+        className={itemClass(navActive(pathname, "/about"))}
+      >
+        {hovered === "about" ? <HoverPill /> : null}
+        <span className="relative z-20">About</span>
+      </Link>
+      <div
+        className="group relative"
+        onMouseEnter={() => setHovered("categories")}
+      >
+        <button
+          type="button"
+          className={itemClass(CATEGORIES.some((item) => navActive(pathname, item.href)))}
+          aria-haspopup="true"
+        >
+          {hovered === "categories" ? <HoverPill /> : null}
+          <span className="relative z-20 inline-flex items-center gap-1">
+            Categories
+            <IconChevronDown className="size-3.5" aria-hidden />
+          </span>
+        </button>
+        <Dropdown items={CATEGORIES} pathname={pathname} />
+      </div>
+      <Link
+        href="/fees"
+        onMouseEnter={() => setHovered("fees")}
+        className={itemClass(navActive(pathname, "/fees"))}
+      >
+        {hovered === "fees" ? <HoverPill /> : null}
+        <span className="relative z-20">Fees</span>
+      </Link>
+      <Link
+        href="/dates"
+        onMouseEnter={() => setHovered("dates")}
+        className={itemClass(navActive(pathname, "/dates"))}
+      >
+        {hovered === "dates" ? <HoverPill /> : null}
+        <span className="relative z-20">Dates</span>
+      </Link>
+      <div className="group relative" onMouseEnter={() => setHovered("more")}>
+        <button
+          type="button"
+          className={itemClass(MORE.some((item) => navActive(pathname, item.href)))}
+          aria-haspopup="true"
+        >
+          {hovered === "more" ? <HoverPill /> : null}
+          <span className="relative z-20 inline-flex items-center gap-1">
+            More
+            <IconChevronDown className="size-3.5" aria-hidden />
+          </span>
+        </button>
+        <Dropdown items={MORE} pathname={pathname} />
       </div>
     </div>
   );
 }
 
-function AccountMenu() {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const pathname = usePathname();
-
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
-
-  useEffect(() => {
-    if (!open) return;
-    function onPointer(event: PointerEvent) {
-      if (!ref.current?.contains(event.target as Node)) setOpen(false);
-    }
-    document.addEventListener("pointerdown", onPointer);
-    return () => document.removeEventListener("pointerdown", onPointer);
-  }, [open]);
-
+function Dropdown({
+  items,
+  pathname,
+}: {
+  items: { href: string; label: string }[];
+  pathname: string;
+}) {
   return (
-    <div ref={ref} className="relative flex">
-      <button
-        type="button"
-        className="flex h-full items-center gap-1.5 bg-[#d6a11e] px-4 text-[12px] font-bold tracking-[0.12em] text-[#1a1408] uppercase transition-colors hover:bg-[#e2b43a] sm:px-6"
-        aria-expanded={open}
-        aria-haspopup="menu"
-        onClick={() => setOpen((value) => !value)}
-      >
-        Sign up/Login
-        <IconChevronDown className={`size-3.5 transition ${open ? "rotate-180" : ""}`} aria-hidden />
-      </button>
-      {open ? (
-        <div
-          role="menu"
-          className="absolute top-full right-0 z-50 w-48 bg-white py-2 text-[#0c2340] shadow-xl ring-1 ring-black/10"
-        >
+    <div className="invisible absolute top-full left-1/2 z-50 w-64 -translate-x-1/2 pt-3 opacity-0 transition group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
+      <div className="rounded-2xl bg-[#07111d]/95 p-2 text-sm shadow-xl ring-1 ring-white/10">
+        {items.map((item) => (
           <Link
-            role="menuitem"
-            href="/register"
-            className="block px-4 py-2.5 text-sm font-semibold hover:bg-[#f6f1e4]"
+            key={item.href}
+            href={item.href}
+            className={cn(
+              "block rounded-xl px-3 py-2 font-medium",
+              navActive(pathname, item.href)
+                ? "bg-white/10 text-[#e8b84a]"
+                : "text-white hover:bg-white/10"
+            )}
           >
-            Register
+            {item.label}
           </Link>
-          <Link
-            role="menuitem"
-            href="/portal/login"
-            className="block px-4 py-2.5 text-sm font-semibold hover:bg-[#f6f1e4]"
-          >
-            Staff login
-          </Link>
-        </div>
-      ) : null}
+        ))}
+      </div>
     </div>
   );
 }
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
   useEffect(() => {
-    setMobileOpen(false);
+    setIsMobileMenuOpen(false);
   }, [pathname]);
 
-  const linkClass = (href: string) =>
-    `text-[13px] font-semibold tracking-[0.14em] uppercase ${
-      navActive(pathname, href) ? "text-[#b8860b]" : "text-[#0c2340] hover:text-[#b8860b]"
-    }`;
-
   return (
-    <header className="sticky top-0 z-50 bg-white text-[#0c2340] shadow-sm">
+    <>
       <a
         href="#content"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-[#0c2340] focus:px-3 focus:py-2 focus:text-white"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-[#0c2340] focus:px-3 focus:py-2 focus:text-white"
       >
         Skip to content
       </a>
-      <div className="flex h-[4.25rem] items-stretch">
-        <div className="mx-auto flex min-w-0 flex-1 items-center gap-4 px-4 sm:px-6">
-          <Link href="/" className="shrink-0" aria-label="I-CRIVE home">
-            <Image
-              src="/brand/logo.png"
-              alt="I-CRIVE — Research, Innovation & Excellence"
-              width={942}
-              height={373}
-              priority
-              className="h-11 w-auto"
-            />
-          </Link>
-          <nav className="ml-auto hidden items-center gap-6 lg:flex" aria-label="Primary">
-            <Link href="/" className={linkClass("/")}>
-              Home
-            </Link>
-            <Link href="/about" className={linkClass("/about")}>
-              About
-            </Link>
-            <DesktopMenu label="Categories" hrefs={CATEGORIES.map((item) => item.href)} items={CATEGORIES} />
-            <Link href="/fees" className={linkClass("/fees")}>
-              Fees
-            </Link>
-            <Link href="/dates" className={linkClass("/dates")}>
-              Dates
-            </Link>
-            <DesktopMenu label="More" hrefs={MORE.map((item) => item.href)} items={MORE} />
-          </nav>
-          <button
-            type="button"
-            className="ml-auto inline-flex size-10 items-center justify-center rounded-md text-[#0c2340] lg:hidden"
-            aria-expanded={mobileOpen}
-            aria-controls="mobile-nav"
-            onClick={() => setMobileOpen((value) => !value)}
+      <Navbar className="top-4 z-50">
+      <NavBody
+        surface={navSurface}
+        scrolledWidth="min(100%, 76rem)"
+        minWidth="0px"
+      >
+        <BrandLogo />
+        <DesktopNav />
+        <div className="relative z-20 flex items-center gap-2">
+          <NavbarButton
+            as={Link}
+            href="/portal/login"
+            variant="secondary"
+            className={linkClassName}
           >
-            {mobileOpen ? <IconX className="size-6" /> : <IconMenu2 className="size-6" />}
-            <span className="sr-only">{mobileOpen ? "Close menu" : "Open menu"}</span>
-          </button>
+            Staff login
+          </NavbarButton>
+          <RegisterGlassButton />
         </div>
-        <AccountMenu />
-      </div>
-      {mobileOpen ? (
-        <nav id="mobile-nav" className="border-t bg-white px-4 py-4 lg:hidden" aria-label="Mobile">
-          <div className="flex flex-col gap-1 text-sm font-semibold">
-            <Link href="/" className="rounded-lg px-3 py-2 hover:bg-[#f6f1e4]">
-              Home
-            </Link>
-            <Link href="/about" className="rounded-lg px-3 py-2 hover:bg-[#f6f1e4]">
-              About
-            </Link>
-            <p className="px-3 pt-3 text-xs tracking-[0.16em] text-[#b8860b] uppercase">Categories</p>
-            {CATEGORIES.map((item) => (
-              <Link key={item.href} href={item.href} className="rounded-lg px-3 py-2 hover:bg-[#f6f1e4]">
-                {item.label}
-              </Link>
-            ))}
-            <Link href="/fees" className="rounded-lg px-3 py-2 hover:bg-[#f6f1e4]">
-              Fees
-            </Link>
-            <Link href="/dates" className="rounded-lg px-3 py-2 hover:bg-[#f6f1e4]">
-              Dates
-            </Link>
-            <p className="px-3 pt-3 text-xs tracking-[0.16em] text-[#b8860b] uppercase">More</p>
-            {MORE.map((item) => (
-              <Link key={item.href} href={item.href} className="rounded-lg px-3 py-2 hover:bg-[#f6f1e4]">
-                {item.label}
-              </Link>
-            ))}
+      </NavBody>
+
+      <MobileNav surface={navSurface}>
+        <MobileNavHeader className="px-4">
+          <BrandLogo />
+          <MobileNavToggle
+            isOpen={isMobileMenuOpen}
+            onClick={() => setIsMobileMenuOpen((open) => !open)}
+            className={linkClassName}
+          />
+        </MobileNavHeader>
+        <MobileNavMenu
+          isOpen={isMobileMenuOpen}
+          onClose={closeMobileMenu}
+          className="bg-[#07111d] text-white"
+        >
+          <MobileLink href="/" onClick={closeMobileMenu}>
+            Home
+          </MobileLink>
+          <MobileLink href="/about" onClick={closeMobileMenu}>
+            About
+          </MobileLink>
+          <p className="px-1 pt-2 text-xs font-semibold tracking-[0.16em] text-[#e8b84a] uppercase">
+            Categories
+          </p>
+          {CATEGORIES.map((item) => (
+            <MobileLink key={item.href} href={item.href} onClick={closeMobileMenu}>
+              {item.label}
+            </MobileLink>
+          ))}
+          <MobileLink href="/fees" onClick={closeMobileMenu}>
+            Fees
+          </MobileLink>
+          <MobileLink href="/dates" onClick={closeMobileMenu}>
+            Dates
+          </MobileLink>
+          <p className="px-1 pt-2 text-xs font-semibold tracking-[0.16em] text-[#e8b84a] uppercase">
+            More
+          </p>
+          {MORE.map((item) => (
+            <MobileLink key={item.href} href={item.href} onClick={closeMobileMenu}>
+              {item.label}
+            </MobileLink>
+          ))}
+          <div className="flex w-full flex-col gap-2 pt-2">
+            <NavbarButton
+              as={Link}
+              href="/portal/login"
+              variant="secondary"
+              className="w-full text-white"
+              onClick={closeMobileMenu}
+            >
+              Staff login
+            </NavbarButton>
+            <RegisterGlassButton
+              className="w-full"
+              contentClassName="w-full py-3"
+              onClick={closeMobileMenu}
+            />
           </div>
-        </nav>
-      ) : null}
-    </header>
+        </MobileNavMenu>
+      </MobileNav>
+    </Navbar>
+    </>
+  );
+}
+
+function MobileLink({
+  href,
+  onClick,
+  children,
+}: {
+  href: string;
+  onClick: () => void;
+  children: string;
+}) {
+  const pathname = usePathname();
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className={cn(
+        "block w-full text-sm",
+        navActive(pathname, href) ? "text-[#e8b84a]" : "text-zinc-200"
+      )}
+    >
+      {children}
+    </Link>
   );
 }
