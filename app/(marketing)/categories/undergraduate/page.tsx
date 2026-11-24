@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { GuidelineSection, RegisterButton, TrackList } from "@/components/marketing/blocks";
+import { GuidelineSection, RegisterButton, RulesSection, TrackList } from "@/components/marketing/blocks";
 import {
   ABSTRACT_CONTENT,
   ABSTRACT_REQUIREMENTS,
   PAPER_REQUIREMENTS,
+  UG_GUIDELINES,
   UG_TRACKS,
   VIDEO_CONTENT,
   VIDEO_RULES,
@@ -28,14 +29,24 @@ export default function UndergraduatePage() {
             Undergraduate Innovation Project Competition
           </h1>
           <p className="mt-5 max-w-md text-lg leading-relaxed text-white/80">
-            Research problem, approach, findings or expected contribution, and significance.
+            The competition is open to undergraduate students from local and international higher
+            education institutions.
           </p>
-          <div className="mt-8">
+          <div className="mt-8 flex flex-wrap gap-3">
             <RegisterButton href="/register?level=undergraduate">Register now</RegisterButton>
+            <RegisterButton href="#guidelines" tone="slate">
+              Guidelines
+            </RegisterButton>
           </div>
         </div>
         <TrackList tracks={UG_TRACKS} />
       </section>
+
+      <RulesSection
+        id="guidelines"
+        title="General Guidelines"
+        rules={UG_GUIDELINES}
+      />
 
       <GuidelineSection
         title="Abstract Submission Guidelines"
@@ -54,7 +65,7 @@ export default function UndergraduatePage() {
         ]}
       />
       <GuidelineSection
-        title="Full Paper Submission (Optional)"
+        title="Full Paper Submission Guidelines"
         intro="Participants who wish to be considered for publication may submit a full paper."
         panels={[
           {

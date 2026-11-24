@@ -1,14 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { GuidelineSection, RegisterButton, TrackList } from "@/components/marketing/blocks";
+import { GuidelineSection, RegisterButton, RulesSection, TrackList } from "@/components/marketing/blocks";
 import {
   ABSTRACT_CONTENT,
   ABSTRACT_REQUIREMENTS,
   LIVE_CONTENT,
   LIVE_REQUIREMENTS,
   PAPER_REQUIREMENTS,
+  PG_GUIDELINES,
   PG_TRACKS,
+  POSTER_CONTENT,
+  POSTER_REQUIREMENTS,
 } from "@/components/marketing/content";
 
 export const metadata: Metadata = {
@@ -22,7 +25,7 @@ export default function PostgraduatePage() {
       <section className="mx-auto grid w-full max-w-6xl items-start gap-10 px-6 py-14 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-14">
         <div className="lg:border-r lg:border-[#e8b84a] lg:pr-10">
           <p className="text-5xl font-bold text-[#e8b84a]">
-            5 <span className="text-2xl font-semibold text-white">minute research video</span>
+            5 <span className="text-2xl font-semibold text-white">minute live presentation</span>
           </p>
           <h1 className="mt-8 text-4xl font-bold tracking-tight text-balance">
             Postgraduate Five-Minute Thesis (5MT)
@@ -31,19 +34,35 @@ export default function PostgraduatePage() {
             A platform for Master’s and PhD researchers to communicate their research clearly,
             concisely and persuasively within five minutes.
           </p>
-          <div className="mt-8">
+          <div className="mt-8 flex flex-wrap gap-3">
             <RegisterButton href="/register?level=postgraduate">Register now</RegisterButton>
+            <RegisterButton href="#guidelines" tone="slate">
+              Guidelines
+            </RegisterButton>
           </div>
         </div>
         <TrackList tracks={PG_TRACKS} />
       </section>
 
+      <RulesSection
+        id="guidelines"
+        title="General Guidelines"
+        rules={PG_GUIDELINES}
+      />
+
       <GuidelineSection
         title="Abstract Submission Guidelines"
-        intro="All postgraduate entries must submit a concise research abstract through the official registration portal."
+        intro="All postgraduate entries must submit a concise project abstract through the official registration portal."
         panels={[
           { title: "Abstract requirements", items: ABSTRACT_REQUIREMENTS },
           { title: "Required content", items: ABSTRACT_CONTENT },
+        ]}
+      />
+      <GuidelineSection
+        title="Poster Submission Guidelines"
+        panels={[
+          { title: "Poster requirements", items: POSTER_REQUIREMENTS },
+          { title: "Required content", items: POSTER_CONTENT },
         ]}
       />
       <GuidelineSection
@@ -55,7 +74,7 @@ export default function PostgraduatePage() {
         ]}
       />
       <GuidelineSection
-        title="Full Paper Submission (Optional)"
+        title="Full Paper Submission Guidelines"
         intro="Participants who wish to be considered for publication may submit a full paper."
         panels={[
           {

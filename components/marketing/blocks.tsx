@@ -101,7 +101,7 @@ export function GuidelineSection({
   panels,
 }: {
   title: string;
-  intro: string;
+  intro?: string;
   panels: { title: string; items: string[]; extra?: ReactNode }[];
 }) {
   return (
@@ -110,9 +110,11 @@ export function GuidelineSection({
         {title}
       </h2>
       <div className="mx-auto mt-4 h-px max-w-5xl bg-[#e8b84a]" />
-      <p className="mx-auto mt-8 max-w-3xl text-center text-pretty text-base text-white/80 sm:text-lg">
-        {intro}
-      </p>
+      {intro ? (
+        <p className="mx-auto mt-8 max-w-3xl text-center text-pretty text-base text-white/80 sm:text-lg">
+          {intro}
+        </p>
+      ) : null}
       <div className="mt-10 grid gap-6 lg:grid-cols-2">
         {panels.map((panel) => (
           <BulletPanel key={panel.title} title={panel.title} items={panel.items}>
@@ -127,7 +129,7 @@ export function GuidelineSection({
 export function TrackList({
   tracks,
 }: {
-  tracks: readonly { title: string; body: string }[];
+  tracks: readonly { title: string; body?: string; label?: string }[];
 }) {
   return (
     <ul className="flex flex-col gap-4">
@@ -136,11 +138,51 @@ export function TrackList({
           key={track.title}
           className="rounded-2xl bg-[#123056]/95 px-5 py-4 text-center ring-1 ring-white/10"
         >
-          <p className="font-bold text-[#e8b84a]">{track.title}</p>
-          <p className="mt-1 text-sm leading-relaxed text-white/80">{track.body}</p>
+          {track.label ? (
+            <p className="text-xs font-semibold tracking-[0.16em] text-white/55 uppercase">
+              {track.label}
+            </p>
+          ) : null}
+          <p className={`font-bold text-[#e8b84a] ${track.label ? "mt-1" : ""}`}>{track.title}</p>
+          {track.body ? (
+            <p className="mt-1 text-sm leading-relaxed text-white/80">{track.body}</p>
+          ) : null}
         </li>
       ))}
     </ul>
+  );
+}
+
+export function RulesSection({
+  id,
+  title,
+  rules,
+}: {
+  id?: string;
+  title: string;
+  rules: readonly { text: string; points?: readonly string[] }[];
+}) {
+  return (
+    <section id={id} className="mx-auto w-full max-w-6xl scroll-mt-24 px-6 py-16">
+      <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">{title}</h2>
+      <div className="mx-auto mt-4 h-px max-w-5xl bg-[#e8b84a]" />
+      <article className="mt-10 rounded-3xl bg-[#123056]/95 px-6 py-8 ring-1 ring-white/10 sm:px-10 sm:py-10">
+        <ol className="list-decimal space-y-4 pl-5 text-sm leading-relaxed text-white/90 marker:font-semibold marker:text-[#e8b84a] sm:text-base">
+          {rules.map((rule) => (
+            <li key={rule.text} className="pl-1">
+              {rule.text}
+              {rule.points ? (
+                <ul className="mt-2 list-disc space-y-2 pl-5 text-white/80">
+                  {rule.points.map((point) => (
+                    <li key={point}>{point}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </li>
+          ))}
+        </ol>
+      </article>
+    </section>
   );
 }
 
@@ -181,15 +223,21 @@ export function RegisterButton({
   children: ReactNode;
   tone?: "gold" | "slate";
 }) {
+  const className =
+    tone === "gold"
+      ? "inline-flex h-12 items-center justify-center rounded-lg bg-[#d6a11e] px-7 text-sm font-bold tracking-wide text-[#1a1408] uppercase transition-colors hover:bg-[#e2b43a]"
+      : "inline-flex h-12 items-center justify-center rounded-lg bg-[#35567f] px-7 text-sm font-bold tracking-wide text-white uppercase transition-colors hover:bg-[#426691]";
+
+  if (href.startsWith("#")) {
+    return (
+      <a href={href} className={className}>
+        {children}
+      </a>
+    );
+  }
+
   return (
-    <Link
-      href={href}
-      className={
-        tone === "gold"
-          ? "inline-flex h-12 items-center justify-center rounded-lg bg-[#d6a11e] px-7 text-sm font-bold tracking-wide text-[#1a1408] uppercase transition-colors hover:bg-[#e2b43a]"
-          : "inline-flex h-12 items-center justify-center rounded-lg bg-[#35567f] px-7 text-sm font-bold tracking-wide text-white uppercase transition-colors hover:bg-[#426691]"
-      }
-    >
+    <Link href={href} className={className}>
       {children}
     </Link>
   );
