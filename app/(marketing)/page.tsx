@@ -1,8 +1,9 @@
 import { IconArrowRight, IconBulb, IconSchool } from "@tabler/icons-react";
 import Link from "next/link";
 
-import { DatesList, InfoCard, RegisterButton, SectionHeading } from "@/components/marketing/blocks";
+import { DatesList, InfoCard, SectionHeading } from "@/components/marketing/blocks";
 import { WHY_JOIN } from "@/components/marketing/content";
+import { WelcomeHighlight } from "@/components/marketing/WelcomeHighlight";
 import { LiquidGlass } from "@/components/ui/liquid-glass";
 
 export default function HomePage() {
@@ -47,19 +48,24 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-4xl px-6 py-20 text-center">
-        <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Welcome to I-CRIVE 2027</h2>
-        <p className="mt-6 text-pretty text-base leading-relaxed text-white/85 sm:text-lg">
-          The International Competition for Research, Innovation & Value Excellence (I-CRIVE
-          2027), organised by the Research & Innovation Section, UniKL MIIT, brings together
-          undergraduate innovators and postgraduate researchers from around the world to showcase
-          creative ideas, share research discoveries and develop impactful solutions to real-world
-          challenges.
-        </p>
-        <div className="mt-8">
-          <RegisterButton href="/about" tone="slate">
-            <span className="text-[#e8b84a]">Learn more</span>
-          </RegisterButton>
+      <section className="mx-auto flex min-h-[90vh] w-full max-w-6xl flex-col items-center justify-center px-6 py-28 text-center">
+        <h2 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
+          Welcome to I-CRIVE 2027
+        </h2>
+        <div className="mt-6 h-px w-16 bg-[#e8b84a]" aria-hidden />
+        <WelcomeHighlight className="mt-8 max-w-3xl text-lg leading-relaxed font-normal text-pretty sm:text-xl" />
+        <div className="mt-14">
+          <Link href="/about" className="inline-flex rounded-full">
+            <LiquidGlass
+              tint={0}
+              className="shadow-[0_10px_40px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.45)] transition-transform duration-200 hover:scale-[1.03] active:scale-[0.97] motion-reduce:transition-none motion-reduce:hover:scale-100"
+              style={{ backgroundColor: "rgb(53 86 127 / 0.72)" }}
+              contentClassName="flex h-12 items-center justify-center gap-2 px-7 text-sm font-bold tracking-wide text-[#e8b84a]"
+            >
+              Learn More
+              <IconArrowRight className="size-4" aria-hidden />
+            </LiquidGlass>
+          </Link>
         </div>
       </section>
 
