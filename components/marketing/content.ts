@@ -239,3 +239,82 @@ export const LIVE_CONTENT = [
   "Research impact and conclusion",
   "Follow the official instructions and judging criteria",
 ];
+
+export const UG_VIDEO_CRITERIA = [
+  "Innovation and originality",
+  "Creativity in the proposed solution",
+  "Problem–solution alignment",
+  "Clarity of technical specifications",
+  "Technical complexity and appropriateness",
+  "Design process and implementation",
+  "Functionality and effectiveness of the demonstration",
+  "Practicality and feasibility",
+  "Potential impact and benefits",
+  "Visual presentation and narration quality",
+  "Effective time management within the ten-minute video limit",
+];
+
+export const UG_ABSTRACT_CRITERIA = [
+  "Clear and informative project title",
+  "Background and context of the project",
+  "Problem statement and objectives",
+  "Proposed solution and methodology",
+  "Key results or outcomes",
+  "Originality, significance and potential impact",
+  "Clarity, conciseness and readability",
+  "Maximum 250 words with 3–5 relevant keywords",
+];
+
+export const FULL_PAPER_CRITERIA = [
+  "Abstract clarity and completeness",
+  "Research problem justification",
+  "Literature review adequacy",
+  "Clarity of research objectives",
+  "Appropriateness of research design and methodology",
+  "Results and analysis",
+  "Discussion and interpretation",
+  "Conclusion and research contribution",
+  "Organisation and content flow",
+  "Quality and clarity of figures and tables",
+  "Relevance and currency of references",
+];
+
+export const PG_POSTER_CRITERIA = [
+  "Clear and informative research title",
+  "Clarity of research problem and objectives",
+  "Appropriate presentation of methodology",
+  "Key findings, research progress or expected outcomes",
+  "Originality, significance and potential impact",
+  "Logical organisation and content flow",
+  "Effective use of visuals, diagrams and illustrations",
+  "Creativity and visual attractiveness",
+  "Readability and clarity of information",
+];
+
+export const PG_LIVE_CRITERIA = [
+  "Clear introduction and research background",
+  "Clear explanation of research problem and objectives",
+  "Concise explanation of research methodology",
+  "Key findings or expected outcomes",
+  "Significance and potential contribution of the research",
+  "Logical presentation flow",
+  "Ability to explain complex research concepts to a non-specialist audience",
+  "Clarity of speech, confidence and appropriate pace",
+  "Audience engagement and presentation delivery",
+  "Effective time management within the five-minute presentation limit",
+];
+
+export const AWARDS = [
+  {
+    amount: "RM 300",
+    titles: ["Best Video (UG)", "Best Presenter (PG)"],
+  },
+  {
+    amount: "RM 200",
+    titles: ["Best Paper (UG & PG)"],
+  },
+  {
+    amount: "RM 150",
+    titles: ["Best Abstract (UG)", "Best Poster (PG)"],
+  },
+] as const;
