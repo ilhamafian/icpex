@@ -27,12 +27,12 @@ export const WHY_JOIN = [
 
 export const DATES = [
   {
-    date: "15 NOV 2026",
+    date: "1 DEC 2026",
     title: "Registration Opens",
     detail: "Registration and abstract submission begin.",
   },
   {
-    date: "20 FEB 2027",
+    date: "14 FEB 2027",
     title: "Registration & Abstract Deadline",
     detail: "Last day to register and submit abstracts.",
   },
@@ -40,11 +40,6 @@ export const DATES = [
     date: "28 FEB 2027",
     title: "Payment & Submission Deadline",
     detail: "Payment, project videos and optional full papers.",
-  },
-  {
-    date: "1–25 MAR 2027",
-    title: "Judging & Evaluation",
-    detail: "Assessment of eligible competition entries.",
   },
   {
     date: "24–25 MAR 2027",

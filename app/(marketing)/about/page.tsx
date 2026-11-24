@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
-import { InfoCard } from "@/components/marketing/blocks";
 import { OBJECTIVES } from "@/components/marketing/content";
+import { LiquidGlass } from "@/components/ui/liquid-glass";
 
 export const metadata: Metadata = {
   title: "About",
@@ -44,10 +44,17 @@ export default function AboutPage() {
         </p>
         <ul className="mt-10 grid gap-5 sm:grid-cols-2">
           {OBJECTIVES.map((item) => (
-            <li key={item.title}>
-              <InfoCard title={item.title}>
-                <p className="text-center text-white/80">{item.body}</p>
-              </InfoCard>
+            <li key={item.title} className="h-full">
+              <LiquidGlass
+                tint={0}
+                radius={28}
+                className="h-full shadow-[0_10px_40px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.45)]"
+                style={{ backgroundColor: "rgb(53 86 127 / 0.72)" }}
+                contentClassName="flex h-full flex-col px-6 py-8 text-center sm:px-8"
+              >
+                <h3 className="text-lg font-bold text-[#e8b84a]">{item.title}</h3>
+                <p className="mt-3 text-white/80">{item.body}</p>
+              </LiquidGlass>
             </li>
           ))}
         </ul>
