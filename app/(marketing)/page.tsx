@@ -1,7 +1,8 @@
 import { IconArrowRight, IconBulb, IconSchool } from "@tabler/icons-react";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
-import { DatesList, InfoCard, SectionHeading } from "@/components/marketing/blocks";
+import { DatesList, SectionHeading } from "@/components/marketing/blocks";
 import { WHY_JOIN } from "@/components/marketing/content";
 import { WelcomeHighlight } from "@/components/marketing/WelcomeHighlight";
 import { LiquidGlass } from "@/components/ui/liquid-glass";
@@ -69,40 +70,26 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="categories" className="scroll-mt-24 mx-auto w-full max-w-5xl px-6 py-20">
+      <section id="categories" className="scroll-mt-24 mx-auto w-full max-w-5xl px-6 py-32">
         <SectionHeading
           title="Competition Categories"
           description="Choose your category and showcase your excellence in innovation and research."
         />
         <div className="grid gap-6 md:grid-cols-2">
-          <InfoCard>
-            <div className="flex flex-col items-center text-center">
-              <IconBulb className="size-8 text-[#e8b84a]" aria-hidden />
-              <h3 className="mt-3 text-2xl font-bold">Undergraduate</h3>
-              <p className="mt-1 text-white/80">Innovation Project Competition</p>
-              <p className="mt-3 font-bold text-[#e8b84a]">6 Tracks</p>
-              <Link
-                href="/categories/undergraduate"
-                className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-full bg-white text-sm font-semibold text-[#102033] transition-colors hover:bg-white/90"
-              >
-                Explore →
-              </Link>
-            </div>
-          </InfoCard>
-          <InfoCard>
-            <div className="flex flex-col items-center text-center">
-              <IconSchool className="size-8 text-[#e8b84a]" aria-hidden />
-              <h3 className="mt-3 text-2xl font-bold">Postgraduate</h3>
-              <p className="mt-1 text-white/80">Five-Minute Thesis (5MT) Competition</p>
-              <p className="mt-3 font-bold text-[#e8b84a]">3 Tracks</p>
-              <Link
-                href="/categories/postgraduate"
-                className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-full bg-white text-sm font-semibold text-[#102033] transition-colors hover:bg-white/90"
-              >
-                Explore →
-              </Link>
-            </div>
-          </InfoCard>
+          <CategoryCard
+            href="/categories/undergraduate"
+            icon={<IconBulb className="size-8 text-[#e8b84a]" aria-hidden />}
+            title="Undergraduate"
+            subtitle="Innovation Project Competition"
+            tracks="6 Tracks"
+          />
+          <CategoryCard
+            href="/categories/postgraduate"
+            icon={<IconSchool className="size-8 text-[#e8b84a]" aria-hidden />}
+            title="Postgraduate"
+            subtitle="Five-Minute Thesis (5MT) Competition"
+            tracks="3 Tracks"
+          />
         </div>
       </section>
 
@@ -113,10 +100,8 @@ export default function HomePage() {
         />
         <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {WHY_JOIN.map((item) => (
-            <li key={item.title}>
-              <InfoCard title={item.title}>
-                <p className="text-center text-sm leading-relaxed text-white/80">{item.body}</p>
-              </InfoCard>
+            <li key={item.title} className="h-full">
+              <WhyJoinCard title={item.title} body={item.body} />
             </li>
           ))}
         </ul>
@@ -127,5 +112,55 @@ export default function HomePage() {
         <DatesList />
       </section>
     </>
+  );
+}
+
+function WhyJoinCard({ title, body }: { title: string; body: string }) {
+  return (
+    <LiquidGlass
+      tint={0}
+      radius={28}
+      className="h-full shadow-[0_10px_40px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.45)]"
+      style={{ backgroundColor: "rgb(53 86 127 / 0.72)" }}
+      contentClassName="flex h-full flex-col px-6 py-8 text-center sm:px-8"
+    >
+      <h3 className="text-lg font-bold text-[#e8b84a]">{title}</h3>
+      <p className="mt-3 text-sm leading-relaxed text-white/80">{body}</p>
+    </LiquidGlass>
+  );
+}
+
+function CategoryCard({
+  href,
+  icon,
+  title,
+  subtitle,
+  tracks,
+}: {
+  href: string;
+  icon: ReactNode;
+  title: string;
+  subtitle: string;
+  tracks: string;
+}) {
+  return (
+    <LiquidGlass
+      tint={0}
+      radius={28}
+      className="shadow-[0_10px_40px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.45)]"
+      style={{ backgroundColor: "rgb(53 86 127 / 0.72)" }}
+      contentClassName="flex flex-col items-center px-6 py-12 text-center sm:px-8"
+    >
+      {icon}
+      <h3 className="mt-3 text-2xl font-bold">{title}</h3>
+      <p className="mt-1 text-white/80">{subtitle}</p>
+      <p className="mt-3 font-bold text-[#e8b84a]">{tracks}</p>
+      <Link
+        href={href}
+        className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-full bg-white text-sm font-semibold text-[#102033] transition-colors hover:bg-white/90"
+      >
+        Explore →
+      </Link>
+    </LiquidGlass>
   );
 }

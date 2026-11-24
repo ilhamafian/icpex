@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { DATES } from "@/components/marketing/content";
+import { LiquidGlass } from "@/components/ui/liquid-glass";
 
 export function SectionHeading({
   title,
@@ -145,7 +146,13 @@ export function TrackList({
 
 export function DatesList() {
   return (
-    <div className="rounded-[2rem] bg-[#123056]/95 px-5 py-6 ring-1 ring-white/10 sm:px-8 sm:py-8">
+    <LiquidGlass
+      tint={0}
+      radius={32}
+      className="shadow-[0_10px_40px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.45)]"
+      style={{ backgroundColor: "rgb(53 86 127 / 0.72)" }}
+      contentClassName="px-5 py-6 sm:px-8 sm:py-8"
+    >
       <ul className="flex flex-col gap-5">
         {DATES.map((item) => (
           <li
@@ -161,7 +168,7 @@ export function DatesList() {
           </li>
         ))}
       </ul>
-    </div>
+    </LiquidGlass>
   );
 }
 

@@ -1,4 +1,7 @@
+import Image from "next/image";
 import Link from "next/link";
+
+import { LiquidGlass } from "@/components/ui/liquid-glass";
 
 export function SiteFooter() {
   return (
@@ -10,24 +13,13 @@ export function SiteFooter() {
         <div className="mt-12 grid items-start gap-12 lg:grid-cols-2">
           <div>
             <p className="text-sm font-bold tracking-[0.16em] text-[#e8b84a]">Organised by</p>
-            <div className="mt-6 flex items-center gap-4">
-              <div className="flex size-[4.5rem] shrink-0 items-center justify-center rounded-full border-[3px] border-[#1e4b9b] bg-white text-center text-[11px] leading-tight font-bold text-[#1e4b9b]">
-                UniKL
-                <br />
-                MIIT
-              </div>
-              <div>
-                <p className="text-3xl font-black tracking-tight">
-                  <span className="text-[#2f5fbf]">Uni</span>
-                  <span className="text-[#f0a202]">KL</span>
-                </p>
-                <p className="text-xs font-semibold tracking-[0.18em] text-[#8ea0c4] uppercase">
-                  Universiti
-                  <br />
-                  Kuala Lumpur
-                </p>
-              </div>
-            </div>
+            <Image
+              src="/brand/unikl-logo.png"
+              alt="Universiti Kuala Lumpur"
+              width={473}
+              height={295}
+              className="mt-6 h-24 w-auto sm:h-28"
+            />
             <p className="mt-4 max-w-sm text-sm text-white/70">
               Research & Innovation Section, Universiti Kuala Lumpur Malaysian Institute of
               Information Technology.
@@ -37,12 +29,18 @@ export function SiteFooter() {
             <p className="text-sm font-bold tracking-[0.16em] text-[#e8b84a]">
               Publication opportunities
             </p>
-            <div className="mt-6 max-w-md rounded-md bg-[#1b7a43] px-6 py-5 text-white shadow-lg">
+            <LiquidGlass
+              tint={0}
+              radius={28}
+              className="mt-6 max-w-md shadow-[0_10px_40px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.45)]"
+              style={{ backgroundColor: "rgb(27 122 67 / 0.72)" }}
+              contentClassName="px-6 py-5 text-white"
+            >
               <p className="text-2xl leading-tight font-semibold">
                 Journal of Computing Technologies and Creative Content
               </p>
               <p className="mt-3 text-sm">e-ISSN : 2550-1550</p>
-            </div>
+            </LiquidGlass>
           </div>
         </div>
         <div className="mt-12 text-center">
