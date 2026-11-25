@@ -16,14 +16,6 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import type { DashboardStats } from "@/utils/dashboardData"
-import { formatMoney } from "@/utils/registrationFee"
-
-function formatRevenue(revenue: DashboardStats["revenue"]) {
-  return [
-    formatMoney(revenue.MYR, "MYR"),
-    ...(revenue.USD > 0 ? [formatMoney(revenue.USD, "USD")] : []),
-  ].join(" + ")
-}
 
 function percentChange(current: number, previous: number) {
   if (previous === 0) return current > 0 ? 100 : 0
@@ -74,15 +66,32 @@ export function SectionCards({ stats }: { stats: DashboardStats }) {
       <Card className="@container/card">
         <CardHeader>
           <CardDescription>Verified Revenue</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            {formatRevenue(stats.revenue)}
-          </CardTitle>
           <CardAction>
             <Badge variant="outline">
               <IconCircleCheck />
               {stats.paidCount} paid
             </Badge>
           </CardAction>
+          <div className="col-span-2 grid grid-cols-2 gap-3 pt-1">
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-muted-foreground">MYR</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums leading-none @[240px]/card:text-2xl">
+                {stats.revenue.MYR.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </p>
+            </div>
+            <div className="min-w-0 border-l border-border pl-3">
+              <p className="text-xs font-medium text-muted-foreground">USD</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums leading-none @[240px]/card:text-2xl">
+                {stats.revenue.USD.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </p>
+            </div>
+          </div>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">

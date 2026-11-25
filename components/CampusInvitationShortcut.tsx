@@ -31,7 +31,7 @@ export function CampusInvitationShortcut({
 
   return (
     <>
-      <Card className="mx-4 lg:mx-6">
+      <Card className="h-full">
         <CardHeader>
           <CardTitle>Participant invitation</CardTitle>
           <CardDescription>
@@ -39,7 +39,7 @@ export function CampusInvitationShortcut({
             attached. Uses the competition’s name, theme, and dates.
           </CardDescription>
         </CardHeader>
-        <CardFooter>
+        <CardFooter className="mt-auto">
           <Button
             onClick={() => setOpen(true)}
             disabled={competitions.length === 0}

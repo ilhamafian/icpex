@@ -45,7 +45,7 @@ export function ClosingCeremonyShortcut({
 
   return (
     <>
-      <Card className="mx-4 lg:mx-6">
+      <Card className="h-full">
         <CardHeader>
           <CardTitle>Closing ceremony</CardTitle>
           <CardDescription>
@@ -53,7 +53,7 @@ export function ClosingCeremonyShortcut({
             invitation to the closing ceremony and result announcement.
           </CardDescription>
         </CardHeader>
-        <CardFooter className="flex-wrap gap-2">
+        <CardFooter className="mt-auto flex-wrap gap-2">
           <Button
             onClick={() => openFor("participants")}
             disabled={competitions.length === 0}
