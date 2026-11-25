@@ -5,6 +5,7 @@ import { currencySchema } from "./paymentSchema";
 import {
   MAX_PROJECTS_PER_SUBMISSION,
   registrationSchema,
+  teamSizeError,
 } from "./registrationSchema";
 
 export const institutionSchema = z.object({
@@ -51,6 +52,17 @@ export const submissionProjectSchema = z.object({
   team: registrationSchema.shape.team,
   supervisors: registrationSchema.shape.supervisors,
   documents: submissionDocumentsSchema,
+}).superRefine((project, ctx) => {
+  const message = teamSizeError(
+    project.participant.education_level,
+    project.team.members.length
+  );
+  if (!message) return;
+  ctx.addIssue({
+    code: "custom",
+    message,
+    path: ["team", "members"],
+  });
 });
 
 /** A secretary note that a receipt did not match the amount due. */

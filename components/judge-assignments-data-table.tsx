@@ -285,6 +285,7 @@ export function judgeName(judge: SerializedUser | undefined, fallback: string) {
 const JUDGE_STATUS_LABELS: Record<SerializedUser["status"], string> = {
   ACTIVE: "Active",
   INVITED: "Invited",
+  PENDING_APPROVAL: "Pending approval",
   DISABLED: "Disabled",
 };
 

@@ -3,13 +3,17 @@
 import * as React from "react";
 import {
   IconArrowsSort,
+  IconBan,
   IconChevronDown,
   IconChevronLeft,
   IconChevronRight,
   IconChevronsLeft,
   IconChevronsRight,
+  IconCircleCheck,
   IconCircleCheckFilled,
+  IconCopy,
   IconDotsVertical,
+  IconEye,
   IconFilter,
   IconLayoutColumns,
   IconLoader,
@@ -62,8 +66,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { COMPETITION_ELIGIBILITY_LABELS } from "@/schemas/educationLevel";
-import type { UserRole, UserStatus } from "@/schemas/userSchema";
-import { isGlobalRole, USER_ROLE_LABELS } from "@/schemas/userRole";
+import {
+  USER_STATUS_LABELS,
+  type UserRole,
+  type UserStatus,
+} from "@/schemas/userSchema";
+import {
+  educationLevelForRole,
+  isGlobalRole,
+  isScoringRole,
+  USER_ROLE_LABELS,
+} from "@/schemas/userRole";
 import type { SerializedUser } from "@/types/user";
 import { hasGrant, rolesForCompetition } from "@/utils/roleGrants";
 
@@ -77,7 +90,12 @@ const features = tableFeatures({
 
 const columnHelper = createColumnHelper<typeof features, SerializedUser>();
 
-const USER_STATUSES: UserStatus[] = ["ACTIVE", "INVITED", "DISABLED"];
+const USER_STATUSES: UserStatus[] = [
+  "ACTIVE",
+  "PENDING_APPROVAL",
+  "INVITED",
+  "DISABLED",
+];
 
 type VerifiedFilter = "yes" | "no";
 
@@ -98,9 +116,18 @@ type SortOption = keyof typeof SORT_OPTIONS;
 
 const STATUS_ORDER: Record<UserStatus, number> = {
   ACTIVE: 0,
-  INVITED: 1,
-  DISABLED: 2,
+  PENDING_APPROVAL: 1,
+  INVITED: 2,
+  DISABLED: 3,
 };
+
+function registrationLink(role: UserRole) {
+  const url = new URL("/call-for-jury", window.location.origin);
+  const level = educationLevelForRole(role);
+  if (level === "UNDERGRADUATE") url.searchParams.set("track", "undergraduate");
+  if (level === "POSTGRADUATE") url.searchParams.set("track", "postgraduate");
+  return url.toString();
+}
 
 function statusVariant(
   status: UserStatus
@@ -109,6 +136,7 @@ function statusVariant(
     case "ACTIVE":
       return "default";
     case "INVITED":
+    case "PENDING_APPROVAL":
       return "secondary";
     default:
       return "outline";
@@ -165,6 +193,13 @@ type UsersDataTableProps = {
   ) => void;
   onResendInvite: (user: SerializedUser) => void;
   onDeleteUser: (user: SerializedUser) => void;
+  /** Signed-in admin role, used to scope the public registration link. */
+  actorRole: UserRole;
+  onReviewApplication: (user: SerializedUser) => void;
+  onDecideApplication: (
+    user: SerializedUser,
+    action: "approve" | "reject"
+  ) => void;
   busyId?: string | null;
   busyKey?: string | null;
 };
@@ -178,6 +213,9 @@ export function UsersDataTable({
   onToggleRole,
   onResendInvite,
   onDeleteUser,
+  actorRole,
+  onReviewApplication,
+  onDecideApplication,
   busyId,
   busyKey,
 }: UsersDataTableProps) {
@@ -189,6 +227,10 @@ export function UsersDataTable({
     pageSize: 10,
   });
   const [query, setQuery] = React.useState("");
+  const [copiedLink, setCopiedLink] = React.useState(false);
+  const canShareRegistration = assignableRoles.some((role) =>
+    isScoringRole(role)
+  );
   const [statusFilter, setStatusFilter] = React.useState<Set<UserStatus>>(
     () => new Set()
   );
@@ -352,12 +394,13 @@ export function UsersDataTable({
               variant={statusVariant(row.original.status)}
               className="px-1.5"
             >
-              {row.original.status === "INVITED" ? (
+              {row.original.status === "INVITED" ||
+              row.original.status === "PENDING_APPROVAL" ? (
                 <IconLoader className="size-3.5" />
               ) : row.original.status === "ACTIVE" ? (
                 <IconCircleCheckFilled className="size-3.5 fill-green-500 dark:fill-green-400" />
               ) : null}
-              {row.original.status}
+              {USER_STATUS_LABELS[row.original.status]}
             </Badge>
           ),
         }),
@@ -397,7 +440,33 @@ export function UsersDataTable({
                     <span className="sr-only">Open menu</span>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuContent align="end" className="w-48">
+                  {user.status === "PENDING_APPROVAL" ? (
+                    <>
+                      <DropdownMenuItem
+                        onClick={() => onReviewApplication(user)}
+                        disabled={isBusy}
+                      >
+                        <IconEye className="size-4" />
+                        View application
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => onDecideApplication(user, "approve")}
+                        disabled={isBusy}
+                      >
+                        <IconCircleCheck className="size-4" />
+                        Approve
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => onDecideApplication(user, "reject")}
+                        disabled={isBusy}
+                      >
+                        <IconBan className="size-4" />
+                        Reject
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  ) : null}
                   {user.status === "INVITED" ? (
                     <DropdownMenuItem
                       onClick={() => onResendInvite(user)}
@@ -427,8 +496,10 @@ export function UsersDataTable({
       busyId,
       busyKey,
       competitionId,
+      onDecideApplication,
       onDeleteUser,
       onResendInvite,
+      onReviewApplication,
       onToggleRole,
       pagination.pageIndex,
       pagination.pageSize,
@@ -500,7 +571,7 @@ export function UsersDataTable({
                     table.setPageIndex(0);
                   }}
                 >
-                  {status.charAt(0) + status.slice(1).toLowerCase()}
+                  {USER_STATUS_LABELS[status]}
                 </DropdownMenuCheckboxItem>
               ))}
               <DropdownMenuSeparator />
@@ -608,6 +679,27 @@ export function UsersDataTable({
                 ))}
             </DropdownMenuContent>
           </DropdownMenu>
+          {canShareRegistration ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(registrationLink(actorRole));
+                  setCopiedLink(true);
+                  window.setTimeout(() => setCopiedLink(false), 2000);
+                } catch {
+                  setCopiedLink(false);
+                }
+              }}
+            >
+              <IconCopy />
+              <span className="hidden lg:inline">
+                {copiedLink ? "Copied" : "Copy registration link"}
+              </span>
+              <span className="lg:hidden">{copiedLink ? "Copied" : "Copy link"}</span>
+            </Button>
+          ) : null}
           <Button variant="outline" size="sm" onClick={onAddUser}>
             <IconPlus />
             <span className="hidden lg:inline">Add User</span>

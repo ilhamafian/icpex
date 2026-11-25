@@ -85,11 +85,15 @@ export function UsersManager({
   competitions,
   currentCompetitionId,
   assignableRoles,
+  actorRole,
+  categories,
 }: {
   initialUsers: SerializedUser[];
   competitions: UserCompetitionOption[];
   currentCompetitionId: string | null;
   assignableRoles: UserRole[];
+  actorRole: UserRole;
+  categories: { id: string; name: string }[];
 }) {
   const [users, setUsers] = useState(initialUsers);
   const [competitionId, setCompetitionId] = useState(
@@ -104,6 +108,12 @@ export function UsersManager({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SerializedUser | null>(
+    null
+  );
+  const [reviewTarget, setReviewTarget] = useState<SerializedUser | null>(
+    null
+  );
+  const [rejectTarget, setRejectTarget] = useState<SerializedUser | null>(
     null
   );
 
@@ -236,6 +246,55 @@ export function UsersManager({
     }
   }
 
+  async function decideApplication(
+    user: SerializedUser,
+    action: "approve" | "reject"
+  ) {
+    setBusyId(user._id);
+    try {
+      const res = await fetch(`/api/users/${user._id}/decision`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      if (!res.ok) {
+        toast.error(await readError(res));
+        return;
+      }
+      const data = (await res.json()) as { user: SerializedUser };
+      setUsers((prev) =>
+        prev.map((item) => (item._id === data.user._id ? data.user : item))
+      );
+      setReviewTarget((current) =>
+        current?._id === data.user._id ? null : current
+      );
+      toast.success(
+        action === "approve"
+          ? `Appointed ${user.email}. An email is on its way.`
+          : `Rejected ${user.email}.`
+      );
+    } catch {
+      toast.error(
+        action === "approve"
+          ? "Failed to approve the application."
+          : "Failed to reject the application."
+      );
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function handleDecideApplication(
+    user: SerializedUser,
+    action: "approve" | "reject"
+  ) {
+    if (action === "reject") {
+      setRejectTarget(user);
+      return;
+    }
+    void decideApplication(user, "approve");
+  }
+
   async function confirmDelete() {
     if (!deleteTarget) return;
     const target = deleteTarget;
@@ -293,6 +352,9 @@ export function UsersManager({
         onToggleRole={handleToggleRole}
         onResendInvite={handleResendInvite}
         onDeleteUser={setDeleteTarget}
+        actorRole={actorRole}
+        onReviewApplication={setReviewTarget}
+        onDecideApplication={handleDecideApplication}
       />
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
@@ -427,6 +489,140 @@ export function UsersManager({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Sheet
+        open={Boolean(reviewTarget)}
+        onOpenChange={(open) => {
+          if (!open) setReviewTarget(null);
+        }}
+      >
+        <SheetContent className="flex flex-col overflow-y-auto sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Application</SheetTitle>
+          </SheetHeader>
+          {reviewTarget?.judge_application ? (
+            <ApplicationDetails
+              user={reviewTarget}
+              categories={categories}
+            />
+          ) : (
+            <p className="px-4 text-sm text-muted-foreground">
+              This user has no application on file.
+            </p>
+          )}
+          <SheetFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!reviewTarget || busyId === reviewTarget._id}
+              onClick={() => {
+                if (reviewTarget) setRejectTarget(reviewTarget);
+              }}
+            >
+              Reject
+            </Button>
+            <Button
+              type="button"
+              disabled={!reviewTarget || busyId === reviewTarget._id}
+              onClick={() => {
+                if (reviewTarget) void decideApplication(reviewTarget, "approve");
+              }}
+            >
+              {reviewTarget && busyId === reviewTarget._id
+                ? "Working…"
+                : "Approve and email"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      <AlertDialog
+        open={Boolean(rejectTarget)}
+        onOpenChange={(open) => {
+          if (!open) setRejectTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reject application?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {rejectTarget?.email} will not be appointed and will not receive
+              another email. They cannot sign in.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                if (!rejectTarget) return;
+                const target = rejectTarget;
+                setRejectTarget(null);
+                void decideApplication(target, "reject");
+              }}
+            >
+              Reject
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
+  );
+}
+
+function ApplicationDetails({
+  user,
+  categories,
+}: {
+  user: SerializedUser;
+  categories: { id: string; name: string }[];
+}) {
+  const application = user.judge_application;
+  if (!application) return null;
+  const categoryNames =
+    user.judge_profile?.category_ids.map(
+      (id) => categories.find((category) => category.id === id)?.name ?? id
+    ) ?? [];
+  const rows: [string, string][] = [
+    ["Name", `${application.title} ${user.name ?? ""}`.trim()],
+    ["Email", user.email],
+    ["Applying as", application.kind === "JUDGE" ? "Judge" : "Paper reviewer"],
+    ["Role", user.roles.map((grant) => USER_ROLE_LABELS[grant.role]).join(", ")],
+    ["Organisation", user.judge_profile?.institution.name ?? "—"],
+    ["Country", user.judge_profile?.institution.country ?? "—"],
+    ["Address", application.address],
+    ["Postcode", application.postcode],
+    ["Mobile", application.phone],
+    ["Expertise", application.field_of_expertise],
+  ];
+  if (application.jury_experience) {
+    rows.push(["Judging experience", application.jury_experience]);
+  }
+  if (categoryNames.length) {
+    rows.push(["Categories", categoryNames.join(", ")]);
+  }
+
+  return (
+    <dl className="flex flex-col gap-3 px-4 text-sm">
+      {rows.map(([label, value]) => (
+        <div key={label}>
+          <dt className="text-muted-foreground">{label}</dt>
+          <dd className="font-medium whitespace-pre-wrap">{value}</dd>
+        </div>
+      ))}
+      <div>
+        <dt className="text-muted-foreground">CV</dt>
+        <dd>
+          <a
+            href={`/api/users/${user._id}/cv`}
+            target="_blank"
+            rel="noreferrer"
+            className="font-medium underline underline-offset-4"
+          >
+            {application.cv_file_name}
+          </a>
+        </dd>
+      </div>
+    </dl>
   );
 }

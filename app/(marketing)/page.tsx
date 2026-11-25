@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { DatesList, SectionHeading } from "@/components/marketing/blocks";
+import { CallForJurySection } from "@/components/marketing/CallForJurySection";
 import { WHY_JOIN } from "@/components/marketing/content";
 import { LandingSmoothScroll } from "@/components/marketing/LandingSmoothScroll";
 import { Rise } from "@/components/marketing/Rise";
@@ -154,6 +155,10 @@ export default function HomePage() {
           ))}
         </ul>
       </section>
+
+      <div data-ring-section>
+        <CallForJurySection />
+      </div>
 
       <section data-ring-section className="mx-auto w-full max-w-6xl px-6 py-20">
         <Rise>

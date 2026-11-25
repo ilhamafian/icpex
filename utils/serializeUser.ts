@@ -4,7 +4,11 @@ import { WithId } from "mongodb";
 
 import type { User } from "@/schemas/userSchema";
 import { toIdString } from "@/schemas/objectId";
-import type { SerializedJudgeProfile, SerializedUser } from "@/types/user";
+import type {
+  SerializedJudgeApplication,
+  SerializedJudgeProfile,
+  SerializedUser,
+} from "@/types/user";
 
 function toIso(value: Date | string | undefined) {
   if (!value) return undefined;
@@ -12,6 +16,21 @@ function toIso(value: Date | string | undefined) {
 }
 
 export type { SerializedUser };
+
+function serializeJudgeApplication(
+  application: NonNullable<User["judge_application"]>
+): SerializedJudgeApplication {
+  return {
+    kind: application.kind,
+    title: application.title,
+    address: application.address,
+    postcode: application.postcode,
+    phone: application.phone,
+    field_of_expertise: application.field_of_expertise,
+    jury_experience: application.jury_experience,
+    cv_file_name: application.cv_file_name,
+  };
+}
 
 function serializeJudgeProfile(
   profile: NonNullable<User["judge_profile"]>
@@ -38,6 +57,9 @@ export function serializeUser(user: WithId<User>): SerializedUser {
     invite_expires_at: toIso(user.invite_expires_at),
     judge_profile: user.judge_profile
       ? serializeJudgeProfile(user.judge_profile)
+      : undefined,
+    judge_application: user.judge_application
+      ? serializeJudgeApplication(user.judge_application)
       : undefined,
     created_at: toIso(user.created_at),
     updated_at: toIso(user.updated_at),

@@ -16,6 +16,7 @@ import {
   allowedEducationLevels,
 } from "@/schemas/educationLevel";
 import { toIdString } from "@/schemas/objectId";
+import { teamSizeError } from "@/schemas/registrationSchema";
 import type { SubmissionForm } from "@/schemas/submissionSchema";
 import { getCurrentCompetition } from "@/utils/currentCompetition";
 import { normalizeInstitution, quoteSubmission, type SubmissionQuote } from "@/utils/pricing";
@@ -64,6 +65,14 @@ export async function preparePublicSubmission(
     if (!category) {
       return { ok: false, error: `Project ${index + 1}: invalid category.` };
     }
+    const teamError = teamSizeError(
+      project.participant.education_level,
+      project.team.members.length
+    );
+    if (teamError) {
+      return { ok: false, error: `Project ${index + 1}: ${teamError}` };
+    }
+
     if (
       category.education_level &&
       category.education_level !== project.participant.education_level

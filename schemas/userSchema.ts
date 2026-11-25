@@ -1,11 +1,34 @@
 import { z } from "zod";
+import { judgeApplicationSchema } from "./judgeApplicationSchema";
 import { judgeProfileInputSchema, judgeProfileSchema } from "./judgeProfileSchema";
 import { objectIdSchema } from "./objectId";
 import { userRoleSchema } from "./userRole";
 
 export { userRoleSchema, type UserRole } from "./userRole";
+export {
+  judgeApplicationFormSchema,
+  judgeApplicationSchema,
+  type JudgeApplication,
+  type JudgeApplicationForm,
+  type JudgeApplicationKind,
+} from "./judgeApplicationSchema";
 
-export const userStatusSchema = z.enum(["INVITED", "ACTIVE", "DISABLED"]);
+export const userStatusSchema = z.enum([
+  "INVITED",
+  "ACTIVE",
+  "DISABLED",
+  "PENDING_APPROVAL",
+]);
+
+export const USER_STATUS_LABELS: Record<
+  z.infer<typeof userStatusSchema>,
+  string
+> = {
+  INVITED: "Invited",
+  ACTIVE: "Active",
+  DISABLED: "Disabled",
+  PENDING_APPROVAL: "Pending approval",
+};
 
 /**
  * A role held by a user. SUPER_ADMIN is global (no competition); every other
@@ -37,8 +60,10 @@ export const userSchema = z.object({
   email_verified: z.boolean().default(false),
   invite_token_hash: z.string().min(1).optional(),
   invite_expires_at: z.coerce.date().optional(),
-  /** Set when a scoring judge accepts an invitation. */
+  /** Set when a scoring judge accepts an invitation or applies publicly. */
   judge_profile: judgeProfileSchema.optional(),
+  /** Set when someone applies from the public call for jury or reviewers. */
+  judge_application: judgeApplicationSchema.optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional(),
 });

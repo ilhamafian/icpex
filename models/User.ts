@@ -143,6 +143,23 @@ export class UserModel extends ModelBase<User> {
     });
   }
 
+  async setStatus(
+    id: string,
+    status: User["status"],
+    options?: { email_verified?: boolean }
+  ) {
+    const collection = await this.getCollection();
+    return collection.updateOne(this.buildIdFilter(id), {
+      $set: {
+        status,
+        ...(options?.email_verified === undefined
+          ? {}
+          : { email_verified: options.email_verified }),
+        updated_at: new Date(),
+      },
+    });
+  }
+
   async activateFromInvite(
     id: string,
     data: {

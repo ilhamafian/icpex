@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 
 import {
-  AWARDS,
   FULL_PAPER_CRITERIA,
   PG_LIVE_CRITERIA,
   PG_POSTER_CRITERIA,
@@ -11,9 +10,9 @@ import {
 import { LiquidGlass } from "@/components/ui/liquid-glass";
 
 export const metadata: Metadata = {
-  title: "Guidelines & Awards",
+  title: "Guidelines",
   description:
-    "Judging criteria and awards for the undergraduate innovation project and postgraduate Five-Minute Thesis competitions.",
+    "Judging criteria for the undergraduate innovation project and postgraduate Five-Minute Thesis competitions.",
 };
 
 const GLASS_CLASS =
@@ -77,7 +76,7 @@ function CriteriaCard({ title, items }: { title: string; items: readonly string[
 export default function GuidelinesPage() {
   return (
     <div className="mx-auto w-full max-w-6xl px-6 py-14 sm:py-16">
-      <h1 className="sr-only">Guidelines & Awards</h1>
+      <h1 className="sr-only">Guidelines</h1>
       <div className="flex flex-col gap-16">
         {CRITERIA.map((group) => (
           <section key={group.title}>
@@ -95,34 +94,6 @@ export default function GuidelinesPage() {
             </div>
           </section>
         ))}
-
-        <section>
-          <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">Awards</h2>
-          <div className="mx-auto mt-4 h-px max-w-5xl bg-[#e8b84a]" />
-          <LiquidGlass
-            tint={0}
-            radius={28}
-            className={`mt-10 ${GLASS_CLASS}`}
-            style={GLASS_STYLE}
-            contentClassName="grid md:grid-cols-3"
-          >
-            {AWARDS.map((award, index) => (
-              <div
-                key={award.amount}
-                className={`flex min-h-36 flex-col items-center justify-center px-6 py-8 text-center ${
-                  index > 0 ? "border-t border-white/10 md:border-t-0 md:border-l" : ""
-                }`}
-              >
-                <p className="text-3xl font-bold text-[#e8b84a]">{award.amount}</p>
-                <ul className="mt-3 space-y-1 leading-relaxed text-white/90">
-                  {award.titles.map((name) => (
-                    <li key={name}>{name}</li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </LiquidGlass>
-        </section>
       </div>
     </div>
   );

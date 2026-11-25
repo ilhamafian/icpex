@@ -1,9 +1,30 @@
 import { z } from "zod";
-import { educationLevelSchema } from "./educationLevel";
+import { educationLevelSchema, type EducationLevel } from "./educationLevel";
 import { objectIdSchema } from "./objectId";
 
-/** Additional team members, not counting the team lead. */
-export const MAX_TEAM_MEMBERS = 6;
+/** People on one project, counting the lead. */
+export function maxTeamSize(level: EducationLevel): number {
+  return level === "POSTGRADUATE" ? 1 : 5;
+}
+
+/** Additional members besides the lead. */
+export function maxAdditionalMembers(level: EducationLevel): number {
+  return maxTeamSize(level) - 1;
+}
+
+/** Undergraduate cap on extra members. Postgraduate entries allow none. */
+export const MAX_ADDITIONAL_MEMBERS = maxAdditionalMembers("UNDERGRADUATE");
+
+export function teamSizeError(
+  level: EducationLevel,
+  additionalMembers: number
+): string | null {
+  if (additionalMembers <= maxAdditionalMembers(level)) return null;
+  if (level === "POSTGRADUATE") {
+    return "Postgraduate projects are individual. Do not add team members.";
+  }
+  return `An undergraduate team can have at most ${maxTeamSize(level)} people, including the lead.`;
+}
 
 /** Projects one university can enter in a single submission. */
 export const MAX_PROJECTS_PER_SUBMISSION = 1;
@@ -50,7 +71,10 @@ export const registrationSchema = z.object({
         name: z.string().min(1),
         email: z.string().email(),
       })
-    ).max(MAX_TEAM_MEMBERS, `A team can have at most ${MAX_TEAM_MEMBERS} members.`),
+    ).max(
+      MAX_ADDITIONAL_MEMBERS,
+      `A team can have at most ${MAX_ADDITIONAL_MEMBERS} additional members.`
+    ),
   }),
   supervisors: z.array(
     z.object({

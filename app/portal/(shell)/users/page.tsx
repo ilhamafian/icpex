@@ -1,4 +1,5 @@
 import { UsersManager } from "@/components/UsersManager";
+import { CategoryModel } from "@/models/Category";
 import { CompetitionModel } from "@/models/Competition";
 import { UserModel } from "@/models/User";
 import { toIdString } from "@/schemas/objectId";
@@ -9,11 +10,13 @@ import { requirePortalSection } from "@/utils/requirePortalAccess";
 
 async function loadUsers() {
   try {
-    const [users, competitions, currentCompetitionId] = await Promise.all([
-      new UserModel().find({}, { sort: { created_at: -1 } }),
-      new CompetitionModel().find({}, { sort: { start_date: -1 } }),
-      getCurrentCompetitionId(),
-    ]);
+    const [users, competitions, currentCompetitionId, categories] =
+      await Promise.all([
+        new UserModel().find({}, { sort: { created_at: -1 } }),
+        new CompetitionModel().find({}, { sort: { start_date: -1 } }),
+        getCurrentCompetitionId(),
+        new CategoryModel().find({}),
+      ]);
     return {
       users: users.map(serializeUser),
       competitions: competitions.map((competition) => ({
@@ -21,16 +24,26 @@ async function loadUsers() {
         name: competition.name,
         status: competition.status,
       })),
+      categories: categories.flatMap((category) => {
+        const id = toIdString(category._id);
+        return id ? [{ id, name: category.name }] : [];
+      }),
       currentCompetitionId,
     };
   } catch {
-    return { users: [], competitions: [], currentCompetitionId: null };
+    return {
+      users: [],
+      competitions: [],
+      categories: [],
+      currentCompetitionId: null,
+    };
   }
 }
 
 export default async function UsersPage() {
   const session = await requirePortalSection("users");
-  const { users, competitions, currentCompetitionId } = await loadUsers();
+  const { users, competitions, categories, currentCompetitionId } =
+    await loadUsers();
   const assignableRoles = rolesGrantableBy(session.role);
 
   let visibleCompetitions = competitions;
@@ -50,6 +63,8 @@ export default async function UsersPage() {
       competitions={visibleCompetitions}
       currentCompetitionId={currentCompetitionId}
       assignableRoles={assignableRoles}
+      actorRole={session.role}
+      categories={categories}
     />
   );
 }

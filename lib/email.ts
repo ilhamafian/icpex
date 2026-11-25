@@ -502,6 +502,122 @@ async function sendJudgeInviteEmail(options: {
   });
 }
 
+export async function sendJudgeApplicationReceivedEmail(options: {
+  to: string;
+  name: string;
+  role: UserRole;
+  copy: CompetitionEmailCopy;
+}) {
+  const roleTitle = isPaperReviewerRole(options.role) ? "paper reviewer" : "judge";
+  const greet = greeting(options.name);
+  const opening = `Thank you for applying to serve as a ${roleTitle} for the ${themedCompetition(options.copy)}.`;
+  const next =
+    "We have received your application. If you are appointed, we will email you an official letter. You can sign in only after that appointment.";
+  const contact = contactSentence();
+
+  await sendMail({
+    to: options.to,
+    educationLevel: educationLevelForRole(options.role) ?? "UNDERGRADUATE",
+    subject: `Application received: ${options.copy.name}`,
+    html: joinHtml([
+      greet.html,
+      INTRO_HTML,
+      `<p>${escapeHtml(opening)}</p>`,
+      `<p>${escapeHtml(next)}</p>`,
+      contact ? `<p>${escapeHtml(contact)}</p>` : undefined,
+      signOffHtml(options.copy),
+    ]),
+    text: joinText([
+      greet.text,
+      INTRO_TEXT,
+      opening,
+      next,
+      contact,
+      signOffText(options.copy),
+    ]),
+  });
+}
+
+export async function sendJudgeApplicationAdminEmail(options: {
+  to: string;
+  applicantName: string;
+  applicantEmail: string;
+  role: UserRole;
+  copy: CompetitionEmailCopy;
+  reviewUrl: string;
+}) {
+  const roleLabel = USER_ROLE_LABELS[options.role];
+  const greet = greeting("Colleague");
+  const opening = `${options.applicantName} (${options.applicantEmail}) applied to serve as a ${roleLabel} for ${options.copy.name}.`;
+  const link = uploadLink(options.reviewUrl, "Review applications");
+
+  await sendMail({
+    to: options.to,
+    educationLevel: educationLevelForRole(options.role) ?? "UNDERGRADUATE",
+    subject: `New ${roleLabel} application: ${options.applicantName}`,
+    html: joinHtml([
+      greet.html,
+      `<p>${escapeHtml(opening)}</p>`,
+      link.html,
+      signOffHtml(options.copy),
+    ]),
+    text: joinText([
+      greet.text,
+      opening,
+      link.text,
+      signOffText(options.copy),
+    ]),
+  });
+}
+
+export async function sendJudgeAppointmentEmail(options: {
+  to: string;
+  name: string;
+  role: UserRole;
+  copy: CompetitionEmailCopy;
+  signInUrl: string;
+}) {
+  const roleTitle = isPaperReviewerRole(options.role) ? "Paper Reviewer" : "Judge";
+  const greet = greeting(options.name);
+  const contact = contactSentence();
+  const opening = `We are pleased to appoint you as a ${roleTitle} for the ${themedCompetition(options.copy)}.`;
+  const access =
+    "Sign in with the email address and password you chose when you applied. This appointment confirms your place on the panel.";
+  const link = uploadLink(options.signInUrl, "Sign in");
+  const conflict = isPaperReviewerRole(options.role)
+    ? "If you can no longer carry out this role, please tell the secretariat as soon as you can."
+    : "If you have a conflict of interest with any participant or institution, please tell the secretariat so the submission can be reassigned.";
+  const close = `Thank you for supporting ${options.copy.name}.`;
+
+  await sendMail({
+    to: options.to,
+    educationLevel: educationLevelForRole(options.role) ?? "UNDERGRADUATE",
+    subject: `Appointment as a ${roleTitle}: ${options.copy.name}`,
+    html: joinHtml([
+      greet.html,
+      INTRO_HTML,
+      `<p>${escapeHtml(opening)}</p>`,
+      `<p>${escapeHtml(access)}</p>`,
+      link.html,
+      `<p>${escapeHtml(conflict)}</p>`,
+      contact ? `<p>${escapeHtml(contact)}</p>` : undefined,
+      `<p>${escapeHtml(close)}</p>`,
+      signOffHtml(options.copy),
+    ]),
+    text: joinText([
+      greet.text,
+      INTRO_TEXT,
+      opening,
+      access,
+      link.text,
+      conflict,
+      contact,
+      close,
+      signOffText(options.copy),
+    ]),
+  });
+}
+
 export type JudgeEvaluationReminderKind =
   | "started"
   | "due-soon"

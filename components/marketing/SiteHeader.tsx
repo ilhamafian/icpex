@@ -25,8 +25,10 @@ const CATEGORIES = [
 ];
 
 const MORE = [
+  { href: "/call-for-jury", label: "Call for Jury" },
   { href: "/publications", label: "Publication Opportunities" },
-  { href: "/guidelines", label: "Guidelines & Awards" },
+  { href: "/guidelines", label: "Guidelines" },
+  { href: "/awards", label: "Awards" },
   { href: "/committee", label: "Organising Committee" },
   { href: "/contact", label: "Contact Us" },
 ];

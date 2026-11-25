@@ -304,6 +304,42 @@ export const PG_LIVE_CRITERIA = [
   "Effective time management within the five-minute presentation limit",
 ];
 
+export const JURY_CALL_RULES = [
+  {
+    title: "Experience",
+    text: "Substantial experience in innovation or research competitions is preferred. Applicants must not take part in I-CRIVE 2027 as a participant, team leader, team member, or supervisor.",
+  },
+  {
+    title: "Notification",
+    text: "An official letter is emailed to applicants who are appointed. Tell the secretariat immediately if you need to withdraw after you are appointed.",
+  },
+  {
+    title: "Conflict of interest",
+    text: "No juror, and no member of their immediate family, colleagues, or students, may have a current relationship with a participant they would judge. Jurors must declare any such relationship and must not judge that work. Failing to follow this rule can disqualify the juror and the related entry, including any prize.",
+  },
+] as const;
+
+export const REVIEWER_CALL_RULES = [
+  {
+    title: "Your feedback",
+    text: "Papers received by the editorial board are sent to reviewers for evaluation. Constructive comments support publication in the Journal of Computing Technologies and Creative Content (JTeC).",
+  },
+  {
+    title: "Notification",
+    text: "An official appointment letter is emailed to reviewers who are selected. Tell the secretariat immediately if you need to withdraw after you are appointed.",
+  },
+  {
+    title: "Selection",
+    text: "Reviewers are assigned according to subject matter and disciplinary expertise. The editorial board decides who is appointed, and a reviewer who does not fulfil the role may be removed.",
+  },
+] as const;
+
+export const JURY_DECLARATION =
+  "I declare that the information above is correct and that I have no conflict of interest in this competition. I will respect the confidentiality of each participant's ideas.";
+
+export const REVIEWER_DECLARATION =
+  "I declare that I have read the role and responsibilities of an I-CRIVE 2027 reviewer. I understand that the I-CRIVE 2027 editorial board decides whether I am selected, and that I may be removed without prior notice if I do not fulfil my duties. I am solely responsible for my actions.";
+
 export const AWARDS = [
   {
     amount: "RM 300",

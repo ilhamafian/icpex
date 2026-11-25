@@ -13,7 +13,10 @@ import {
   EDUCATION_LEVEL_LABELS,
   type EducationLevel,
 } from "@/schemas/educationLevel";
-import { MAX_TEAM_MEMBERS } from "@/schemas/registrationSchema";
+import {
+  maxAdditionalMembers,
+  maxTeamSize,
+} from "@/schemas/registrationSchema";
 import type { SubmissionProject } from "@/schemas/submissionSchema";
 import { FilePicker } from "@/components/FilePicker";
 import {
@@ -233,6 +236,10 @@ export function ProjectFields({
         categoryId: categoryStillValid
           ? current.categoryId
           : (nextCategories[0]?.id ?? ""),
+        members:
+          level === "POSTGRADUATE"
+            ? []
+            : current.members.slice(0, maxAdditionalMembers(level)),
       };
     });
   }
@@ -367,6 +374,11 @@ export function ProjectFields({
       </Field>
     );
   }
+
+  const additionalLimit = maxAdditionalMembers(project.educationLevel);
+  const peopleLimit = maxTeamSize(project.educationLevel);
+  const teamSize = 1 + project.members.length;
+  const individual = project.educationLevel === "POSTGRADUATE";
 
   return (
     <div className="flex flex-col gap-8">
@@ -525,8 +537,12 @@ export function ProjectFields({
       </Section>
 
       <Section
-        title="Team/s"
-        description="Name the team lead and any additional members. Defaults to the participant if left blank."
+        title={project.educationLevel === "POSTGRADUATE" ? "Participant" : "Team"}
+        description={
+          project.educationLevel === "POSTGRADUATE"
+            ? "Postgraduate entry is individual. The participant is the only person on this project. The lead defaults to the participant if left blank."
+            : "Name the team lead and any other students. A team can have at most five people, including the lead. The lead defaults to the participant if left blank."
+        }
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id={id("team.lead.name")} label="Lead name" error={errors["team.lead.name"]}>
@@ -553,43 +569,47 @@ export function ProjectFields({
           </Field>
         </div>
 
+        <p className="text-sm leading-relaxed">
+          <span className="font-bold tracking-wide text-[#8a6410]">
+            GROUP REGISTRATION OFFER
+          </span>
+          {" — register five (5) entries and enjoy the sixth (6th) entry FREE!"}
+        </p>
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium">
-              Team members{" "}
+              Team size{" "}
               <span className={`font-normal ${mutedTextClassName}`}>
-                ({project.members.length}/{MAX_TEAM_MEMBERS})
+                ({teamSize}/{peopleLimit})
               </span>
             </p>
-            <button
-              type="button"
-              onClick={() =>
-                updatePeople("members", (prev) =>
-                  prev.length >= MAX_TEAM_MEMBERS
-                    ? prev
-                    : [...prev, { name: "", email: "" }]
-                )
-              }
-              disabled={project.members.length >= MAX_TEAM_MEMBERS}
-              className={linkButtonClassName}
-            >
-              Add member
-            </button>
+            {individual ? null : (
+              <button
+                type="button"
+                onClick={() =>
+                  updatePeople("members", (prev) =>
+                    prev.length >= additionalLimit
+                      ? prev
+                      : [...prev, { name: "", email: "" }]
+                  )
+                }
+                disabled={project.members.length >= additionalLimit}
+                className={linkButtonClassName}
+              >
+                Add member
+              </button>
+            )}
           </div>
-          <p className="text-sm leading-relaxed">
-            <span className="font-bold tracking-wide text-[#8a6410]">
-              GROUP REGISTRATION OFFER
-            </span>
-            {" — register five (5) entries and enjoy the sixth (6th) entry FREE!"}
-          </p>
-          {project.members.length >= MAX_TEAM_MEMBERS ? (
+          {!individual && project.members.length >= additionalLimit ? (
             <p className={mutedTextClassName}>
-              You&apos;ve reached the maximum of {MAX_TEAM_MEMBERS} team members.
+              This team already has the maximum of {peopleLimit} people.
             </p>
           ) : null}
           <FieldError message={errors["team.members"]} />
           {project.members.length === 0 ? (
-            <p className={mutedTextClassName}>No additional members yet.</p>
+            individual ? null : (
+              <p className={mutedTextClassName}>No additional members yet.</p>
+            )
           ) : (
             project.members.map((member, memberIndex) => (
               <div key={memberIndex} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
