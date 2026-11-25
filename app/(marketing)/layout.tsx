@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
+import { LandingSmoothScroll } from "@/components/marketing/LandingSmoothScroll";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
 
 export const metadata: Metadata = {
@@ -13,5 +14,9 @@ export const metadata: Metadata = {
 };
 
 export default function MarketingLayout({ children }: { children: ReactNode }) {
-  return <MarketingShell>{children}</MarketingShell>;
+  return (
+    <LandingSmoothScroll>
+      <MarketingShell>{children}</MarketingShell>
+    </LandingSmoothScroll>
+  );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactLenis, useLenis } from "lenis/react";
+import { usePathname } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 
 import "lenis/dist/lenis.css";
@@ -28,8 +29,20 @@ export function LandingSmoothScroll({ children }: { children: ReactNode }) {
   );
 }
 
+function scrollToHash(lenis: NonNullable<ReturnType<typeof useLenis>>, hash: string) {
+  const id = decodeURIComponent(hash.replace(/^#/, ""));
+  if (!id || id === "top") {
+    lenis.scrollTo(0, ANCHOR_SCROLL);
+    return;
+  }
+  const node = document.getElementById(id);
+  if (node) lenis.scrollTo(node, ANCHOR_SCROLL);
+  else lenis.scrollTo(0, { immediate: true });
+}
+
 function LandingScrollLinks() {
   const lenis = useLenis();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!lenis) return;
@@ -37,17 +50,7 @@ function LandingScrollLinks() {
     const previousRestoration = history.scrollRestoration;
     history.scrollRestoration = "manual";
 
-    const scrollToHash = (hash: string) => {
-      const id = decodeURIComponent(hash.replace(/^#/, ""));
-      if (!id || id === "top") {
-        lenis.scrollTo(0, ANCHOR_SCROLL);
-        return;
-      }
-      const node = document.getElementById(id);
-      if (node) lenis.scrollTo(node, ANCHOR_SCROLL);
-    };
-
-    if (window.location.hash) scrollToHash(window.location.hash);
+    const onHash = (hash: string) => scrollToHash(lenis, hash);
 
     const onClickCapture = (event: MouseEvent) => {
       if (
@@ -72,11 +75,11 @@ function LandingScrollLinks() {
       if (url.hash !== here.hash) {
         window.history.pushState(null, "", url.hash);
       }
-      scrollToHash(url.hash);
+      onHash(url.hash);
     };
 
     const onPopState = () => {
-      scrollToHash(window.location.hash);
+      onHash(window.location.hash);
     };
 
     const syncLock = () => {
@@ -100,6 +103,16 @@ function LandingScrollLinks() {
       observer.disconnect();
     };
   }, [lenis]);
+
+  useEffect(() => {
+    if (!lenis) return;
+    const frame = requestAnimationFrame(() => {
+      const hash = window.location.hash;
+      if (hash) scrollToHash(lenis, hash);
+      else lenis.scrollTo(0, { immediate: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [lenis, pathname]);
 
   return null;
 }

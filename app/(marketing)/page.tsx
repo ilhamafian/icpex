@@ -5,7 +5,6 @@ import type { ReactNode } from "react";
 import { DatesList, SectionHeading } from "@/components/marketing/blocks";
 import { CallForJurySection } from "@/components/marketing/CallForJurySection";
 import { WHY_JOIN } from "@/components/marketing/content";
-import { LandingSmoothScroll } from "@/components/marketing/LandingSmoothScroll";
 import { Rise } from "@/components/marketing/Rise";
 import { SiteFooter } from "@/components/marketing/SiteFooter";
 import { WelcomeHighlight } from "@/components/marketing/WelcomeHighlight";
@@ -20,7 +19,6 @@ const POSTER_HREF =
 export default function HomePage() {
   return (
     <>
-    <LandingSmoothScroll>
       <section
         data-ring-section
         className="mx-auto flex min-h-[calc(100vh-4.25rem)] w-full max-w-6xl flex-col justify-center px-6 py-16"
@@ -168,8 +166,7 @@ export default function HomePage() {
           <DatesList />
         </Rise>
       </section>
-    </LandingSmoothScroll>
-    <SiteFooter />
+      <SiteFooter />
     </>
   );
 }
