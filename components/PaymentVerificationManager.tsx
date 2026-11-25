@@ -1232,7 +1232,7 @@ export function PaymentVerificationManager({
                     </p>
                   </div>
 
-                  <div className="overflow-hidden rounded-lg border">
+                  <div className="overflow-hidden rounded-2xl border bg-card">
                     <Table>
                       <TableHeader className="sticky top-0 z-10 bg-muted">
                         {table.getHeaderGroups().map((headerGroup) => (

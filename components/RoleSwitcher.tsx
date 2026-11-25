@@ -44,7 +44,7 @@ export function RoleSwitcher({
         <DropdownMenuTrigger asChild>
           <Button
             variant="outline"
-            className="h-10 gap-2 rounded-full bg-background px-4 shadow-lg"
+            className="h-10 gap-2 rounded-full border-[#d5e1ec] bg-card px-4 text-[#10243c] shadow-lg"
             disabled={pending}
           >
             {pending ? (

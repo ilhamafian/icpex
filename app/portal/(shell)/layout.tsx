@@ -1,7 +1,9 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { panelThemeStyle } from "@/components/panel-theme";
+import { PanelTheme } from "@/components/PanelTheme";
 import { RoleSwitcher } from "@/components/RoleSwitcher";
 import { SiteHeader } from "@/components/site-header";
 import {
@@ -33,36 +35,32 @@ export default async function PortalShellLayout({
 
   return (
     <TooltipProvider>
-      <SidebarProvider
-        style={
-          {
-            "--sidebar-width": "calc(var(--spacing) * 72)",
-            "--header-height": "calc(var(--spacing) * 12)",
-          } as CSSProperties
-        }
-      >
-        <AppSidebar
-          variant="inset"
-          role={session.role}
-          homeHref={getHomePathForRole(session.role)}
-          user={{
-            name: displayName,
-            email: displayEmail,
-            avatar: "",
-          }}
-        />
-        <SidebarInset>
-          <SiteHeader />
-          <div className="flex flex-1 flex-col">
-            <div className="@container/main flex flex-1 flex-col gap-2">
-              <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-                {children}
+      <div className="min-h-full bg-[#0e243c] text-[#10243c]">
+        <PanelTheme />
+        <SidebarProvider style={panelThemeStyle}>
+          <AppSidebar
+            variant="inset"
+            role={session.role}
+            homeHref={getHomePathForRole(session.role)}
+            user={{
+              name: displayName,
+              email: displayEmail,
+              avatar: "",
+            }}
+          />
+          <SidebarInset>
+            <SiteHeader />
+            <div className="flex flex-1 flex-col">
+              <div className="@container/main flex flex-1 flex-col gap-2">
+                <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+                  {children}
+                </div>
               </div>
             </div>
-          </div>
-        </SidebarInset>
-        <RoleSwitcher role={session.role} roles={session.roles} />
-      </SidebarProvider>
+          </SidebarInset>
+          <RoleSwitcher role={session.role} roles={session.roles} />
+        </SidebarProvider>
+      </div>
     </TooltipProvider>
   );
 }
