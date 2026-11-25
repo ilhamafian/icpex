@@ -29,12 +29,12 @@ export const DATES = [
   {
     date: "1 DEC 2026",
     title: "Registration Opens",
-    detail: "Registration and abstract submission begin.",
+    detail: "Registration and submission begin.",
   },
   {
     date: "14 FEB 2027",
-    title: "Registration & Abstract Deadline",
-    detail: "Last day to register and submit abstracts.",
+    title: "Registration Closes",
+    detail: "Last day to register.",
   },
   {
     date: "28 FEB 2027",
@@ -43,13 +43,13 @@ export const DATES = [
   },
   {
     date: "24–25 MAR 2027",
-    title: "Postgraduate Live 5MT",
-    detail: "Online research presentations via Microsoft Teams.",
+    title: "5MT Presentation (Postgraduate only)",
+    detail: "Online presentation.",
   },
   {
     date: "31 MAR 2027",
-    title: "Closing Ceremony & Results",
-    detail: "Online announcement of competition winners.",
+    title: "Results Announcement",
+    detail: "Competition winners announced.",
   },
 ] as const;
 
