@@ -6,11 +6,19 @@ import { DatesList, SectionHeading } from "@/components/marketing/blocks";
 import { WHY_JOIN } from "@/components/marketing/content";
 import { LandingSmoothScroll } from "@/components/marketing/LandingSmoothScroll";
 import { Rise } from "@/components/marketing/Rise";
+import { SiteFooter } from "@/components/marketing/SiteFooter";
 import { WelcomeHighlight } from "@/components/marketing/WelcomeHighlight";
 import { LiquidGlass } from "@/components/ui/liquid-glass";
 
+const POSTER_HREF =
+  "/files/" +
+  encodeURIComponent(
+    "International Competition for Research, Innovation & Excellen ..pdf"
+  );
+
 export default function HomePage() {
   return (
+    <>
     <LandingSmoothScroll>
       <section
         data-ring-section
@@ -43,6 +51,16 @@ export default function HomePage() {
                 Register Now
                 <IconArrowRight className="size-4" aria-hidden />
               </Link>
+              <a href={POSTER_HREF} download className="inline-flex rounded-full">
+                <LiquidGlass
+                  tint={0}
+                  className="text-white shadow-[0_10px_40px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.45)] transition-transform duration-200 hover:scale-[1.03] active:scale-[0.97] motion-reduce:transition-none motion-reduce:hover:scale-100"
+                  style={{ backgroundColor: "rgb(14 32 56 / 0.82)" }}
+                  contentClassName="flex h-12 items-center justify-center px-7 text-sm font-bold tracking-wide"
+                >
+                  Download poster
+                </LiquidGlass>
+              </a>
               <Link href="#categories" className="inline-flex rounded-full">
                 <LiquidGlass
                   tint={0}
@@ -148,6 +166,8 @@ export default function HomePage() {
         </Rise>
       </section>
     </LandingSmoothScroll>
+    <SiteFooter />
+    </>
   );
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { IconCheck } from "@tabler/icons-react";
+import Link from "next/link";
 import { FormEvent, useState } from "react";
 
 import {
@@ -59,6 +60,16 @@ const STEPS: { id: FormStep; label: string }[] = [
   { id: "projects", label: "Project" },
 ];
 
+/** Select value for a Malaysian university that is not on the official list. */
+const OTHER_UNIVERSITY = "__other__";
+
+function listedMalaysiaType(name: string): MalaysiaInstitutionType | "" {
+  for (const type of MALAYSIA_INSTITUTION_TYPES) {
+    if (MALAYSIA_UNIVERSITIES[type].includes(name)) return type;
+  }
+  return "";
+}
+
 const primaryButtonClassName =
   "inline-flex h-12 w-full items-center justify-center rounded-full bg-[#d6a11e] px-8 text-sm font-bold tracking-wide text-[#1a1408] transition-colors hover:bg-[#e2b43a] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto";
 
@@ -93,6 +104,12 @@ type RegistrationFormProps = {
   /** When set from ?level=, education level cannot be changed on the form. */
   educationLevelLocked?: boolean;
   categories: Option[];
+  mode?: "create" | "edit";
+  submissionId?: string;
+  /** Paid submissions stay visible but cannot be changed. */
+  readOnly?: boolean;
+  initialInstitution?: { name: string; country: string };
+  initialProject?: ProjectState;
 };
 
 export function RegistrationForm({
@@ -102,6 +119,11 @@ export function RegistrationForm({
   initialEducationLevel,
   educationLevelLocked = false,
   categories = [],
+  mode = "create",
+  submissionId,
+  readOnly = false,
+  initialInstitution,
+  initialProject,
 }: RegistrationFormProps) {
   const defaultLevel =
     initialEducationLevel ?? educationLevels[0] ?? "UNDERGRADUATE";
@@ -113,14 +135,27 @@ export function RegistrationForm({
     categories[0]?.id ??
     "";
   const newProject = () => emptyProject(categoryForLevel(defaultLevel), defaultLevel);
+  const startingCountry = initialInstitution?.country ?? "";
+  const startingName = initialInstitution?.name ?? "";
+  const startingType =
+    startingCountry === MALAYSIA ? listedMalaysiaType(startingName) : "";
 
   const [step, setStep] = useState<FormStep>("university");
-  const [institutionName, setInstitutionName] = useState("");
-  const [institutionCountry, setInstitutionCountry] = useState("");
+  const [institutionName, setInstitutionName] = useState(() => {
+    if (startingCountry !== MALAYSIA) return startingName;
+    if (!startingName) return "";
+    return startingType ? startingName : OTHER_UNIVERSITY;
+  });
+  const [otherUniversityName, setOtherUniversityName] = useState(() =>
+    startingCountry === MALAYSIA && startingName && !startingType ? startingName : ""
+  );
+  const [institutionCountry, setInstitutionCountry] = useState(startingCountry);
   const [institutionType, setInstitutionType] = useState<
     MalaysiaInstitutionType | ""
-  >("");
-  const [projects, setProjects] = useState<ProjectState[]>(() => [newProject()]);
+  >(startingType);
+  const [projects, setProjects] = useState<ProjectState[]>(() => [
+    initialProject ?? newProject(),
+  ]);
 
   const [errors, setErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(false);
@@ -128,13 +163,22 @@ export function RegistrationForm({
 
   const project = projects[0];
   const anyUploading = projects.some(projectIsUploading);
-  const institution = { name: institutionName, country: institutionCountry };
   const isMalaysia = institutionCountry === MALAYSIA;
+  const choosingOther = isMalaysia && institutionName === OTHER_UNIVERSITY;
+  const resolvedInstitutionName = choosingOther
+    ? otherUniversityName.trim()
+    : institutionName.trim();
+  const institution = {
+    name: resolvedInstitutionName,
+    country: institutionCountry,
+  };
+  const shownInstitutionName = resolvedInstitutionName || "your university";
 
   function changeCountry(country: string) {
     setInstitutionCountry(country);
     setInstitutionType("");
     setInstitutionName("");
+    setOtherUniversityName("");
   }
 
   function changeInstitutionType(type: MalaysiaInstitutionType | "") {
@@ -165,8 +209,11 @@ export function RegistrationForm({
             ([key, message]) => [`institution.${key}`, message]
           )
         );
-    if (isMalaysia && !institutionType) {
+    if (isMalaysia && !choosingOther && !institutionType) {
       next["institution.type"] = "Institution type is required.";
+    }
+    if (choosingOther && !otherUniversityName.trim()) {
+      next["institution.name"] = "Enter your university's full official name.";
     }
     if (Object.keys(next).length) {
       setErrors(next);
@@ -217,6 +264,11 @@ export function RegistrationForm({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    if (readOnly) {
+      if (step === "university") goTo("projects");
+      return;
+    }
+
     if (step === "university") {
       if (validateUniversity()) goTo("projects");
       return;
@@ -229,9 +281,13 @@ export function RegistrationForm({
 
     setErrors({});
     setLoading(true);
+    const endpoint =
+      mode === "edit" && submissionId
+        ? `/api/my/submissions/${submissionId}`
+        : "/api/submissions";
     try {
-      const response = await fetch("/api/submissions", {
-        method: "POST",
+      const response = await fetch(endpoint, {
+        method: mode === "edit" ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(parsed.data),
       });
@@ -266,7 +322,9 @@ export function RegistrationForm({
         <p className="text-xs font-semibold tracking-[0.2em] text-[#e8b84a] uppercase">
           Submitted
         </p>
-        <h2 className="mt-3 text-2xl font-bold tracking-tight">Registration submitted</h2>
+        <h2 className="mt-3 text-2xl font-bold tracking-tight">
+          {mode === "edit" ? "Changes saved" : "Registration submitted"}
+        </h2>
         <p className={`mt-3 ${mutedTextClassName}`}>
           Your submission number is{" "}
           <span className="font-semibold text-white">{result.submission_number}</span>
@@ -281,6 +339,12 @@ export function RegistrationForm({
             </li>
           ))}
         </ul>
+        <Link
+          href="/my"
+          className="mt-6 inline-flex text-sm font-semibold text-[#e8b84a] underline-offset-2 hover:underline"
+        >
+          Back to my submissions
+        </Link>
       </LiquidGlass>
     );
   }
@@ -353,6 +417,7 @@ export function RegistrationForm({
       </ol>
 
       {step === "university" ? (
+        <fieldset disabled={readOnly} className="min-w-0 border-0 p-0">
         <Section
           title="University"
           description="Enter your university details. Use your university's full official name."
@@ -415,27 +480,42 @@ export function RegistrationForm({
               error={errors["institution.name"]}
             >
               {isMalaysia ? (
-                <select
-                  id="institution.name"
-                  value={institutionName}
-                  onChange={(e) => setInstitutionName(e.target.value)}
-                  className={inputClassName}
-                  aria-invalid={Boolean(errors["institution.name"])}
-                  disabled={!institutionType}
-                >
-                  <option value="" disabled>
+                <>
+                  <select
+                    id="institution.name"
+                    value={institutionName}
+                    onChange={(e) => setInstitutionName(e.target.value)}
+                    className={inputClassName}
+                    aria-invalid={Boolean(errors["institution.name"])}
+                    disabled={!institutionType && !choosingOther}
+                  >
+                    <option value="" disabled>
+                      {institutionType
+                        ? "Select a university"
+                        : "Select an institution type first"}
+                    </option>
                     {institutionType
-                      ? "Select a university"
-                      : "Select an institution type first"}
-                  </option>
-                  {institutionType
-                    ? MALAYSIA_UNIVERSITIES[institutionType].map((name) => (
-                        <option key={name} value={name}>
-                          {name}
-                        </option>
-                      ))
-                    : null}
-                </select>
+                      ? MALAYSIA_UNIVERSITIES[institutionType].map((name) => (
+                          <option key={name} value={name}>
+                            {name}
+                          </option>
+                        ))
+                      : null}
+                    <option value={OTHER_UNIVERSITY}>Other</option>
+                  </select>
+                  {choosingOther ? (
+                    <input
+                      id="institution.other"
+                      type="text"
+                      autoComplete="organization"
+                      value={otherUniversityName}
+                      onChange={(e) => setOtherUniversityName(e.target.value)}
+                      placeholder="Full official university name"
+                      className={`${inputClassName} mt-3`}
+                      aria-invalid={Boolean(errors["institution.name"])}
+                    />
+                  ) : null}
+                </>
               ) : (
                 <input
                   id="institution.name"
@@ -456,13 +536,24 @@ export function RegistrationForm({
             </Field>
           </div>
         </Section>
+        </fieldset>
+      ) : null}
+
+      {readOnly ? (
+        <p className="rounded-2xl border border-[#e8b84a]/40 bg-[#e8b84a]/10 px-4 py-3 text-sm text-white">
+          This submission is paid, so the details can no longer be edited. Payment status
+          stays available from My submissions.
+        </p>
       ) : null}
 
       {step === "projects" && project ? (
-        <div className="flex flex-col gap-8">
+        <fieldset
+          disabled={readOnly || loading}
+          className="flex min-w-0 flex-col gap-8 border-0 p-0"
+        >
           <p className={mutedTextClassName}>
             Enter your project details for{" "}
-            <span className="font-semibold text-white">{institutionName}</span>, including
+            <span className="font-semibold text-white">{shownInstitutionName}</span>, including
             participant, team, supervisors and documents.
           </p>
           <FieldError message={errors.projects} />
@@ -477,7 +568,7 @@ export function RegistrationForm({
             educationLevelLocked={educationLevelLocked}
             disabled={loading}
           />
-        </div>
+        </fieldset>
       ) : null}
 
       <FieldError message={errors.form} />
@@ -497,24 +588,28 @@ export function RegistrationForm({
             Back
           </LiquidGlass>
         ) : null}
-        <button
-          type="submit"
-          disabled={
-            loading ||
-            (step === "projects" && anyUploading) ||
-            !competitionId ||
-            categories.length === 0
-          }
-          className={primaryButtonClassName}
-        >
-          {loading
-            ? "Submitting…"
-            : step === "projects" && anyUploading
-              ? "Uploading documents…"
-              : step === "projects"
-                ? "Submit registration"
-                : "Next"}
-        </button>
+        {readOnly && step === "projects" ? null : (
+          <button
+            type="submit"
+            disabled={
+              loading ||
+              (step === "projects" && anyUploading) ||
+              !competitionId ||
+              categories.length === 0
+            }
+            className={primaryButtonClassName}
+          >
+            {loading
+              ? "Saving…"
+              : step === "projects" && anyUploading
+                ? "Uploading documents…"
+                : step === "projects"
+                  ? mode === "edit"
+                    ? "Save changes"
+                    : "Submit registration"
+                  : "Next"}
+          </button>
+        )}
       </div>
     </form>
   );

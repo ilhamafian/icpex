@@ -22,6 +22,11 @@ import {
   POSTER_REQUIREMENTS,
 } from "@/components/marketing/content";
 
+const FULL_PAPER_TEMPLATE_HREF =
+  "/files/" + encodeURIComponent("I-CRIVE2027_Full paper template_JTeC.docx");
+const POSTER_TEMPLATE_HREF =
+  "/files/" + encodeURIComponent("5MT poster_Template_1 slide.pptx");
+
 export const metadata: Metadata = {
   title: "Postgraduate",
   description: "Postgraduate Five-Minute Thesis (5MT) Competition — three tracks and a live presentation.",
@@ -32,10 +37,7 @@ export default function PostgraduatePage() {
     <>
       <section className="mx-auto grid w-full max-w-6xl gap-10 px-6 py-14 lg:grid-cols-[minmax(0,0.9fr)_1px_minmax(0,1.1fr)] lg:items-stretch lg:gap-x-14">
         <div className="flex flex-col justify-center">
-          <p className="text-5xl font-bold text-[#e8b84a]">
-            5 <span className="text-2xl font-semibold text-white">minute live presentation</span>
-          </p>
-          <h1 className="mt-8 text-4xl font-bold tracking-tight text-balance">
+          <h1 className="text-4xl font-bold tracking-tight text-balance">
             Postgraduate Five-Minute Thesis (5MT)
           </h1>
           <p className="mt-5 max-w-md text-lg leading-relaxed text-white/80">
@@ -83,7 +85,21 @@ export default function PostgraduatePage() {
       <GuidelineSection
         title="Poster Submission Guidelines"
         panels={[
-          { title: "Poster requirements", items: POSTER_REQUIREMENTS },
+          {
+            title: "Poster requirements",
+            items: POSTER_REQUIREMENTS,
+            extra: (
+              <p className="mt-6 text-center text-sm">
+                <a
+                  href={POSTER_TEMPLATE_HREF}
+                  download
+                  className="font-semibold text-[#e8b84a] underline-offset-2 hover:underline"
+                >
+                  Download poster template
+                </a>
+              </p>
+            ),
+          },
           { title: "Required content", items: POSTER_CONTENT },
         ]}
       />
@@ -111,7 +127,13 @@ export default function PostgraduatePage() {
             ],
             extra: (
               <p className="mt-6 text-center text-sm">
-                <span className="text-white/70">Full-paper template coming soon</span>
+                <a
+                  href={FULL_PAPER_TEMPLATE_HREF}
+                  download
+                  className="font-semibold text-[#e8b84a] underline-offset-2 hover:underline"
+                >
+                  Download full-paper template
+                </a>
                 <span className="mx-2 text-white/40">|</span>
                 <Link href="/register?level=postgraduate" className="font-semibold text-[#e8b84a] underline-offset-2 hover:underline">
                   Submit full paper

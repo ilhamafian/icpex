@@ -1,6 +1,7 @@
 import "server-only";
 
 import { RegistrationModel } from "@/models/Registration";
+import { toIdString } from "@/schemas/objectId";
 import { FREE_PROJECT_EVERY } from "@/schemas/registrationSchema";
 import { normalizeInstitution } from "@/utils/institutionKey";
 import {
@@ -42,11 +43,27 @@ export function priceProjects(
 export async function quoteSubmission(
   competitionId: string,
   institution: { name: string; country: string },
-  projectCount: number
+  projectCount: number,
+  options?: { excludeRegistrationId?: string }
 ): Promise<SubmissionQuote> {
   const key = normalizeInstitution(institution.name);
-  const priorCount = key
+  let priorCount = key
     ? await new RegistrationModel().countForInstitution(competitionId, key)
     : 0;
+
+  if (options?.excludeRegistrationId && key) {
+    const current = await new RegistrationModel().findById(
+      options.excludeRegistrationId
+    );
+    if (
+      current &&
+      current.status !== "REJECTED" &&
+      current.institution_key === key &&
+      toIdString(current.competition_id) === competitionId
+    ) {
+      priorCount = Math.max(0, priorCount - 1);
+    }
+  }
+
   return priceProjects(priorCount, projectCount, feeForInstitution(institution));
 }

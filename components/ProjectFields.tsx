@@ -525,7 +525,7 @@ export function ProjectFields({
       </Section>
 
       <Section
-        title="Team"
+        title="Team/s"
         description="Name the team lead and any additional members. Defaults to the participant if left blank."
       >
         <div className="grid gap-4 sm:grid-cols-2">
@@ -576,6 +576,12 @@ export function ProjectFields({
               Add member
             </button>
           </div>
+          <p className="text-sm leading-relaxed">
+            <span className="font-bold tracking-wide text-[#e8b84a]">
+              GROUP REGISTRATION OFFER
+            </span>
+            {" — register five (5) entries and enjoy the sixth (6th) entry FREE!"}
+          </p>
           {project.members.length >= MAX_TEAM_MEMBERS ? (
             <p className={mutedTextClassName}>
               You&apos;ve reached the maximum of {MAX_TEAM_MEMBERS} team members.

@@ -20,7 +20,7 @@ export default async function PortalLoginPage() {
       footer="Internal access only"
     >
       {hadSession ? (
-        <p className="mb-4 rounded-lg border border-black/10 px-3 py-2 text-sm text-zinc-600 dark:border-white/15 dark:text-zinc-400">
+        <p className="mb-4 rounded-xl border border-white/15 bg-[#07111d]/45 px-3 py-2 text-sm text-white/75">
           Your session has ended. You may not have a role in the current
           competition — contact an administrator if you need access.
         </p>

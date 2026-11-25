@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-import { MALAYSIA, MALAYSIA_UNIVERSITIES } from "@/utils/institutions";
-
 import { objectIdSchema } from "./objectId";
 import { currencySchema } from "./paymentSchema";
 import {
@@ -69,6 +67,8 @@ export const submissionSchema = z.object({
   _id: objectIdSchema.optional(),
   submission_number: z.string(),
   competition_id: objectIdSchema,
+  /** Set when a signed-in participant creates the submission. */
+  participant_id: objectIdSchema.optional(),
   institution: institutionSchema,
   institution_key: z.string().min(1),
   registration_ids: z.array(objectIdSchema),
@@ -96,20 +96,10 @@ export const submissionSchema = z.object({
   updated_at: z.coerce.date().optional(),
 });
 
-/** Malaysian universities are priced by type, so they must come from the list. */
-const institutionFormSchema = institutionSchema.refine(
-  (institution) =>
-    institution.country !== MALAYSIA ||
-    Object.values(MALAYSIA_UNIVERSITIES).some((names) =>
-      names.includes(institution.name)
-    ),
-  { path: ["name"], message: "Select your university from the list." }
-);
-
 /** Public registration payload: one university, one project. Payment comes later. */
 export const submissionFormSchema = z.object({
   competition_id: objectIdSchema,
-  institution: institutionFormSchema,
+  institution: institutionSchema,
   projects: z
     .array(submissionProjectSchema)
     .min(1, "Add at least one project.")

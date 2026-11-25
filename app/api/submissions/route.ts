@@ -1,19 +1,8 @@
 import { NextRequest } from "next/server";
 
-import { CategoryModel } from "@/models/Category";
 import { PaymentModel } from "@/models/Payment";
 import { RegistrationModel } from "@/models/Registration";
 import { SubmissionModel } from "@/models/Submission";
-import {
-  effectiveDocumentRequirements,
-  requirementsForLevel,
-  requirementsForTiming,
-  validateDocumentsAgainstRequirements,
-} from "@/schemas/documentRequirement";
-import {
-  EDUCATION_LEVEL_LABELS,
-  allowedEducationLevels,
-} from "@/schemas/educationLevel";
 import { toIdString } from "@/schemas/objectId";
 import { paymentSchema } from "@/schemas/paymentSchema";
 import { registrationSchema } from "@/schemas/registrationSchema";
@@ -25,107 +14,39 @@ import {
   competitionEmailCopy,
   sendRegistrationSubmittedEmail,
 } from "@/lib/email";
+import { getParticipantSession } from "@/lib/participantSession";
 import { createResponse, handleError } from "@/utils/apiHelper";
-import { getCurrentCompetition } from "@/utils/currentCompetition";
-import { normalizeInstitution, quoteSubmission } from "@/utils/pricing";
+import { preparePublicSubmission } from "@/utils/preparePublicSubmission";
 import { advanceRegistrationIfPaid } from "@/utils/submissionPayments";
 
-/** Public: register one project from one university. Payment is requested later by email. */
+/** Signed-in participants register one project. Payment is requested later by email. */
 export async function POST(req: NextRequest) {
   try {
+    const participant = await getParticipantSession();
+    if (!participant) {
+      return createResponse({ error: "Sign in to register." }, 401);
+    }
+
     const body = await req.json();
     const parsed = submissionFormSchema.safeParse(body);
     if (!parsed.success) {
       return createResponse({ error: parsed.error.format() }, 400);
     }
-    const { institution, projects } = parsed.data;
 
-    const competition = await getCurrentCompetition();
-    const competitionId = String(parsed.data.competition_id);
-    if (!competition || toIdString(competition._id) !== competitionId) {
-      return createResponse(
-        { error: "No published competition available for registration." },
-        400
-      );
+    const prepared = await preparePublicSubmission(parsed.data);
+    if (!prepared.ok) {
+      return createResponse({ error: prepared.error }, 400);
     }
-
-    const allowedLevels = allowedEducationLevels(competition.eligibility);
-    const categories = await new CategoryModel().find({});
-    const categoryById = new Map(
-      categories.map((category) => [toIdString(category._id), category])
-    );
-    const categoryNameById = new Map(
-      categories.map((category) => [toIdString(category._id), category.name])
-    );
-
-    for (const [index, project] of projects.entries()) {
-      if (!allowedLevels.includes(project.participant.education_level)) {
-        return createResponse(
-          {
-            error: `Project ${index + 1}: this competition is open to ${allowedLevels
-              .map((level) => EDUCATION_LEVEL_LABELS[level].toLowerCase())
-              .join(" and ")} participants only.`,
-          },
-          400
-        );
-      }
-      const category = categoryById.get(String(project.category_id));
-      if (!category) {
-        return createResponse(
-          { error: `Project ${index + 1}: invalid category.` },
-          400
-        );
-      }
-      if (
-        category.education_level &&
-        category.education_level !== project.participant.education_level
-      ) {
-        return createResponse(
-          {
-            error: `Project ${index + 1}: that track is for ${EDUCATION_LEVEL_LABELS[
-              category.education_level
-            ].toLowerCase()} participants.`,
-          },
-          400
-        );
-      }
-
-      const documentRequirements = requirementsForTiming(
-        requirementsForLevel(
-          effectiveDocumentRequirements(competition),
-          project.participant.education_level
-        ),
-        "BEFORE_PAYMENT"
-      );
-      const documents = project.documents.filter((document) =>
-        documentRequirements.some(
-          (requirement) => requirement.id === document.requirement_id
-        )
-      );
-      project.documents = documents;
-      const documentErrors = validateDocumentsAgainstRequirements(
-        documents,
-        documentRequirements
-      );
-      const firstDocumentError = Object.values(documentErrors)[0];
-      if (firstDocumentError) {
-        return createResponse(
-          { error: `Project ${index + 1}: ${firstDocumentError}` },
-          400
-        );
-      }
-    }
-
-    const institutionKey = normalizeInstitution(institution.name);
-    if (!institutionKey) {
-      return createResponse({ error: "University name is required." }, 400);
-    }
-
-    const quote = await quoteSubmission(
+    const {
+      competition,
       competitionId,
       institution,
-      projects.length
-    );
+      institutionKey,
+      projects,
+      categoryNameById,
+      documentRequirements,
+      quote,
+    } = prepared.value;
 
     const submissionModel = new SubmissionModel();
     const registrationModel = new RegistrationModel();
@@ -141,6 +62,7 @@ export async function POST(req: NextRequest) {
         submissionSchema.parse({
           submission_number: await submissionModel.nextSubmissionNumber(),
           competition_id: competitionId,
+          participant_id: toIdString(participant._id),
           institution,
           institution_key: institutionKey,
           registration_ids: [],
@@ -208,7 +130,6 @@ export async function POST(req: NextRequest) {
       );
 
       const copy = competitionEmailCopy(competition);
-      const documentRequirements = effectiveDocumentRequirements(competition);
       try {
         await Promise.all(
           projects.map((project, index) =>

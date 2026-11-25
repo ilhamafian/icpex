@@ -31,12 +31,16 @@ import {
 
 export function NavUser({
   user,
+  accountHref = "/portal/account",
+  logoutAction = portalLogout,
 }: {
   user: {
     name: string
     email: string
     avatar: string
   }
+  accountHref?: string
+  logoutAction?: () => Promise<void>
 }) {
   const { isMobile } = useSidebar()
 
@@ -89,14 +93,14 @@ export function NavUser({
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem asChild>
-                <Link href="/portal/account">
+                <Link href={accountHref}>
                   <IconUserCircle />
                   Account
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <form action={portalLogout}>
+            <form action={logoutAction}>
               <DropdownMenuItem asChild>
                 <button type="submit" className="w-full cursor-default">
                   <IconLogout />

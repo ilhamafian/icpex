@@ -2,11 +2,9 @@
 
 import { useActionState } from "react";
 import { portalLogin, type PortalLoginState } from "@/app/actions/portalAuth";
+import { inputClassName } from "@/components/marketing/registrationFormUi";
 
 const initialState: PortalLoginState = {};
-
-const inputClassName =
-  "h-11 w-full rounded-lg border border-black/10 bg-transparent px-3 text-sm outline-none transition-colors focus:border-foreground dark:border-white/15";
 
 export function PortalLoginForm() {
   const [state, action, pending] = useActionState(portalLogin, initialState);
@@ -26,7 +24,7 @@ export function PortalLoginForm() {
           className={inputClassName}
         />
         {state.fieldErrors?.username ? (
-          <p className="text-sm text-red-600 dark:text-red-400">
+          <p className="text-sm text-red-300">
             {state.fieldErrors.username[0]}
           </p>
         ) : null}
@@ -45,14 +43,14 @@ export function PortalLoginForm() {
           className={inputClassName}
         />
         {state.fieldErrors?.password ? (
-          <p className="text-sm text-red-600 dark:text-red-400">
+          <p className="text-sm text-red-300">
             {state.fieldErrors.password[0]}
           </p>
         ) : null}
       </div>
 
       {state.error ? (
-        <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+        <p className="text-sm text-red-300" role="alert">
           {state.error}
         </p>
       ) : null}
@@ -60,7 +58,7 @@ export function PortalLoginForm() {
       <button
         type="submit"
         disabled={pending}
-        className="mt-2 h-11 w-full rounded-lg bg-foreground text-sm font-medium text-background transition-colors hover:bg-[#383838] disabled:opacity-60 dark:hover:bg-[#ccc]"
+        className="mt-2 inline-flex h-12 w-full items-center justify-center rounded-full bg-[#d6a11e] px-8 text-sm font-bold tracking-wide text-[#1a1408] transition-colors hover:bg-[#e2b43a] disabled:cursor-not-allowed disabled:opacity-60"
       >
         {pending ? "Signing in…" : "Sign in"}
       </button>

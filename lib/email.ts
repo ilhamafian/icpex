@@ -1620,3 +1620,43 @@ export async function sendDocumentSubmissionReceivedEmail(options: {
     ]),
   });
 }
+
+export async function sendParticipantVerificationEmail(options: {
+  to: string;
+  name: string;
+  verifyUrl: string;
+}) {
+  const name = options.name.trim() || "there";
+  await sendMail({
+    to: options.to,
+    educationLevel: "UNDERGRADUATE",
+    subject: "Verify your I-CRIVE account",
+    html: `
+      <p>Hello ${escapeHtml(name)},</p>
+      <p>Confirm your email address to register for I-CRIVE 2027. This link expires in 24 hours.</p>
+      <p><a href="${escapeHtml(options.verifyUrl)}">Verify email</a></p>
+      <p>If you did not create an account, you can ignore this email.</p>
+    `,
+    text: `Hello ${name},\n\nConfirm your email address to register for I-CRIVE 2027. This link expires in 24 hours.\n\n${options.verifyUrl}\n\nIf you did not create an account, you can ignore this email.`,
+  });
+}
+
+export async function sendParticipantPasswordResetEmail(options: {
+  to: string;
+  name: string;
+  resetUrl: string;
+}) {
+  const name = options.name.trim() || "there";
+  await sendMail({
+    to: options.to,
+    educationLevel: "UNDERGRADUATE",
+    subject: "Reset your I-CRIVE password",
+    html: `
+      <p>Hello ${escapeHtml(name)},</p>
+      <p>Use the link below to choose a new password. This link expires in 1 hour.</p>
+      <p><a href="${escapeHtml(options.resetUrl)}">Reset password</a></p>
+      <p>If you did not ask for this, you can ignore this email.</p>
+    `,
+    text: `Hello ${name},\n\nChoose a new password (this link expires in 1 hour):\n${options.resetUrl}\n\nIf you did not ask for this, you can ignore this email.`,
+  });
+}

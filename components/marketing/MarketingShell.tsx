@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 
 import { MarketingHeader } from "@/components/marketing/MarketingHeader";
 import { ScrollRingField } from "@/components/marketing/ScrollRingField";
-import { SiteFooter } from "@/components/marketing/SiteFooter";
 
 export function MarketingShell({ children }: { children: ReactNode }) {
   return (
@@ -17,7 +16,6 @@ export function MarketingShell({ children }: { children: ReactNode }) {
         <main id="content" className="flex-1">
           {children}
         </main>
-        <SiteFooter />
       </div>
     </div>
   );
