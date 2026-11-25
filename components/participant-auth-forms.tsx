@@ -14,7 +14,7 @@ import {
   type ParticipantMessageState,
   type ParticipantSignupState,
 } from "@/app/actions/participantAuth";
-import { inputClassName } from "@/components/marketing/registrationFormUi";
+import { inputClassName, paperInputClassName } from "@/components/marketing/registrationFormUi";
 
 const buttonClassName =
   "mt-2 inline-flex h-12 w-full items-center justify-center rounded-full bg-[#d6a11e] px-8 text-sm font-bold tracking-wide text-[#1a1408] transition-colors hover:bg-[#e2b43a] disabled:cursor-not-allowed disabled:opacity-60";
@@ -259,7 +259,7 @@ export function ParticipantPasswordForm() {
           type="password"
           autoComplete="current-password"
           required
-          className={inputClassName}
+          className={paperInputClassName}
         />
         <FieldError messages={state.fieldErrors?.current_password} />
       </div>
@@ -274,7 +274,7 @@ export function ParticipantPasswordForm() {
           autoComplete="new-password"
           required
           minLength={8}
-          className={inputClassName}
+          className={paperInputClassName}
         />
         <FieldError messages={state.fieldErrors?.password} />
       </div>
@@ -288,13 +288,13 @@ export function ParticipantPasswordForm() {
           type="password"
           autoComplete="new-password"
           required
-          className={inputClassName}
+          className={paperInputClassName}
         />
         <FieldError messages={state.fieldErrors?.confirm_password} />
       </div>
-      {state.success ? <p className="text-sm text-[#e8b84a]">{state.success}</p> : null}
+      {state.success ? <p className="text-sm text-[#8a6410]">{state.success}</p> : null}
       {state.error ? (
-        <p className="text-sm text-red-300" role="alert">
+        <p className="text-sm text-red-700" role="alert">
           {state.error}
         </p>
       ) : null}

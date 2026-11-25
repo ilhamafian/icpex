@@ -40,7 +40,7 @@ export default async function MySubmissionsPage() {
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">My submissions</h2>
-          <p className="mt-1 text-sm text-white/70">
+          <p className="mt-1 text-sm text-[#5c6e82]">
             View each entry, its payment status, and edit it until it is paid.
           </p>
         </div>
@@ -53,7 +53,7 @@ export default async function MySubmissionsPage() {
       </div>
 
       {submissions.length === 0 ? (
-        <p className="rounded-2xl border border-white/10 px-5 py-8 text-sm text-white/70">
+        <p className="rounded-2xl border border-[#d5e1ec] bg-white px-5 py-8 text-sm text-[#5c6e82]">
           You have not submitted an entry yet.
         </p>
       ) : (
@@ -68,35 +68,35 @@ export default async function MySubmissionsPage() {
             const amount = payment?.amount ?? submission.amount;
 
             return (
-              <li key={id} className="rounded-2xl border border-white/10 px-5 py-4">
+              <li key={id} className="rounded-2xl border border-[#d5e1ec] bg-white px-5 py-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs font-semibold tracking-[0.14em] text-[#e8b84a] uppercase">
+                    <p className="text-xs font-semibold tracking-[0.14em] text-[#8a6410] uppercase">
                       {submission.submission_number}
                     </p>
                     <p className="mt-1 font-semibold">
                       {registration?.project.title ?? "Project"}
                     </p>
-                    <p className="mt-1 text-sm text-white/65">
+                    <p className="mt-1 text-sm text-[#5c6e82]">
                       {submission.institution.name}
                       {registration ? ` · ${registration.registration_number}` : ""}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-semibold">{PAYMENT_STATUS_LABELS[status]}</p>
-                    <p className="mt-1 text-sm text-white/65">
+                    <p className="mt-1 text-sm text-[#5c6e82]">
                       {formatMoney(amount, currency)}
                     </p>
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-4 text-sm font-semibold">
-                  <Link href={`/my/submissions/${id}`} className="text-[#e8b84a] hover:underline">
+                  <Link href={`/my/submissions/${id}`} className="text-[#8a6410] hover:underline">
                     {paid ? "View submission" : "View and edit"}
                   </Link>
                   {!paid && submission.payment_token ? (
                     <Link
                       href={`/pay/${encodeURIComponent(submission.payment_token)}`}
-                      className="text-white hover:underline"
+                      className="text-[#10243c] hover:underline"
                     >
                       Payment page
                     </Link>

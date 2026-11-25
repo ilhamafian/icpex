@@ -1,9 +1,10 @@
 "use client";
 
 import type { ComponentProps } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { IconClipboardList, IconInnerShadowTop, IconPlus, IconUserCircle } from "@tabler/icons-react";
+import { IconClipboardList, IconPlus, IconUserCircle } from "@tabler/icons-react";
 
 import { participantLogout } from "@/app/actions/participantAuth";
 import { NavUser } from "@/components/nav-user";
@@ -40,20 +41,17 @@ export function ParticipantSidebar({
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              className="data-[slot=sidebar-menu-button]:h-auto! data-[slot=sidebar-menu-button]:p-1.5!"
-            >
-              <Link href="/my" className="gap-2">
-                <IconInnerShadowTop className="size-5!" />
-                <span className="text-base font-semibold">I-CRIVE</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+      <SidebarHeader className="px-4 py-4">
+        <Link href="/" aria-label="I-CRIVE home" className="inline-flex">
+          <Image
+            src="/brand/logo-on-dark.png"
+            alt="I-CRIVE — Research, Innovation & Excellence"
+            width={942}
+            height={373}
+            priority
+            className="h-10 w-auto"
+          />
+        </Link>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
@@ -73,7 +71,7 @@ export function ParticipantSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="[&_.text-muted-foreground]:text-white/65">
         <NavUser user={user} accountHref="/my/account" logoutAction={participantLogout} />
       </SidebarFooter>
     </Sidebar>

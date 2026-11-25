@@ -11,15 +11,14 @@ import {
   projectToPayload,
   type ProjectState,
 } from "@/components/ProjectFields";
-import { cardGlassClass, cardGlassStyle } from "@/components/marketing/blocks";
 import {
   Field,
   FieldError,
-  inputClassName,
   mutedTextClassName,
+  paperCardClassName,
+  paperInputClassName,
   Section,
 } from "@/components/marketing/registrationFormUi";
-import { LiquidGlass } from "@/components/ui/liquid-glass";
 import {
   requirementsForLevel,
   requirementsForTiming,
@@ -312,14 +311,8 @@ export function RegistrationForm({
 
   if (result) {
     return (
-      <LiquidGlass
-        tint={0}
-        radius={28}
-        className={cardGlassClass}
-        style={cardGlassStyle}
-        contentClassName="px-6 py-8 sm:px-8"
-      >
-        <p className="text-xs font-semibold tracking-[0.2em] text-[#e8b84a] uppercase">
+      <div className={`${paperCardClassName} px-6 py-8 sm:px-8`}>
+        <p className="text-xs font-semibold tracking-[0.2em] text-[#8a6410] uppercase">
           Submitted
         </p>
         <h2 className="mt-3 text-2xl font-bold tracking-tight">
@@ -327,25 +320,25 @@ export function RegistrationForm({
         </h2>
         <p className={`mt-3 ${mutedTextClassName}`}>
           Your submission number is{" "}
-          <span className="font-semibold text-white">{result.submission_number}</span>
+          <span className="font-semibold text-[#10243c]">{result.submission_number}</span>
           . The secretariat will follow up after reviewing your submission. Keep these
           numbers for your records.
         </p>
-        <ul className="mt-6 flex flex-col divide-y divide-white/10 text-sm">
+        <ul className="mt-6 flex flex-col divide-y divide-[#d5e1ec] text-sm">
           {result.projects.map((item) => (
             <li key={item.registration_number} className="py-3">
-              <p className="truncate font-semibold text-white">{item.title}</p>
+              <p className="truncate font-semibold text-[#10243c]">{item.title}</p>
               <p className={mutedTextClassName}>{item.registration_number}</p>
             </li>
           ))}
         </ul>
         <Link
           href="/my"
-          className="mt-6 inline-flex text-sm font-semibold text-[#e8b84a] underline-offset-2 hover:underline"
+          className="mt-6 inline-flex text-sm font-semibold text-[#8a6410] underline-offset-2 hover:underline"
         >
           Back to my submissions
         </Link>
-      </LiquidGlass>
+      </div>
     );
   }
 
@@ -355,7 +348,7 @@ export function RegistrationForm({
     <form
       onSubmit={handleSubmit}
       className="flex flex-col gap-8"
-      style={{ colorScheme: "dark" }}
+      style={{ colorScheme: "light" }}
       noValidate
     >
       <ol className="grid gap-3 sm:grid-cols-2">
@@ -368,7 +361,7 @@ export function RegistrationForm({
                 className={
                   active || done
                     ? "flex size-8 shrink-0 items-center justify-center rounded-full bg-[#e8b84a] text-sm font-bold text-[#1a1408]"
-                    : "flex size-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white/55"
+                    : "flex size-8 shrink-0 items-center justify-center rounded-full bg-[#e6edf4] text-sm font-bold text-[#5c6e82]"
                 }
               >
                 {done ? <IconCheck className="size-4" stroke={2.5} aria-hidden /> : index + 1}
@@ -376,8 +369,8 @@ export function RegistrationForm({
               <span
                 className={
                   active
-                    ? "text-sm font-bold text-white"
-                    : "text-sm font-semibold text-white/55"
+                    ? "text-sm font-bold text-[#10243c]"
+                    : "text-sm font-semibold text-[#5c6e82]"
                 }
               >
                 {s.label}
@@ -388,28 +381,17 @@ export function RegistrationForm({
           return (
             <li key={s.id} aria-current={active ? "step" : undefined}>
               {done ? (
-                <LiquidGlass
-                  as="button"
+                <button
                   type="button"
                   onClick={() => goTo(s.id)}
-                  tint={0}
-                  radius={20}
-                  className={`${cardGlassClass} w-full text-left transition-transform duration-200 hover:scale-[1.02] motion-reduce:hover:scale-100`}
-                  style={cardGlassStyle}
-                  contentClassName="flex items-center gap-3 px-4 py-3"
+                  className={`${paperCardClassName} flex w-full items-center gap-3 px-4 py-3 text-left transition-transform duration-200 hover:scale-[1.02] motion-reduce:hover:scale-100`}
                 >
                   {marker}
-                </LiquidGlass>
+                </button>
               ) : (
-                <LiquidGlass
-                  tint={0}
-                  radius={20}
-                  className={`${cardGlassClass} w-full`}
-                  style={cardGlassStyle}
-                  contentClassName="flex items-center gap-3 px-4 py-3"
-                >
+                <div className={`${paperCardClassName} flex w-full items-center gap-3 px-4 py-3`}>
                   {marker}
-                </LiquidGlass>
+                </div>
               )}
             </li>
           );
@@ -433,7 +415,7 @@ export function RegistrationForm({
                 autoComplete="country-name"
                 value={institutionCountry}
                 onChange={(e) => changeCountry(e.target.value)}
-                className={inputClassName}
+                className={paperInputClassName}
                 aria-invalid={Boolean(errors["institution.country"])}
               >
                 <option value="" disabled>
@@ -460,7 +442,7 @@ export function RegistrationForm({
                       e.target.value as MalaysiaInstitutionType | ""
                     )
                   }
-                  className={inputClassName}
+                  className={paperInputClassName}
                   aria-invalid={Boolean(errors["institution.type"])}
                 >
                   <option value="" disabled>
@@ -485,7 +467,7 @@ export function RegistrationForm({
                     id="institution.name"
                     value={institutionName}
                     onChange={(e) => setInstitutionName(e.target.value)}
-                    className={inputClassName}
+                    className={paperInputClassName}
                     aria-invalid={Boolean(errors["institution.name"])}
                     disabled={!institutionType && !choosingOther}
                   >
@@ -511,7 +493,7 @@ export function RegistrationForm({
                       value={otherUniversityName}
                       onChange={(e) => setOtherUniversityName(e.target.value)}
                       placeholder="Full official university name"
-                      className={`${inputClassName} mt-3`}
+                      className={`${paperInputClassName} mt-3`}
                       aria-invalid={Boolean(errors["institution.name"])}
                     />
                   ) : null}
@@ -528,7 +510,7 @@ export function RegistrationForm({
                       ? "Full official university name"
                       : "Select a country first"
                   }
-                  className={inputClassName}
+                  className={paperInputClassName}
                   aria-invalid={Boolean(errors["institution.name"])}
                   disabled={!institutionCountry}
                 />
@@ -540,7 +522,7 @@ export function RegistrationForm({
       ) : null}
 
       {readOnly ? (
-        <p className="rounded-2xl border border-[#e8b84a]/40 bg-[#e8b84a]/10 px-4 py-3 text-sm text-white">
+        <p className="rounded-2xl border border-[#e8b84a]/50 bg-[#f8f1dc] px-4 py-3 text-sm text-[#10243c]">
           This submission is paid, so the details can no longer be edited. Payment status
           stays available from My submissions.
         </p>
@@ -553,7 +535,7 @@ export function RegistrationForm({
         >
           <p className={mutedTextClassName}>
             Enter your project details for{" "}
-            <span className="font-semibold text-white">{shownInstitutionName}</span>, including
+            <span className="font-semibold text-[#10243c]">{shownInstitutionName}</span>, including
             participant, team, supervisors and documents.
           </p>
           <FieldError message={errors.projects} />
@@ -575,18 +557,14 @@ export function RegistrationForm({
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         {step !== "university" ? (
-          <LiquidGlass
-            as="button"
+          <button
             type="button"
             onClick={() => goTo("university")}
             disabled={loading}
-            tint={0}
-            className={`${cardGlassClass} text-white transition-transform duration-200 hover:scale-[1.03] active:scale-[0.97] disabled:opacity-60 motion-reduce:transition-none motion-reduce:hover:scale-100`}
-            style={cardGlassStyle}
-            contentClassName="flex h-12 items-center justify-center px-7 text-sm font-bold tracking-wide"
+            className="inline-flex h-12 items-center justify-center rounded-full border border-[#d5e1ec] bg-white px-7 text-sm font-bold tracking-wide text-[#10243c] transition-colors hover:bg-[#f3f6f9] disabled:opacity-60"
           >
             Back
-          </LiquidGlass>
+          </button>
         ) : null}
         {readOnly && step === "projects" ? null : (
           <button

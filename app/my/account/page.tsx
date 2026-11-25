@@ -7,7 +7,7 @@ export default async function ParticipantAccountPage() {
   return (
     <div className="px-4 lg:px-6">
       <h2 className="text-2xl font-semibold tracking-tight">Account</h2>
-      <p className="mt-1 text-sm text-white/70">{session?.email}</p>
+      <p className="mt-1 text-sm text-[#5c6e82]">{session?.email}</p>
       <div className="mt-8">
         <ParticipantPasswordForm />
       </div>

@@ -1,4 +1,4 @@
-import { IconArrowRight, IconBulb, IconSchool } from "@tabler/icons-react";
+import { IconArrowRight, IconBulb, IconDownload, IconSchool } from "@tabler/icons-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -45,22 +45,12 @@ export default function HomePage() {
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
-                href="/register"
+                href="/signup"
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#d6a11e] px-7 text-sm font-bold tracking-wide text-[#1a1408] transition-colors hover:bg-[#e2b43a]"
               >
                 Register Now
                 <IconArrowRight className="size-4" aria-hidden />
               </Link>
-              <a href={POSTER_HREF} download className="inline-flex rounded-full">
-                <LiquidGlass
-                  tint={0}
-                  className="text-white shadow-[0_10px_40px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.45)] transition-transform duration-200 hover:scale-[1.03] active:scale-[0.97] motion-reduce:transition-none motion-reduce:hover:scale-100"
-                  style={{ backgroundColor: "rgb(14 32 56 / 0.82)" }}
-                  contentClassName="flex h-12 items-center justify-center px-7 text-sm font-bold tracking-wide"
-                >
-                  Download poster
-                </LiquidGlass>
-              </a>
               <Link href="#categories" className="inline-flex rounded-full">
                 <LiquidGlass
                   tint={0}
@@ -72,6 +62,14 @@ export default function HomePage() {
                 </LiquidGlass>
               </Link>
             </div>
+            <a
+              href={POSTER_HREF}
+              download
+              className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-white underline decoration-white/70 underline-offset-4 transition-colors hover:text-[#e8b84a] hover:decoration-[#e8b84a]"
+            >
+              <IconDownload className="size-4" aria-hidden />
+              Download poster
+            </a>
           </Rise>
         </div>
       </section>

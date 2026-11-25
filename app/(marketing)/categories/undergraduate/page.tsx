@@ -39,7 +39,7 @@ export default function UndergraduatePage() {
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
-              href="/register?level=undergraduate"
+              href="/signup"
               className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#d6a11e] px-7 text-sm font-bold tracking-wide text-[#1a1408] transition-colors hover:bg-[#e2b43a]"
             >
               Register Now

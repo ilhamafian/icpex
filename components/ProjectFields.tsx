@@ -19,9 +19,9 @@ import { FilePicker } from "@/components/FilePicker";
 import {
   Field,
   FieldError,
-  inputClassName,
   linkButtonClassName,
   mutedTextClassName,
+  paperInputClassName,
   Section,
   textareaClassName,
 } from "@/components/marketing/registrationFormUi";
@@ -322,7 +322,7 @@ export function ProjectFields({
               ? () => updateUpload(requirement.id, emptyUpload())
               : undefined
           }
-          variant="marketing"
+          variant="plain"
         />
         <p className={mutedTextClassName}>
           Accepted: {formatLabels(requirement.accepted_formats)} (up to 100 MB).
@@ -351,7 +351,7 @@ export function ProjectFields({
           value={value}
           onChange={(e) => updateLink(requirement.id, e.target.value)}
           placeholder="https://youtube.com/… or https://drive.google.com/…"
-          className={inputClassName}
+          className={paperInputClassName}
           aria-invalid={Boolean(errors[`documents.${requirement.id}`])}
           aria-describedby={id(`documents.${requirement.id}.hint`)}
           disabled={disabled}
@@ -376,7 +376,7 @@ export function ProjectFields({
             id={id("category_id")}
             value={project.categoryId}
             onChange={(e) => set("categoryId", e.target.value)}
-            className={inputClassName}
+            className={paperInputClassName}
             aria-invalid={Boolean(errors.category_id)}
             disabled={levelCategories.length === 0}
           >
@@ -405,7 +405,7 @@ export function ProjectFields({
               autoComplete="name"
               value={project.participantName}
               onChange={(e) => set("participantName", e.target.value)}
-              className={inputClassName}
+              className={paperInputClassName}
               aria-invalid={Boolean(errors["participant.name"])}
             />
           </Field>
@@ -416,7 +416,7 @@ export function ProjectFields({
               autoComplete="email"
               value={project.participantEmail}
               onChange={(e) => set("participantEmail", e.target.value)}
-              className={inputClassName}
+              className={paperInputClassName}
               aria-invalid={Boolean(errors["participant.email"])}
             />
           </Field>
@@ -426,7 +426,7 @@ export function ProjectFields({
                 aria-label="Country code"
                 value={project.phoneCode}
                 onChange={(e) => set("phoneCode", e.target.value)}
-                className={`${inputClassName} max-w-24`}
+                className={`${paperInputClassName} max-w-24`}
               >
                 {DIAL_CODES.map((code) => (
                   <option key={code} value={code}>
@@ -441,7 +441,7 @@ export function ProjectFields({
                 value={project.phone}
                 onChange={(e) => set("phone", e.target.value)}
                 placeholder="12 345 6789"
-                className={inputClassName}
+                className={paperInputClassName}
                 aria-invalid={Boolean(errors["participant.phone"])}
               />
             </div>
@@ -457,7 +457,7 @@ export function ProjectFields({
               onChange={(e) =>
                 setEducationLevel(e.target.value as EducationLevel)
               }
-              className={inputClassName}
+              className={paperInputClassName}
               disabled={
                 educationLevelLocked || educationLevels.length < 2
               }
@@ -478,7 +478,7 @@ export function ProjectFields({
               id={id("participant.government_id.type")}
               value={project.govIdType}
               onChange={(e) => set("govIdType", e.target.value as IdType)}
-              className={inputClassName}
+              className={paperInputClassName}
             >
               <option value="NATIONAL_ID">National ID</option>
               <option value="PASSPORT">Passport</option>
@@ -495,7 +495,7 @@ export function ProjectFields({
               type="text"
               value={project.govIdNumber}
               onChange={(e) => set("govIdNumber", e.target.value)}
-              className={inputClassName}
+              className={paperInputClassName}
               aria-invalid={Boolean(errors["participant.government_id.number"])}
             />
           </Field>
@@ -509,7 +509,7 @@ export function ProjectFields({
             type="text"
             value={project.projectTitle}
             onChange={(e) => set("projectTitle", e.target.value)}
-            className={inputClassName}
+            className={paperInputClassName}
             aria-invalid={Boolean(errors["project.title"])}
           />
         </Field>
@@ -536,7 +536,7 @@ export function ProjectFields({
               value={project.leadName}
               onChange={(e) => set("leadName", e.target.value)}
               placeholder={project.participantName || "Same as participant"}
-              className={inputClassName}
+              className={paperInputClassName}
               aria-invalid={Boolean(errors["team.lead.name"])}
             />
           </Field>
@@ -547,7 +547,7 @@ export function ProjectFields({
               value={project.leadEmail}
               onChange={(e) => set("leadEmail", e.target.value)}
               placeholder={project.participantEmail || "Same as participant"}
-              className={inputClassName}
+              className={paperInputClassName}
               aria-invalid={Boolean(errors["team.lead.email"])}
             />
           </Field>
@@ -577,7 +577,7 @@ export function ProjectFields({
             </button>
           </div>
           <p className="text-sm leading-relaxed">
-            <span className="font-bold tracking-wide text-[#e8b84a]">
+            <span className="font-bold tracking-wide text-[#8a6410]">
               GROUP REGISTRATION OFFER
             </span>
             {" — register five (5) entries and enjoy the sixth (6th) entry FREE!"}
@@ -604,7 +604,7 @@ export function ProjectFields({
                       prev.map((m, i) => (i === memberIndex ? { ...m, name: value } : m))
                     );
                   }}
-                  className={inputClassName}
+                  className={paperInputClassName}
                 />
                 <input
                   type="email"
@@ -617,7 +617,7 @@ export function ProjectFields({
                       prev.map((m, i) => (i === memberIndex ? { ...m, email: value } : m))
                     );
                   }}
-                  className={inputClassName}
+                  className={paperInputClassName}
                 />
                 <button
                   type="button"
@@ -657,7 +657,7 @@ export function ProjectFields({
                       prev.map((s, i) => (i === supIndex ? { ...s, name: value } : s))
                     );
                   }}
-                  className={inputClassName}
+                  className={paperInputClassName}
                 />
                 <FieldError message={errors[`supervisors.${supIndex}.name`]} />
               </div>
@@ -673,7 +673,7 @@ export function ProjectFields({
                       prev.map((s, i) => (i === supIndex ? { ...s, email: value } : s))
                     );
                   }}
-                  className={inputClassName}
+                  className={paperInputClassName}
                 />
                 <FieldError message={errors[`supervisors.${supIndex}.email`]} />
               </div>

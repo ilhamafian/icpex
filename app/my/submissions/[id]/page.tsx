@@ -46,22 +46,22 @@ export default async function EditSubmissionPage({
 
   return (
     <div className="px-4 lg:px-6">
-      <p className="text-xs font-semibold tracking-[0.16em] text-[#e8b84a] uppercase">
+      <p className="text-xs font-semibold tracking-[0.16em] text-[#8a6410] uppercase">
         {submission.submission_number}
       </p>
       <h2 className="mt-2 text-3xl font-bold tracking-tight">
         {registration.project.title}
       </h2>
-      <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-white/75">
+      <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-[#5c6e82]">
         <p>
           Payment status:{" "}
-          <span className="font-semibold text-white">{PAYMENT_STATUS_LABELS[status]}</span>
+          <span className="font-semibold text-[#10243c]">{PAYMENT_STATUS_LABELS[status]}</span>
         </p>
         <p>{formatMoney(amount, currency)}</p>
         {!paid && submission.payment_token ? (
           <Link
             href={`/pay/${encodeURIComponent(submission.payment_token)}`}
-            className="font-semibold text-[#e8b84a] hover:underline"
+            className="font-semibold text-[#8a6410] hover:underline"
           >
             Open payment page
           </Link>
