@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 import { headers } from "next/headers";
 
 import { CoOrganiserModel } from "@/models/CoOrganiser";
@@ -24,7 +23,7 @@ export async function SiteFooter() {
   const coOrganisers = await loadCoOrganisers();
 
   return (
-    <footer className="border-t border-white/10">
+    <section aria-label="Organisers and publication" className="border-t border-white/10">
       <div className="mx-auto grid w-full max-w-6xl gap-8 px-6 py-8 sm:grid-cols-2 lg:grid-cols-3 lg:gap-10 lg:py-7">
         <div>
           <p className={labelClass}>Organised by</p>
@@ -76,15 +75,6 @@ export async function SiteFooter() {
           )}
         </div>
       </div>
-
-      <div className="border-t border-white/10">
-        <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-2 px-6 py-3 text-xs text-white/55 sm:flex-row">
-          <p>© 2027 I-CRIVE · Universiti Kuala Lumpur MIIT. All rights reserved.</p>
-          <Link href="/portal/login" className="transition-colors hover:text-white">
-            Staff login
-          </Link>
-        </div>
-      </div>
-    </footer>
+    </section>
   );
 }
