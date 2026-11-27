@@ -84,7 +84,7 @@ function RegisterGlassButton({
   onClick?: () => void;
 }) {
   return (
-    <Link href="/signup" onClick={onClick} className={cn("inline-flex rounded-full", className)}>
+    <Link href="/register" onClick={onClick} className={cn("inline-flex rounded-full", className)}>
       <LiquidGlass
         tint={0.2}
         className={cn(GLASS_SHADOW, "w-full text-white transition-transform duration-200 hover:scale-[1.03] active:scale-[0.97] motion-reduce:transition-none motion-reduce:hover:scale-100")}
@@ -250,11 +250,11 @@ export function SiteHeader() {
         <div className="relative z-20 flex items-center gap-2">
           <NavbarButton
             as={Link}
-            href="/login"
+            href="/portal/login"
             variant="secondary"
             className={linkClassName}
           >
-            Login
+            Staff login
           </NavbarButton>
           <RegisterGlassButton />
         </div>
@@ -305,12 +305,12 @@ export function SiteHeader() {
           <div className="flex w-full flex-col gap-2 pt-2">
             <NavbarButton
               as={Link}
-              href="/login"
+              href="/portal/login"
               variant="secondary"
               className="w-full text-white"
               onClick={closeMobileMenu}
             >
-              Login
+              Staff login
             </NavbarButton>
             <RegisterGlassButton
               className="w-full"

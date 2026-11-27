@@ -14,19 +14,13 @@ import {
   competitionEmailCopy,
   sendRegistrationSubmittedEmail,
 } from "@/lib/email";
-import { getParticipantSession } from "@/lib/participantSession";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { preparePublicSubmission } from "@/utils/preparePublicSubmission";
 import { advanceRegistrationIfPaid } from "@/utils/submissionPayments";
 
-/** Signed-in participants register one project. Payment is requested later by email. */
+/** Public: register one project from one university. Payment is requested later by email. */
 export async function POST(req: NextRequest) {
   try {
-    const participant = await getParticipantSession();
-    if (!participant) {
-      return createResponse({ error: "Sign in to register." }, 401);
-    }
-
     const body = await req.json();
     const parsed = submissionFormSchema.safeParse(body);
     if (!parsed.success) {
@@ -62,7 +56,6 @@ export async function POST(req: NextRequest) {
         submissionSchema.parse({
           submission_number: await submissionModel.nextSubmissionNumber(),
           competition_id: competitionId,
-          participant_id: toIdString(participant._id),
           institution,
           institution_key: institutionKey,
           registration_ids: [],

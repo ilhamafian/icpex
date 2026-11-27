@@ -333,10 +333,10 @@ export function RegistrationForm({
           ))}
         </ul>
         <Link
-          href="/my"
+          href="/"
           className="mt-6 inline-flex text-sm font-semibold text-[#8a6410] underline-offset-2 hover:underline"
         >
-          Back to my submissions
+          Back to home
         </Link>
       </div>
     );
