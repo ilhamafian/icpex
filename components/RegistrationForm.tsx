@@ -9,6 +9,7 @@ import {
   ProjectFields,
   projectIsUploading,
   projectToPayload,
+  withEducationLevel,
   type ProjectState,
 } from "@/components/ProjectFields";
 import {
@@ -25,7 +26,10 @@ import {
   validateDocumentsAgainstRequirements,
   type DocumentRequirement,
 } from "@/schemas/documentRequirement";
-import type { EducationLevel } from "@/schemas/educationLevel";
+import {
+  EDUCATION_LEVEL_LABELS,
+  type EducationLevel,
+} from "@/schemas/educationLevel";
 import {
   institutionSchema,
   submissionFormSchema,
@@ -47,7 +51,7 @@ type Option = {
 
 type FieldErrors = Record<string, string>;
 
-type FormStep = "university" | "projects";
+type FormStep = "education" | "university" | "projects";
 
 type SubmissionResult = {
   submission_number: string;
@@ -55,6 +59,7 @@ type SubmissionResult = {
 };
 
 const STEPS: { id: FormStep; label: string }[] = [
+  { id: "education", label: "Education level" },
   { id: "university", label: "University" },
   { id: "projects", label: "Project" },
 ];
@@ -100,7 +105,7 @@ type RegistrationFormProps = {
   documentRequirements: DocumentRequirement[];
   /** Preselected from the landing page's level-specific registration link. */
   initialEducationLevel?: EducationLevel;
-  /** When set from ?level=, education level cannot be changed on the form. */
+  /** When set from ?level=, education level cannot be changed on the first step. */
   educationLevelLocked?: boolean;
   categories: Option[];
   mode?: "create" | "edit";
@@ -124,8 +129,12 @@ export function RegistrationForm({
   initialInstitution,
   initialProject,
 }: RegistrationFormProps) {
+  const startingEducationLevel: EducationLevel | "" =
+    initialEducationLevel ??
+    initialProject?.educationLevel ??
+    (educationLevels.length === 1 ? educationLevels[0] : "");
   const defaultLevel =
-    initialEducationLevel ?? educationLevels[0] ?? "UNDERGRADUATE";
+    startingEducationLevel || educationLevels[0] || "UNDERGRADUATE";
   const categoryForLevel = (level: EducationLevel) =>
     categories.find(
       (category) =>
@@ -139,7 +148,10 @@ export function RegistrationForm({
   const startingType =
     startingCountry === MALAYSIA ? listedMalaysiaType(startingName) : "";
 
-  const [step, setStep] = useState<FormStep>("university");
+  const [step, setStep] = useState<FormStep>("education");
+  const [educationLevel, setEducationLevel] = useState<EducationLevel | "">(
+    startingEducationLevel
+  );
   const [institutionName, setInstitutionName] = useState(() => {
     if (startingCountry !== MALAYSIA) return startingName;
     if (!startingName) return "";
@@ -197,6 +209,26 @@ export function RegistrationForm({
 
   function updateProject(update: (project: ProjectState) => ProjectState) {
     setProjects((prev) => prev.map((p, i) => (i === 0 ? update(p) : p)));
+  }
+
+  function chooseEducationLevel(level: EducationLevel) {
+    setEducationLevel(level);
+    setErrors((prev) => {
+      if (!prev.education_level) return prev;
+      const next = { ...prev };
+      delete next.education_level;
+      return next;
+    });
+    updateProject((current) => withEducationLevel(current, level, categories));
+  }
+
+  function validateEducation(): boolean {
+    if (!educationLevel || !educationLevels.includes(educationLevel)) {
+      setErrors({ education_level: "Select your education level." });
+      return false;
+    }
+    setErrors({});
+    return true;
   }
 
   function validateUniversity(): boolean {
@@ -264,7 +296,17 @@ export function RegistrationForm({
     event.preventDefault();
 
     if (readOnly) {
-      if (step === "university") goTo("projects");
+      if (step === "education") goTo("university");
+      else if (step === "university") goTo("projects");
+      return;
+    }
+
+    if (step === "education") {
+      if (!validateEducation() || !educationLevel) return;
+      updateProject((current) =>
+        withEducationLevel(current, educationLevel, categories)
+      );
+      goTo("university");
       return;
     }
 
@@ -351,7 +393,7 @@ export function RegistrationForm({
       style={{ colorScheme: "light" }}
       noValidate
     >
-      <ol className="grid gap-3 sm:grid-cols-2">
+      <ol className="grid gap-3 sm:grid-cols-3">
         {STEPS.map((s, index) => {
           const active = index === stepIndex;
           const done = index < stepIndex;
@@ -397,6 +439,43 @@ export function RegistrationForm({
           );
         })}
       </ol>
+
+      {step === "education" ? (
+        <fieldset disabled={readOnly} className="min-w-0 border-0 p-0">
+          <Section
+            title="Education level"
+            description="Choose the education level for this project before you enter the university and project details."
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                id="education_level"
+                label="Education level"
+                error={errors.education_level}
+              >
+                <select
+                  id="education_level"
+                  value={educationLevel}
+                  onChange={(e) =>
+                    chooseEducationLevel(e.target.value as EducationLevel)
+                  }
+                  className={paperInputClassName}
+                  aria-invalid={Boolean(errors.education_level)}
+                  disabled={educationLevelLocked || educationLevels.length < 2}
+                >
+                  <option value="" disabled>
+                    Select an education level
+                  </option>
+                  {educationLevels.map((level) => (
+                    <option key={level} value={level}>
+                      {EDUCATION_LEVEL_LABELS[level]}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+          </Section>
+        </fieldset>
+      ) : null}
 
       {step === "university" ? (
         <fieldset disabled={readOnly} className="min-w-0 border-0 p-0">
@@ -547,7 +626,7 @@ export function RegistrationForm({
             categories={categories}
             educationLevels={educationLevels}
             documentRequirements={documentRequirements}
-            educationLevelLocked={educationLevelLocked}
+            educationLevelLocked
             disabled={loading}
           />
         </fieldset>
@@ -556,10 +635,10 @@ export function RegistrationForm({
       <FieldError message={errors.form} />
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        {step !== "university" ? (
+        {stepIndex > 0 ? (
           <button
             type="button"
-            onClick={() => goTo("university")}
+            onClick={() => goTo(STEPS[stepIndex - 1].id)}
             disabled={loading}
             className="inline-flex h-12 items-center justify-center rounded-full border border-[#d5e1ec] bg-white px-7 text-sm font-bold tracking-wide text-[#10243c] transition-colors hover:bg-[#f3f6f9] disabled:opacity-60"
           >

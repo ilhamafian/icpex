@@ -11,7 +11,7 @@ import { parseLevelParam } from "@/utils/registrationLinks";
 export const metadata: Metadata = {
   title: "Register",
   description:
-    "Register one project for I-CRIVE 2027. Payment is by bank transfer after the secretariat reviews your submission.",
+    "Register here to participate in the competition. (undergraduate and postgraduate students)",
 };
 
 export default async function RegisterPage({
@@ -45,9 +45,7 @@ export default async function RegisterPage({
         Register
       </h1>
       <p className="mt-4 max-w-2xl text-base leading-relaxed text-white/80">
-        Register one project with its participant, team, supervisors and documents.
-        Payment is by bank transfer after the secretariat reviews your submission.
-        No account is required.
+        Register here to participate in the competition. (undergraduate and postgraduate students)
       </p>
       <div className="mt-6 h-px w-full bg-[#e8b84a]" />
       <div className="mt-10">

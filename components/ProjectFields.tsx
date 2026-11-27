@@ -73,6 +73,32 @@ function emptyUpload(): UploadState {
   return { file_name: "", file_url: "" };
 }
 
+/** Apply an education level and keep category and team size valid for that stream. */
+export function withEducationLevel(
+  project: ProjectState,
+  level: EducationLevel,
+  categories: { id: string; educationLevel?: EducationLevel }[]
+): ProjectState {
+  const nextCategories = categories.filter(
+    (category) =>
+      !category.educationLevel || category.educationLevel === level
+  );
+  const categoryStillValid = nextCategories.some(
+    (category) => category.id === project.categoryId
+  );
+  return {
+    ...project,
+    educationLevel: level,
+    categoryId: categoryStillValid
+      ? project.categoryId
+      : (nextCategories[0]?.id ?? ""),
+    members:
+      level === "POSTGRADUATE"
+        ? []
+        : project.members.slice(0, maxAdditionalMembers(level)),
+  };
+}
+
 export function emptyProject(
   categoryId: string,
   educationLevel: EducationLevel
@@ -222,26 +248,7 @@ export function ProjectFields({
   }
 
   function setEducationLevel(level: EducationLevel) {
-    onChange((current) => {
-      const nextCategories = categories.filter(
-        (category) =>
-          !category.educationLevel || category.educationLevel === level
-      );
-      const categoryStillValid = nextCategories.some(
-        (category) => category.id === current.categoryId
-      );
-      return {
-        ...current,
-        educationLevel: level,
-        categoryId: categoryStillValid
-          ? current.categoryId
-          : (nextCategories[0]?.id ?? ""),
-        members:
-          level === "POSTGRADUATE"
-            ? []
-            : current.members.slice(0, maxAdditionalMembers(level)),
-      };
-    });
+    onChange((current) => withEducationLevel(current, level, categories));
   }
 
   function updatePeople(
@@ -480,6 +487,11 @@ export function ProjectFields({
                 </option>
               ))}
             </select>
+            {educationLevelLocked ? (
+              <p className={mutedTextClassName}>
+                Chosen on the education level step.
+              </p>
+            ) : null}
           </Field>
           <Field
             id={id("participant.government_id.type")}
