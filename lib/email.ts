@@ -25,6 +25,7 @@ import {
   type UserRole,
 } from "@/schemas/userRole";
 import { readBankDetails } from "@/lib/bankDetails";
+import { getCurrentCompetition } from "@/utils/currentCompetition";
 import { formatMoney, type Currency } from "@/utils/registrationFee";
 
 /** Formatted competition strings used in participant and judge emails. */
@@ -122,6 +123,21 @@ export function competitionEmailCopy(
     judgingPeriod,
     closingCeremony: formatClosingCeremony(competition),
   };
+}
+
+type CompetitionEmailSource = Parameters<typeof competitionEmailCopy>[0];
+
+/**
+ * Email copy for a competition record. When the record is missing, use the
+ * published competition so messages are not branded with a hardcoded name.
+ */
+export async function emailCopyFor(
+  competition: CompetitionEmailSource | null | undefined
+): Promise<CompetitionEmailCopy> {
+  if (competition?.name.trim()) return competitionEmailCopy(competition);
+  const current = await getCurrentCompetition();
+  if (current) return competitionEmailCopy(current);
+  return competitionEmailCopy({ name: "the competition" });
 }
 
 /** Stream / category display name for an education level. */
@@ -416,12 +432,21 @@ export async function sendUserInviteEmail(options: {
   name?: string;
   inviteUrl: string;
 }) {
+  const competitionLabel =
+    options.competitionName?.trim() ||
+    options.copy?.name.trim() ||
+    (await emailCopyFor(null)).name;
+
   if (isJudgeInviteRole(options.role)) {
     await sendJudgeInviteEmail({
       ...options,
       copy:
         options.copy ??
-        competitionEmailCopy({ name: options.competitionName ?? "ICPEX" }),
+        (await emailCopyFor(
+          options.competitionName?.trim()
+            ? { name: options.competitionName }
+            : null
+        )),
       documentRequirements: options.documentRequirements,
     });
     return;
@@ -434,14 +459,14 @@ export async function sendUserInviteEmail(options: {
   await sendMail({
     to: options.to,
     educationLevel: educationLevelForRole(options.role) ?? "UNDERGRADUATE",
-    subject: "You're invited to ICPEX",
+    subject: `You're invited to ${competitionLabel}`,
     html: `
-      <p>You have been invited to join ICPEX as a <strong>${escapeHtml(roleLabel)}</strong>.</p>
+      <p>You have been invited to join ${escapeHtml(competitionLabel)} as a <strong>${escapeHtml(roleLabel)}</strong>.</p>
       <p>Click the link below to verify your email and create your password. This link expires in 7 days.</p>
       <p><a href="${escapeHtml(options.inviteUrl)}">Accept invitation</a></p>
       <p>If you did not expect this invitation, you can ignore this email.</p>
     `,
-    text: `You have been invited to join ICPEX as a ${roleLabel}.\n\nAccept your invitation (expires in 7 days):\n${options.inviteUrl}\n\nIf you did not expect this invitation, you can ignore this email.`,
+    text: `You have been invited to join ${competitionLabel} as a ${roleLabel}.\n\nAccept your invitation (expires in 7 days):\n${options.inviteUrl}\n\nIf you did not expect this invitation, you can ignore this email.`,
   });
 }
 

@@ -5,6 +5,8 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf
 import { formatMoney, type Currency } from "@/utils/registrationFee";
 
 export type InvoiceInput = {
+  /** Short competition name printed on the invoice header. */
+  competitionName: string;
   invoiceNumber: string;
   submissionNumber: string;
   issuedAt: Date;
@@ -60,7 +62,7 @@ function formatDate(date: Date) {
 export async function createInvoicePdf(invoice: InvoiceInput): Promise<Buffer> {
   const pdf = await PDFDocument.create();
   pdf.setTitle(`Invoice ${invoice.invoiceNumber}`);
-  pdf.setAuthor("ICPEX");
+  pdf.setAuthor(invoice.competitionName);
 
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
@@ -97,7 +99,7 @@ export async function createInvoicePdf(invoice: InvoiceInput): Promise<Buffer> {
 
   const right = PAGE_WIDTH - MARGIN;
 
-  text(page, "ICPEX", MARGIN, 20, bold);
+  text(page, invoice.competitionName, MARGIN, 20, bold);
   rightText("INVOICE", right, 20, bold);
   y -= 22;
   text(page, "Competition secretariat", MARGIN, 10, regular, MUTED);

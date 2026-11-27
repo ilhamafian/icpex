@@ -4,7 +4,7 @@ import { WithId } from "mongodb";
 
 import { getAppOrigin } from "@/lib/appOrigin";
 import {
-  competitionEmailCopy,
+  emailCopyFor,
   sendDocumentSubmissionReceivedEmail,
   sendDocumentUploadReminderEmail,
 } from "@/lib/email";
@@ -80,7 +80,7 @@ async function uploadJobsForSubmission(submissionId: string): Promise<UploadJob[
     new RegistrationModel().find({ submission_id: submissionId }),
     new CompetitionModel().findById(toIdString(submission.competition_id)),
   ]);
-  const copy = competitionEmailCopy(competition ?? { name: "ICPEX" });
+  const copy = await emailCopyFor(competition);
   const requirements = effectiveDocumentRequirements(competition);
   const categoryModel = new CategoryModel();
   const jobs: UploadJob[] = [];
@@ -242,7 +242,7 @@ export async function submitAfterPaymentDocuments(
     registrationDocumentsSchema
   );
 
-  const copy = competitionEmailCopy(competition ?? { name: "ICPEX" });
+  const copy = await emailCopyFor(competition);
   try {
     await sendDocumentSubmissionReceivedEmail({
       to: registration.participant.email.trim().toLowerCase(),

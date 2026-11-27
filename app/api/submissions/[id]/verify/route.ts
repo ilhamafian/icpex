@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 
 import {
-  competitionEmailCopy,
+  emailCopyFor,
   mailboxForLevels,
   sendPaymentReceivedEmail,
   sendUnderpaidEmail,
@@ -89,7 +89,7 @@ export async function POST(
     const competition = await new CompetitionModel().findById(
       toIdString(submission.competition_id)
     );
-    const copy = competitionEmailCopy(competition ?? { name: "ICPEX" });
+    const copy = await emailCopyFor(competition);
     const educationLevel = mailboxForLevels(
       registrations.map((registration) => registration.participant.education_level)
     );
@@ -166,6 +166,7 @@ export async function POST(
     let warning: string | undefined;
     try {
       const invoicePdf = await createInvoicePdf({
+        competitionName: copy.name,
         invoiceNumber,
         submissionNumber: submission.submission_number,
         issuedAt: now,

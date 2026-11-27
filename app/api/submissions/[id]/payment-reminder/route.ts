@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 
 import {
-  competitionEmailCopy,
+  emailCopyFor,
   mailboxForLevels,
   sendPaymentReminderEmail,
 } from "@/lib/email";
@@ -61,7 +61,7 @@ export async function POST(
     const competition = await new CompetitionModel().findById(
       toIdString(submission.competition_id)
     );
-    const copy = competitionEmailCopy(competition ?? { name: "ICPEX" });
+    const copy = await emailCopyFor(competition);
     const educationLevel = mailboxForLevels(
       registrations.map((registration) => registration.participant.education_level)
     );
