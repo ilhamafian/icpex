@@ -253,15 +253,15 @@ function fromFor(level: EducationLevel) {
     : mailbox.address;
 }
 
-/** Outbound mail is sent only when DEV_MODE=true. false skips every email. */
+/** DEV_MODE=true is the test environment: skip real delivery. Send when it is not true. */
 function emailSendingEnabled() {
-  return process.env.DEV_MODE?.trim().toLowerCase() === "true";
+  return process.env.DEV_MODE?.trim().toLowerCase() !== "true";
 }
 
 async function sendMail(message: MailMessage) {
   if (!emailSendingEnabled()) {
     console.info(
-      `[email] DEV_MODE is not true, skipped "${message.subject}" to ${message.to}`
+      `[email] DEV_MODE is true, skipped "${message.subject}" to ${message.to}`
     );
     return;
   }
