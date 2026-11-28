@@ -4,11 +4,12 @@ import { usePathname } from "next/navigation"
 
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import type { UserRole } from "@/schemas/userRole"
 import { getPortalPageTitle } from "@/utils/portalNav"
 
-export function SiteHeader() {
+export function SiteHeader({ role }: { role: UserRole }) {
   const pathname = usePathname()
-  const title = getPortalPageTitle(pathname)
+  const title = getPortalPageTitle(pathname, role)
 
   return (
     <header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b border-[#d5e1ec] transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">

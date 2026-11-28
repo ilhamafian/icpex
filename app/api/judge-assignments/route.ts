@@ -6,10 +6,10 @@ import {
   judgeAssignmentsSchema,
 } from "@/schemas/judgeAssignmentsSchema";
 import { toIdString } from "@/schemas/objectId";
-import { requireJudgeLeaderSession } from "@/utils/portalAuth";
+import { requireScoringLeaderSession } from "@/utils/portalAuth";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { serializeJudgeAssignment } from "@/utils/serializeJudgeAssignment";
-import { educationLevelForRole } from "@/schemas/userRole";
+import { educationLevelForRole, leaderAudiences } from "@/schemas/userRole";
 import {
   scoringAudienceOf,
   withScoringAudience,
@@ -38,7 +38,7 @@ async function filterAssignments<T extends { registration_number: string }>(
 
 export async function GET() {
   try {
-    const session = await requireJudgeLeaderSession();
+    const session = await requireScoringLeaderSession();
     if (!session) {
       return createResponse({ error: "Unauthorized" }, 401);
     }
@@ -47,9 +47,13 @@ export async function GET() {
     await model.collapseDuplicates();
     const assignments = await model.find({}, { sort: { created_at: -1 } });
     const track = educationLevelForRole(session.role);
-    const visible = track
+    const allowed = new Set(leaderAudiences(session.role));
+    const onTrack = track
       ? await filterAssignments(assignments, track)
       : assignments;
+    const visible = onTrack.filter((item) =>
+      allowed.has(scoringAudienceOf(item.audience))
+    );
 
     return createResponse({
       assignments: visible.map(serializeJudgeAssignment),
@@ -61,7 +65,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await requireJudgeLeaderSession();
+    const session = await requireScoringLeaderSession();
     if (!session) {
       return createResponse({ error: "Unauthorized" }, 401);
     }
@@ -74,6 +78,9 @@ export async function POST(req: NextRequest) {
 
     const judgeId = toIdString(parsed.data.judge_id);
     const audience = scoringAudienceOf(parsed.data.audience);
+    if (!leaderAudiences(session.role).includes(audience)) {
+      return createResponse({ error: "Forbidden" }, 403);
+    }
     const refs = await validateAssignmentRefs({
       judge_id: judgeId,
       registration_number: parsed.data.registration_number,

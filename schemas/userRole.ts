@@ -14,6 +14,7 @@ export const userRoleSchema = z.enum([
   "UNDERGRAD_SECRETARIAT",
   "POSTGRAD_JUDGE_LEADER",
   "UNDERGRAD_JUDGE_LEADER",
+  "REVIEWER_LEADER",
   "POSTGRAD_JUDGE",
   "UNDERGRAD_JUDGE",
   "POSTGRAD_PAPER_REVIEWER",
@@ -30,6 +31,7 @@ export const USER_ROLE_LABELS: Record<UserRole, string> = {
   UNDERGRAD_SECRETARIAT: "Undergraduate Secretariat",
   POSTGRAD_JUDGE_LEADER: "Postgraduate Judge Leader",
   UNDERGRAD_JUDGE_LEADER: "Undergraduate Judge Leader",
+  REVIEWER_LEADER: "Reviewer Leader",
   POSTGRAD_JUDGE: "Postgraduate Judge",
   UNDERGRAD_JUDGE: "Undergraduate Judge",
   POSTGRAD_PAPER_REVIEWER: "Postgraduate Paper Reviewer",
@@ -50,11 +52,19 @@ export const SECRETARIAT_ROLES: UserRole[] = [
   "UNDERGRAD_SECRETARIAT",
 ];
 
-/** Judging criteria and assignments. Super admin sees both tracks. */
+/** Judge leaders and super admin. */
 export const JUDGE_LEADER_ROLES: UserRole[] = [
   "SUPER_ADMIN",
   "POSTGRAD_JUDGE_LEADER",
   "UNDERGRAD_JUDGE_LEADER",
+];
+
+/** Criteria, assignments, marks, and distribution. */
+export const SCORING_LEADER_ROLES: UserRole[] = [
+  "SUPER_ADMIN",
+  "POSTGRAD_JUDGE_LEADER",
+  "UNDERGRAD_JUDGE_LEADER",
+  "REVIEWER_LEADER",
 ];
 
 /** Scoring judges. Each one scores every judge rubric for their education track. */
@@ -108,6 +118,14 @@ export function isScoringRole(role: string): role is UserRole {
   return isScoringJudgeRole(role) || isPaperReviewerRole(role);
 }
 
+/** Audiences this leader may manage. Super admin keeps both. */
+export function leaderAudiences(role: UserRole): ScoringAudience[] {
+  if (role === "SUPER_ADMIN") return ["JUDGE", "PAPER_REVIEWER"];
+  if (role === "REVIEWER_LEADER") return ["PAPER_REVIEWER"];
+  if (role.endsWith("_JUDGE_LEADER")) return ["JUDGE"];
+  return [];
+}
+
 export function judgeRoleForEducation(level: EducationLevel): UserRole {
   return level === "POSTGRADUATE" ? "POSTGRAD_JUDGE" : "UNDERGRAD_JUDGE";
 }
@@ -139,6 +157,7 @@ export function rolesGrantableBy(actor: UserRole): UserRole[] {
         "POSTGRAD_ADMIN",
         "POSTGRAD_SECRETARIAT",
         "POSTGRAD_JUDGE_LEADER",
+        "REVIEWER_LEADER",
         "POSTGRAD_JUDGE",
         "POSTGRAD_PAPER_REVIEWER",
       ];
@@ -147,6 +166,7 @@ export function rolesGrantableBy(actor: UserRole): UserRole[] {
         "UNDERGRAD_ADMIN",
         "UNDERGRAD_SECRETARIAT",
         "UNDERGRAD_JUDGE_LEADER",
+        "REVIEWER_LEADER",
         "UNDERGRAD_JUDGE",
         "UNDERGRAD_PAPER_REVIEWER",
       ];

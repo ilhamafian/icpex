@@ -294,6 +294,7 @@ const JUDGE_INVITE_ROLES = new Set<UserRole>([
   "UNDERGRAD_PAPER_REVIEWER",
   "POSTGRAD_JUDGE_LEADER",
   "UNDERGRAD_JUDGE_LEADER",
+  "REVIEWER_LEADER",
 ]);
 
 function escapeHtml(value: string) {
@@ -412,7 +413,15 @@ function isJudgeInviteRole(role: UserRole) {
   return JUDGE_INVITE_ROLES.has(role);
 }
 
+function scoringLetterTitle(role: UserRole) {
+  if (role === "REVIEWER_LEADER") return "Reviewer Leader";
+  return isPaperReviewerRole(role) ? "Paper Reviewer" : "Judge";
+}
+
 function judgeCategory(role: UserRole, copy: CompetitionEmailCopy) {
+  if (role === "REVIEWER_LEADER") {
+    return `${copy.undergraduateStreamName} and ${copy.postgraduateStreamName}`;
+  }
   const level = educationLevelForRole(role);
   if (level === "POSTGRADUATE") return copy.postgraduateStreamName;
   if (level === "UNDERGRADUATE") return copy.undergraduateStreamName;
@@ -479,7 +488,7 @@ async function sendJudgeInviteEmail(options: {
   documentRequirements?: DocumentRequirement[];
 }) {
   const { copy } = options;
-  const roleTitle = isPaperReviewerRole(options.role) ? "Paper Reviewer" : "Judge";
+  const roleTitle = scoringLetterTitle(options.role);
   const greet = greeting(options.name?.trim() || roleTitle);
   const contact = contactSentence();
   const link = uploadLink(options.inviteUrl, "Accept invitation");
@@ -614,14 +623,15 @@ export async function sendJudgeAppointmentEmail(options: {
   copy: CompetitionEmailCopy;
   signInUrl: string;
 }) {
-  const roleTitle = isPaperReviewerRole(options.role) ? "Paper Reviewer" : "Judge";
+  const roleTitle = scoringLetterTitle(options.role);
   const greet = greeting(options.name);
   const contact = contactSentence();
   const opening = `We are pleased to appoint you as a ${roleTitle} for the ${themedCompetition(options.copy)}.`;
   const access =
     "Sign in with the email address and password you chose when you applied. This appointment confirms your place on the panel.";
   const link = uploadLink(options.signInUrl, "Sign in");
-  const conflict = isPaperReviewerRole(options.role)
+  const conflict =
+    isPaperReviewerRole(options.role) || options.role === "REVIEWER_LEADER"
     ? "If you can no longer carry out this role, please tell the secretariat as soon as you can."
     : "If you have a conflict of interest with any participant or institution, please tell the secretariat so the submission can be reassigned.";
   const close = `Thank you for supporting ${options.copy.name}.`;

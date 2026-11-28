@@ -3,14 +3,14 @@ import { NextRequest } from "next/server";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { getCurrentCompetition } from "@/utils/currentCompetition";
 import { sendJudgeReminders } from "@/utils/judgeReminders";
-import { requireJudgeLeaderSession } from "@/utils/portalAuth";
+import { requireScoringLeaderSession } from "@/utils/portalAuth";
 import { scoringAudienceOf } from "@/schemas/scoringAudience";
-import { educationLevelForRole } from "@/schemas/userRole";
+import { educationLevelForRole, leaderAudiences } from "@/schemas/userRole";
 
 /** Judge leader emails scorers on their track who still have unscored assignments. */
 export async function POST(req: NextRequest) {
   try {
-    const session = await requireJudgeLeaderSession();
+    const session = await requireScoringLeaderSession();
     if (!session) {
       return createResponse({ error: "Unauthorized" }, 401);
     }
@@ -27,6 +27,9 @@ export async function POST(req: NextRequest) {
       audience?: unknown;
     } | null;
     const audience = scoringAudienceOf(body?.audience);
+    if (!leaderAudiences(session.role).includes(audience)) {
+      return createResponse({ error: "Forbidden" }, 403);
+    }
     const delivery = await sendJudgeReminders({
       competition,
       kind: "unscored",

@@ -439,6 +439,12 @@ const USERS = [
     status: "ACTIVE",
   },
   {
+    name: "Prof. Dr. Noraini binti Ahmad",
+    email: "noraini.ahmad@unikl.edu.my",
+    roles: ["REVIEWER_LEADER"],
+    status: "ACTIVE",
+  },
+  {
     name: "Ts. Dr. Azlan bin Hashim",
     email: "azlan.hashim@unikl.edu.my",
     roles: ["POSTGRAD_JUDGE"],
@@ -1159,6 +1165,7 @@ const ROLES = new Set([
   "UNDERGRAD_SECRETARIAT",
   "POSTGRAD_JUDGE_LEADER",
   "UNDERGRAD_JUDGE_LEADER",
+  "REVIEWER_LEADER",
   "POSTGRAD_JUDGE",
   "UNDERGRAD_JUDGE",
 ]);

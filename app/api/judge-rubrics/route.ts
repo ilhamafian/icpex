@@ -7,7 +7,8 @@ import {
 } from "@/schemas/judgeRubricSchema";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { resolveRubricTrack } from "@/utils/judgeRubricAccess";
-import { requireJudgeLeaderSession } from "@/utils/portalAuth";
+import { requireScoringLeaderSession } from "@/utils/portalAuth";
+import { leaderAudiences } from "@/schemas/userRole";
 import {
   scoringAudienceOf,
   withScoringAudience,
@@ -16,7 +17,7 @@ import { serializeJudgeRubric } from "@/utils/serializeJudgeRubric";
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await requireJudgeLeaderSession();
+    const session = await requireScoringLeaderSession();
     if (!session) {
       return createResponse({ error: "Unauthorized" }, 401);
     }
@@ -30,6 +31,13 @@ export async function GET(req: NextRequest) {
       requested ?? undefined
     );
     const requestedAudience = req.nextUrl.searchParams.get("audience");
+    const allowed = leaderAudiences(session.role);
+    if (
+      requestedAudience &&
+      !allowed.includes(scoringAudienceOf(requestedAudience))
+    ) {
+      return createResponse({ error: "Forbidden" }, 403);
+    }
     const model = new JudgeRubricModel();
     const base = track.ok
       ? {
@@ -44,8 +52,14 @@ export async function GET(req: NextRequest) {
       sort: { sort_order: 1, created_at: 1 },
     });
 
+    const visible = requestedAudience
+      ? rubrics
+      : rubrics.filter((rubric) =>
+          allowed.includes(scoringAudienceOf(rubric.audience))
+        );
+
     return createResponse({
-      rubrics: rubrics.map(serializeJudgeRubric),
+      rubrics: visible.map(serializeJudgeRubric),
     });
   } catch (error) {
     return handleError(error);
@@ -54,7 +68,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await requireJudgeLeaderSession();
+    const session = await requireScoringLeaderSession();
     if (!session) {
       return createResponse({ error: "Unauthorized" }, 401);
     }
@@ -80,6 +94,9 @@ export async function POST(req: NextRequest) {
     }
 
     const audience = scoringAudienceOf(parsed.data.audience);
+    if (!leaderAudiences(session.role).includes(audience)) {
+      return createResponse({ error: "Forbidden" }, 403);
+    }
     const model = new JudgeRubricModel();
     const existing = await model.find(
       withScoringAudience(

@@ -5,9 +5,10 @@ import { PaymentModel } from "@/models/Payment";
 import { UserModel } from "@/models/User";
 import { toIdString } from "@/schemas/objectId";
 import type { PaymentStatus } from "@/schemas/paymentSchema";
-import type { ScoringAudience } from "@/schemas/scoringAudience";
+import { scoringAudienceOf, type ScoringAudience } from "@/schemas/scoringAudience";
 import {
   educationLevelForRole,
+  leaderAudiences,
   scoringRolesForAudience,
 } from "@/schemas/userRole";
 import { usersWithRolesFilter } from "@/utils/roleGrants";
@@ -41,21 +42,26 @@ async function loadAssignmentData(
     await assignmentModel.collapseDuplicates();
 
     const track = educationLevelForRole(role);
+    const audiences = leaderAudiences(role);
     const userModel = new UserModel();
     const [foundRegistrations, judgeUsers, reviewerUsers, payments, categories] =
       await Promise.all([
       findRegistrationsForCompetition(competitionId),
-      userModel.find(
-        usersWithRolesFilter(scoringRolesForAudience(track, "JUDGE"), competitionId),
-        { sort: { email: 1 } }
-      ),
-      userModel.find(
-        usersWithRolesFilter(
-          scoringRolesForAudience(track, "PAPER_REVIEWER"),
-          competitionId
-        ),
-        { sort: { email: 1 } }
-      ),
+      audiences.includes("JUDGE")
+        ? userModel.find(
+            usersWithRolesFilter(scoringRolesForAudience(track, "JUDGE"), competitionId),
+            { sort: { email: 1 } }
+          )
+        : Promise.resolve([]),
+      audiences.includes("PAPER_REVIEWER")
+        ? userModel.find(
+            usersWithRolesFilter(
+              scoringRolesForAudience(track, "PAPER_REVIEWER"),
+              competitionId
+            ),
+            { sort: { email: 1 } }
+          )
+        : Promise.resolve([]),
       new PaymentModel().find({}, { sort: { created_at: -1 } }),
       new CategoryModel().find({}),
     ]);
@@ -79,13 +85,17 @@ async function loadAssignmentData(
       }
     }
 
-    const assignments = await assignmentModel.find(
-      {
-        registration_number: {
-          $in: registrations.map((item) => item.registration_number),
+    const assignments = (
+      await assignmentModel.find(
+        {
+          registration_number: {
+            $in: registrations.map((item) => item.registration_number),
+          },
         },
-      },
-      { sort: { created_at: -1 } }
+        { sort: { created_at: -1 } }
+      )
+    ).filter((assignment) =>
+      audiences.includes(scoringAudienceOf(assignment.audience))
     );
 
     const judgesByAudience: Record<ScoringAudience, ReturnType<typeof serializeUser>[]> = {
@@ -133,6 +143,7 @@ export default async function JudgeAssignmentsPage() {
     <JudgeAssignmentsManager
       initialAssignments={assignments}
       judgesByAudience={judgesByAudience}
+      audiences={leaderAudiences(session.role)}
       categories={categories}
       competitionId={competitionId}
       registrations={registrations}

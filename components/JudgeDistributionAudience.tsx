@@ -12,24 +12,30 @@ import type { JudgeDistributionRow } from "@/utils/judgeLeaderReports";
 
 export function JudgeDistributionAudience({
   competitionName,
+  audiences,
   judgeRows,
   reviewerRows,
   judgeUnassigned,
   reviewerUnassigned,
 }: {
   competitionName: string | null;
+  audiences: ScoringAudience[];
   judgeRows: JudgeDistributionRow[];
   reviewerRows: JudgeDistributionRow[];
   judgeUnassigned: number;
   reviewerUnassigned: number;
 }) {
-  const [audience, setAudience] = useState<ScoringAudience>("JUDGE");
+  const [audience, setAudience] = useState<ScoringAudience>(
+    audiences[0] ?? "JUDGE"
+  );
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="px-4 lg:px-6">
-        <ScoringAudienceSwitch value={audience} onValueChange={setAudience} />
-      </div>
+      {audiences.length > 1 ? (
+        <div className="px-4 lg:px-6">
+          <ScoringAudienceSwitch value={audience} onValueChange={setAudience} />
+        </div>
+      ) : null}
       <ScoringAudienceProvider value={audience}>
         <JudgeDistributionView
           key={audience}

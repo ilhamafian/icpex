@@ -345,6 +345,7 @@ type JudgeAssignmentsDataTableProps = {
   data: JudgeAssignmentRow[];
   judges: SerializedUser[];
   audience: ScoringAudience;
+  showAudienceSwitch: boolean;
   onAudienceChange: (audience: ScoringAudience) => void;
   categories: { id: string; name: string }[];
   /** Judges are offered only for roles held in this competition. */
@@ -369,6 +370,7 @@ export function JudgeAssignmentsDataTable({
   data,
   judges,
   audience,
+  showAudienceSwitch,
   onAudienceChange,
   categories: categoryCatalog,
   competitionId,
@@ -777,13 +779,17 @@ export function JudgeAssignmentsDataTable({
     <div className="flex w-full flex-col justify-start gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 lg:px-6">
         <div>
-          <h2 className="text-lg font-medium">Judge Assignments</h2>
-          <div className="mt-2">
-            <ScoringAudienceSwitch
-              value={audience}
-              onValueChange={onAudienceChange}
-            />
-          </div>
+          <h2 className="text-lg font-medium">
+            {paper ? "Reviewer Assignments" : "Judge Assignments"}
+          </h2>
+          {showAudienceSwitch ? (
+            <div className="mt-2">
+              <ScoringAudienceSwitch
+                value={audience}
+                onValueChange={onAudienceChange}
+              />
+            </div>
+          ) : null}
           <p className="text-muted-foreground mt-2 text-sm">
             {paper
               ? "Choose which paper reviewers review each registration. They score every paper-reviewer rubric for this track."

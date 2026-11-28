@@ -7,7 +7,8 @@ import {
   type JudgeAssignment,
 } from "@/schemas/judgeAssignmentsSchema";
 import { toIdString } from "@/schemas/objectId";
-import { requireJudgeLeaderSession } from "@/utils/portalAuth";
+import { requireScoringLeaderSession } from "@/utils/portalAuth";
+import { leaderAudiences } from "@/schemas/userRole";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { serializeJudgeAssignment } from "@/utils/serializeJudgeAssignment";
 import {
@@ -22,7 +23,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await requireJudgeLeaderSession();
+    const session = await requireScoringLeaderSession();
     if (!session) {
       return createResponse({ error: "Unauthorized" }, 401);
     }
@@ -32,6 +33,9 @@ export async function PATCH(
     const existing = await model.findById(id);
     if (!existing) {
       return createResponse({ error: "Assignment not found" }, 404);
+    }
+    if (!leaderAudiences(session.role).includes(scoringAudienceOf(existing.audience))) {
+      return createResponse({ error: "Forbidden" }, 403);
     }
 
     const currentRegistration = await new RegistrationModel().findOne({
@@ -134,7 +138,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await requireJudgeLeaderSession();
+    const session = await requireScoringLeaderSession();
     if (!session) {
       return createResponse({ error: "Unauthorized" }, 401);
     }
@@ -144,6 +148,9 @@ export async function DELETE(
     const existing = await model.findById(id);
     if (!existing) {
       return createResponse({ error: "Assignment not found" }, 404);
+    }
+    if (!leaderAudiences(session.role).includes(scoringAudienceOf(existing.audience))) {
+      return createResponse({ error: "Forbidden" }, 403);
     }
 
     const registration = await new RegistrationModel().findOne({

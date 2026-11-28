@@ -41,6 +41,7 @@ async function readError(res: Response): Promise<string> {
 export function JudgeAssignmentsManager({
   initialAssignments,
   judgesByAudience,
+  audiences,
   categories,
   competitionId,
   registrations,
@@ -49,13 +50,16 @@ export function JudgeAssignmentsManager({
 }: {
   initialAssignments: SerializedJudgeAssignment[];
   judgesByAudience: Record<ScoringAudience, SerializedUser[]>;
+  audiences: ScoringAudience[];
   categories: { id: string; name: string }[];
   competitionId: string | null;
   registrations: AssignmentRegistrationOption[];
   documentColumns: AssignmentDocumentColumn[];
   judgingDueDate?: string | null;
 }) {
-  const [audience, setAudience] = useState<ScoringAudience>("JUDGE");
+  const [audience, setAudience] = useState<ScoringAudience>(
+    audiences[0] ?? "JUDGE"
+  );
   const [assignments, setAssignments] = useState(initialAssignments);
   const judges = judgesByAudience[audience];
   const visibleAssignments = useMemo(
@@ -228,6 +232,7 @@ export function JudgeAssignmentsManager({
         data={rows}
         judges={judges}
         audience={audience}
+        showAudienceSwitch={audiences.length > 1}
         onAudienceChange={setAudience}
         categories={categories}
         competitionId={competitionId}

@@ -13,6 +13,7 @@ import type { ParticipantMarkRow } from "@/utils/judgeLeaderReports";
 
 export function ParticipantMarksAudience({
   competitionName,
+  audiences,
   judgeRows,
   reviewerRows,
   showTrack,
@@ -20,20 +21,25 @@ export function ParticipantMarksAudience({
   liveSession,
 }: {
   competitionName: string | null;
+  audiences: ScoringAudience[];
   judgeRows: ParticipantMarkRow[];
   reviewerRows: ParticipantMarkRow[];
   showTrack: boolean;
   canNominate: boolean;
   liveSession: LivePresentationDraft;
 }) {
-  const [audience, setAudience] = useState<ScoringAudience>("JUDGE");
+  const [audience, setAudience] = useState<ScoringAudience>(
+    audiences[0] ?? "JUDGE"
+  );
   const rows = audience === "JUDGE" ? judgeRows : reviewerRows;
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="px-4 lg:px-6">
-        <ScoringAudienceSwitch value={audience} onValueChange={setAudience} />
-      </div>
+      {audiences.length > 1 ? (
+        <div className="px-4 lg:px-6">
+          <ScoringAudienceSwitch value={audience} onValueChange={setAudience} />
+        </div>
+      ) : null}
       <ScoringAudienceProvider value={audience}>
         <ParticipantMarksView
           key={audience}

@@ -1,12 +1,14 @@
 import { JudgingCriteriaManager } from "@/components/JudgingCriteriaManager";
 import { JudgeRubricModel } from "@/models/JudgeRubric";
-import { educationLevelForRole } from "@/schemas/userRole";
+import { scoringAudienceOf } from "@/schemas/scoringAudience";
+import { educationLevelForRole, leaderAudiences } from "@/schemas/userRole";
 import { requirePortalSection } from "@/utils/requirePortalAccess";
 import { serializeJudgeRubric } from "@/utils/serializeJudgeRubric";
 
 export default async function JudgingCriteriaPage() {
   const session = await requirePortalSection("judging-criteria");
   const track = educationLevelForRole(session.role);
+  const audiences = leaderAudiences(session.role);
 
   if (!session.competition_id) {
     return (
@@ -30,12 +32,18 @@ export default async function JudgingCriteriaPage() {
         : { competition_id: session.competition_id },
       { sort: { sort_order: 1, created_at: 1 } }
     );
-    rubrics = found.map(serializeJudgeRubric);
+    rubrics = found
+      .map(serializeJudgeRubric)
+      .filter((rubric) => audiences.includes(scoringAudienceOf(rubric.audience)));
   } catch {
     rubrics = [];
   }
 
   return (
-    <JudgingCriteriaManager initialRubrics={rubrics} lockedTrack={track} />
+    <JudgingCriteriaManager
+      initialRubrics={rubrics}
+      lockedTrack={track}
+      audiences={audiences}
+    />
   );
 }

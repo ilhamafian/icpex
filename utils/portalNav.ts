@@ -12,7 +12,7 @@ import {
 
 import {
   ADMIN_ROLES,
-  JUDGE_LEADER_ROLES,
+  SCORING_LEADER_ROLES,
   SCORING_ROLES,
   SECRETARIAT_ROLES,
   type UserRole,
@@ -59,28 +59,28 @@ export const portalNavMain: PortalNavItem[] = [
     url: "/portal/judging-criteria",
     icon: IconScale,
     section: "judging-criteria",
-    roles: JUDGE_LEADER_ROLES,
+    roles: SCORING_LEADER_ROLES,
   },
   {
     title: "Judge Assignments",
     url: "/portal/judge-assignments",
     icon: IconUserCheck,
     section: "judge-assignments",
-    roles: JUDGE_LEADER_ROLES,
+    roles: SCORING_LEADER_ROLES,
   },
   {
     title: "Participant Marks",
     url: "/portal/participant-marks",
     icon: IconChartBar,
     section: "participant-marks",
-    roles: JUDGE_LEADER_ROLES,
+    roles: SCORING_LEADER_ROLES,
   },
   {
     title: "Judge Distribution",
     url: "/portal/judge-distribution",
     icon: IconUsersGroup,
     section: "judge-distribution",
-    roles: JUDGE_LEADER_ROLES,
+    roles: SCORING_LEADER_ROLES,
   },
   {
     title: "Users",
@@ -105,6 +105,12 @@ export const portalNavMain: PortalNavItem[] = [
   },
 ];
 
+const reviewerLeaderTitles: Partial<Record<PortalSection, string>> = {
+  "judging-criteria": "Review Criteria",
+  "judge-assignments": "Reviewer Assignments",
+  "judge-distribution": "Reviewer Distribution",
+};
+
 const titleBySection: Record<PortalSection, string> = {
   dashboard: "Dashboard",
   "competitions-categories": "Competitions & Categories",
@@ -119,7 +125,13 @@ const titleBySection: Record<PortalSection, string> = {
 };
 
 export function getNavForRole(role: UserRole): PortalNavItem[] {
-  return portalNavMain.filter((item) => item.roles.includes(role));
+  return portalNavMain
+    .filter((item) => item.roles.includes(role))
+    .map((item) => {
+      const title =
+        role === "REVIEWER_LEADER" ? reviewerLeaderTitles[item.section] : undefined;
+      return title ? { ...item, title } : item;
+    });
 }
 
 export function getPortalSection(pathname: string): PortalSection {
@@ -153,8 +165,12 @@ export function getPortalSection(pathname: string): PortalSection {
   return "dashboard";
 }
 
-export function getPortalPageTitle(pathname: string): string {
-  return titleBySection[getPortalSection(pathname)];
+export function getPortalPageTitle(pathname: string, role?: UserRole): string {
+  const section = getPortalSection(pathname);
+  if (role === "REVIEWER_LEADER" && reviewerLeaderTitles[section]) {
+    return reviewerLeaderTitles[section];
+  }
+  return titleBySection[section];
 }
 
 export function canAccessSection(

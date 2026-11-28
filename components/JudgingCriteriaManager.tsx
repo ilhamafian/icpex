@@ -105,15 +105,19 @@ function compareRubrics(a: SerializedJudgeRubric, b: SerializedJudgeRubric) {
 export function JudgingCriteriaManager({
   initialRubrics,
   lockedTrack,
+  audiences,
 }: {
   initialRubrics: SerializedJudgeRubric[];
   lockedTrack: EducationLevel | null;
+  audiences: ScoringAudience[];
 }) {
   const [rubrics, setRubrics] = useState(initialRubrics);
   const [track, setTrack] = useState<EducationLevel>(
     lockedTrack ?? "UNDERGRADUATE"
   );
-  const [audience, setAudience] = useState<ScoringAudience>("JUDGE");
+  const [audience, setAudience] = useState<ScoringAudience>(
+    audiences[0] ?? "JUDGE"
+  );
   const [saving, setSaving] = useState(false);
   const [rubricSheet, setRubricSheet] = useState<{
     id: string | null;
@@ -322,7 +326,9 @@ export function JudgingCriteriaManager({
     <div className="flex flex-col gap-4 px-4 lg:px-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">Judging Criteria</h2>
+          <h2 className="text-lg font-semibold">
+            {audience === "PAPER_REVIEWER" ? "Review Criteria" : "Judging Criteria"}
+          </h2>
           <p className="text-sm text-muted-foreground">
             {audience === "PAPER_REVIEWER"
               ? "Define the paper-reviewer rubrics for this education track. Component weights inside a rubric add up to 100%. Paper reviewers score every rubric in this set, and the total is the average of those rubric scores."
@@ -338,7 +344,9 @@ export function JudgingCriteriaManager({
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <ScoringAudienceSwitch value={audience} onValueChange={setAudience} />
+        {audiences.length > 1 ? (
+          <ScoringAudienceSwitch value={audience} onValueChange={setAudience} />
+        ) : null}
         {lockedTrack ? null : (
           <Tabs
             value={track}

@@ -20,6 +20,7 @@ const CEREMONY_JUDGE_ROLES: UserRole[] = [
   "UNDERGRAD_PAPER_REVIEWER",
   "POSTGRAD_JUDGE_LEADER",
   "UNDERGRAD_JUDGE_LEADER",
+  "REVIEWER_LEADER",
 ];
 
 function idMatchValues(id: string) {

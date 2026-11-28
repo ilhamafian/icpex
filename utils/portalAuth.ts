@@ -3,6 +3,7 @@ import {
   ADMIN_ROLES,
   JUDGE_LEADER_ROLES,
   SCORING_JUDGE_ROLES,
+  SCORING_LEADER_ROLES,
   SCORING_ROLES,
   SECRETARIAT_ROLES,
   type UserRole,
@@ -37,9 +38,14 @@ export async function requireJudgeSession(): Promise<SessionPayload | null> {
   return requireSession(SCORING_ROLES);
 }
 
-/** Judge leader or super admin — criteria and assignments. */
+/** Judge leader or super admin — live presentation. */
 export async function requireJudgeLeaderSession(): Promise<SessionPayload | null> {
   return requireSession(JUDGE_LEADER_ROLES);
+}
+
+/** Judge leader, reviewer leader, or super admin — criteria and assignments. */
+export async function requireScoringLeaderSession(): Promise<SessionPayload | null> {
+  return requireSession(SCORING_LEADER_ROLES);
 }
 
 /** Secretariat or super admin — payment and registration review. */

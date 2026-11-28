@@ -10,8 +10,9 @@ import {
 import { toIdString } from "@/schemas/objectId";
 import { createResponse, handleError } from "@/utils/apiHelper";
 import { buildRubricComponents } from "@/utils/buildRubricComponents";
-import { educationLevelForRole } from "@/schemas/userRole";
-import { requireJudgeLeaderSession } from "@/utils/portalAuth";
+import { scoringAudienceOf } from "@/schemas/scoringAudience";
+import { educationLevelForRole, leaderAudiences } from "@/schemas/userRole";
+import { requireScoringLeaderSession } from "@/utils/portalAuth";
 import { serializeJudgeRubric } from "@/utils/serializeJudgeRubric";
 
 async function loadOwnedRubric(
@@ -31,6 +32,9 @@ async function loadOwnedRubric(
   if (track && existing.education_level !== track) {
     return { error: "Forbidden", status: 403 as const };
   }
+  if (!leaderAudiences(role).includes(scoringAudienceOf(existing.audience))) {
+    return { error: "Forbidden", status: 403 as const };
+  }
   return { model, existing };
 }
 
@@ -39,7 +43,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await requireJudgeLeaderSession();
+    const session = await requireScoringLeaderSession();
     if (!session) {
       return createResponse({ error: "Unauthorized" }, 401);
     }
@@ -110,7 +114,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await requireJudgeLeaderSession();
+    const session = await requireScoringLeaderSession();
     if (!session) {
       return createResponse({ error: "Unauthorized" }, 401);
     }
